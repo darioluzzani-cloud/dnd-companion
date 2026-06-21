@@ -19,6 +19,33 @@ const LORE_CATS = ['oggetti','luoghi','culti','tutti'] as const;
 const ITEM_TYPES = ['equipaggiamento','arma','armatura','magico','consumabile','tesoro','quest','altro'];
 const REL_NEXT: Record<string,string> = {ally:'enemy',enemy:'neutral',neutral:'ally'};
 
+// Helper: sposta un elemento su/giù in un array
+function moveInArray<T>(arr: T[], idx: number, dir: -1|1): T[] {
+  const next = idx + dir;
+  if (next < 0 || next >= arr.length) return arr;
+  const copy = [...arr];
+  [copy[idx], copy[next]] = [copy[next], copy[idx]];
+  return copy;
+}
+
+// Pulsanti riordino
+function ReorderBtns({ onUp, onDown }: { onUp:()=>void; onDown:()=>void }) {
+  return (
+    <div style={{display:'flex',flexDirection:'column',gap:1,flexShrink:0,marginLeft:4}}>
+      <button className="btn btn-ghost" style={{padding:'1px 5px',fontSize:10,lineHeight:1}} onClick={e=>{e.stopPropagation();onUp();}}>▲</button>
+      <button className="btn btn-ghost" style={{padding:'1px 5px',fontSize:10,lineHeight:1}} onClick={e=>{e.stopPropagation();onDown();}}>▼</button>
+    </div>
+  );
+}
+
+// Sottoclassi note che cambiano il caster type
+const SUBCLASS_CASTER: Record<string, Record<string, CasterType>> = {
+  'Ladro':     { 'Mistificatore Arcano': 'third' },
+  'Guerriero': { 'Cavaliere Mistico': 'third' },
+  'Rogue':     { 'Arcane Trickster': 'third' },
+  'Fighter':   { 'Eldritch Knight': 'third' },
+};
+
 export function CampaignApp({ slug }: { slug: string }) {
   const { state: s, update, loading, error, campaignId } = useCampaignState(slug);
 
@@ -158,13 +185,22 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
                     <option value="full">Full</option><option value="half">Half</option><option value="third">Third</option><option value="none">None</option>
                   </select>
                 </div>
+                <input value={(p as any).subclass||''} placeholder="Sottoclasse (es. Mistificatore Arcano)"
+                  onChange={e=>{
+                    const sub=e.target.value;
+                    setP('subclass' as any, sub);
+                    // Auto-detect caster type from subclass
+                    const lookup = SUBCLASS_CASTER[p.cls];
+                    if(lookup && lookup[sub]) setP('caster', lookup[sub]);
+                  }}
+                  style={{fontSize:13,padding:'3px 8px',marginBottom:4}} />
                 <div className="row" style={{gap:4}}>
                   <input value={p.species||''} placeholder="Specie" onChange={e=>setP('species',e.target.value)} style={{fontSize:13,padding:'3px 8px',flex:1}} />
                   <input type="color" value={p.color||'#a489dd'} onChange={e=>setP('color',e.target.value)} style={{width:28,height:28,padding:0,border:'none',cursor:'pointer'}} />
                 </div>
               </div>
             ) : (
-              <div className="small muted">{p.cls}</div>
+              <div className="small muted">{p.cls}{(p as any).subclass ? ' — '+(p as any).subclass : ''}</div>
             )}
             {/* HP — editabile da chiunque */}
             <div className="row" style={{gap:8,marginTop:6}}>
@@ -259,13 +295,17 @@ function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updS
                   onChange={e=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,desc:e.target.value}:qq)}))} />}
               </div>
               {s.dmMode && (
-                <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'center'}}>
                   <button className="btn btn-ghost" style={{padding:'3px 7px',fontSize:9}}
                     onClick={()=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,revealed:!qq.revealed}:qq)}))}>{q.revealed?'◉':'◯'}</button>
                   <button className="btn btn-danger btn-ghost" style={{padding:'3px 7px',fontSize:9}}
                     onClick={()=>updScen(x=>({...x,quests:x.quests.filter((qq:any)=>qq.id!==q.id)}))}>&times;</button>
                 </div>
               )}
+              <ReorderBtns
+                onUp={()=>{const idx=(sc?.quests||[]).findIndex((qq:any)=>qq.id===q.id);updScen(x=>({...x,quests:moveInArray(x.quests,idx,-1)}));}}
+                onDown={()=>{const idx=(sc?.quests||[]).findIndex((qq:any)=>qq.id===q.id);updScen(x=>({...x,quests:moveInArray(x.quests,idx,1)}));}}
+              />
             </div>
           </div>
         ))}
@@ -318,6 +358,10 @@ function CharactersTab({ s, update, campaignId }: { s:CampaignState; update:U; c
               <button className={'pill relation-'+c.relation} style={{cursor:'pointer'}}
                 onClick={e=>{e.stopPropagation();update(prev=>({characters:prev.characters.map(cc=>cc.id===c.id?{...cc,relation:(REL_NEXT[cc.relation]||'neutral') as any}:cc)}));}}>{c.relation==='ally'?'Alleato':c.relation==='enemy'?'Nemico':'Neutrale'}</button>
               <span className="small muted" style={{marginLeft:4,fontSize:16}}>{isExp ? '▾' : '▸'}</span>
+              <ReorderBtns
+                onUp={()=>{const idx=s.characters.findIndex(cc=>cc.id===c.id);update(prev=>({characters:moveInArray(prev.characters,idx,-1)}));}}
+                onDown={()=>{const idx=s.characters.findIndex(cc=>cc.id===c.id);update(prev=>({characters:moveInArray(prev.characters,idx,1)}));}}
+              />
             </div>
 
             {/* Corpo espanso */}
@@ -401,23 +445,44 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
         }
       </div>
       <div className="frame">
-        <div className="label" style={{marginBottom:8}}>Incantesimi</div>
+        <div className="label" style={{marginBottom:8}}>Repertorio · tocca per i dettagli</div>
         {Object.keys(byLevel).map(n=>parseInt(n)).sort((a,b)=>a-b).map(lv => (
           <div key={lv} style={{marginBottom:10}}>
             <div className="h3" style={{margin:'4px 0 6px'}}>{lv===0?'Trucchi':'Livello '+lv}</div>
-            {byLevel[lv].map((sp:any) => (
-              <div key={sp.id} className="card">
+            {byLevel[lv].map((sp:any,spIdx:number) => {
+              const allSpells = p.spells||[];
+              const globalIdx = allSpells.findIndex((x:any)=>x.id===sp.id);
+              return (
+              <div key={sp.id} className="card" style={{borderLeft:sp.prepared?`3px solid ${p.color||'var(--gold)'}`:'3px solid transparent'}}>
                 <div className="row">
-                  <button onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,prepared:!ss.prepared}:ss)}))}
-                    style={{width:18,height:18,borderRadius:'50%',border:'1px solid '+(sp.prepared?'var(--gold)':'var(--border)'),background:sp.prepared?'var(--gold)':'transparent',flexShrink:0}} />
+                  <button onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,expanded:!ss.expanded}:ss)}))}
+                    style={{width:28,height:28,borderRadius:'50%',border:'1px solid var(--border)',background:'var(--bg-deep)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:14,color:'var(--gray-purple)',cursor:'pointer'}}>
+                    {sp.expanded ? '−' : '+'}
+                  </button>
                   <div className="grow" style={{marginLeft:8,cursor:'pointer'}} onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,expanded:!ss.expanded}:ss)}))}>
-                    <div style={{fontWeight:500}}>{sp.name}</div>
-                    {sp.school && <div className="small muted">{sp.school}</div>}
+                    <div style={{fontWeight:600,fontFamily:'var(--font-display)',fontSize:14,letterSpacing:'.3px'}}>{sp.name}</div>
+                    {sp.school && <div className="small muted" style={{fontSize:12}}>{sp.school}</div>}
                   </div>
-                  {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9}} onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.filter((ss:any)=>ss.id!==sp.id)}))}>&times;</button>}
+                  <div className="pill" style={{padding:'3px 8px',fontSize:9,color:lv===0?'var(--purple)':'var(--gold)',borderColor:lv===0?'var(--purple)':'var(--gold)'}}>
+                    {lv===0 ? 'Trucco' : 'Liv '+lv}
+                  </div>
+                  <ReorderBtns
+                    onUp={()=>updPlayer((pl:any)=>({...pl,spells:moveInArray(pl.spells,globalIdx,-1)}))}
+                    onDown={()=>updPlayer((pl:any)=>({...pl,spells:moveInArray(pl.spells,globalIdx,1)}))}
+                  />
                 </div>
                 {sp.expanded && (
-                  <div style={{marginTop:6,paddingTop:6,borderTop:'1px solid var(--border)'}}>
+                  <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+                    <div className="row" style={{gap:6,marginBottom:6}}>
+                      <button className={'pill'} style={{cursor:'pointer',padding:'4px 10px',
+                        background:sp.prepared?(p.color||'var(--gold)'):'transparent',
+                        color:sp.prepared?'var(--bg-deep)':'var(--gray-purple)',
+                        borderColor:p.color||'var(--gold)'}}
+                        onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,prepared:!ss.prepared}:ss)}))}>
+                        {sp.prepared ? '✓ Preparato' : 'Preparare'}
+                      </button>
+                      {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'2px 8px',fontSize:9,marginLeft:'auto'}} onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.filter((ss:any)=>ss.id!==sp.id)}))}>&times; Rimuovi</button>}
+                    </div>
                     {s.dmMode ? (
                       <>
                         <input value={sp.school||''} placeholder="Scuola" onChange={e=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,school:e.target.value}:ss)}))} style={{marginBottom:4,fontSize:13,padding:'4px 8px'}} />
@@ -429,7 +494,8 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         ))}
         {s.dmMode && (
@@ -485,6 +551,10 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                 <button className="btn" style={{padding:'2px 8px'}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:(i.qty||0)+1}:i)}))}>+</button>
               </div>
               {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.filter((i:any)=>i.id!==it.id)}))}>&times;</button>}
+              <ReorderBtns
+                onUp={()=>{const idx=(p.inventory||[]).findIndex((i:any)=>i.id===it.id);updPlayer((pl:any)=>({...pl,inventory:moveInArray(pl.inventory,idx,-1)}));}}
+                onDown={()=>{const idx=(p.inventory||[]).findIndex((i:any)=>i.id===it.id);updPlayer((pl:any)=>({...pl,inventory:moveInArray(pl.inventory,idx,1)}));}}
+              />
             </div>
           </div>
         ))}
@@ -698,6 +768,10 @@ function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
                   <button className="btn btn-danger btn-ghost" style={{padding:'3px 7px',fontSize:9}} onClick={()=>{if(confirm('Eliminare?'))update(prev=>({lore:prev.lore.filter(ll=>ll.id!==l.id)}));}}>&times;</button>
                 </div>
               )}
+              <ReorderBtns
+                onUp={()=>{const idx=s.lore.findIndex(ll=>ll.id===l.id);update(prev=>({lore:moveInArray(prev.lore,idx,-1)}));}}
+                onDown={()=>{const idx=s.lore.findIndex(ll=>ll.id===l.id);update(prev=>({lore:moveInArray(prev.lore,idx,1)}));}}
+              />
             </div>
             {l.expanded && (
               <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
