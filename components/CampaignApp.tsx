@@ -5,11 +5,15 @@ import { getLevelInfo } from '@/lib/dnd/xp-table';
 import { getSlotTotals, CasterType } from '@/lib/dnd/spell-slots';
 import { CONDITIONS } from '@/lib/dnd/conditions';
 import { CampaignState, uid } from '@/lib/types';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, ReactNode } from 'react';
 
 const TABS = [
-  {id:'quests',label:'Quest'},{id:'characters',label:'PNG'},{id:'spells',label:'Magie'},
-  {id:'inventory',label:'Inv.'},{id:'combat',label:'Lotta'},{id:'lore',label:'Lore'},
+  {id:'quests',label:'Quest',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>},
+  {id:'characters',label:'NPC',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>},
+  {id:'lore',label:'Lore',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>},
+  {id:'spells',label:'Magie',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>},
+  {id:'inventory',label:'Bottino',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>},
+  {id:'combat',label:'Battaglia',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 18L18 6M6 6l12 12"/></svg>},
 ];
 const LORE_CATS = ['oggetti','luoghi','culti','tutti'] as const;
 const ITEM_TYPES = ['equipaggiamento','arma','armatura','magico','consumabile','tesoro','quest','altro'];
@@ -62,7 +66,10 @@ export function CampaignApp({ slug }: { slug: string }) {
       {/* === TAB BAR === */}
       <div className="tab-bar">
         {TABS.map(t => (
-          <div key={t.id} className={'tab'+(s.tab===t.id?' active':'')} onClick={()=>update({tab:t.id})}>{t.label}</div>
+          <div key={t.id} className={'tab'+(s.tab===t.id?' active':'')} onClick={()=>update({tab:t.id})}>
+            {t.icon}
+            {t.label}
+          </div>
         ))}
       </div>
 
@@ -171,11 +178,16 @@ function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updS
                 {q.done?'✓':''}
               </button>
               <div className="grow" style={{marginLeft:8}}>
-                <div style={{fontWeight:500,textDecoration:q.done?'line-through':'none'}}>
-                  {q.title}
+                {s.dmMode ? (
+                  <input value={q.title} onChange={e=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,title:e.target.value}:qq)}))}
+                    style={{fontWeight:500,textDecoration:q.done?'line-through':'none',background:'transparent',border:'1px solid var(--border)',padding:'4px 8px',fontSize:14}} />
+                ) : (
+                  <div style={{fontWeight:500,textDecoration:q.done?'line-through':'none'}}>{q.title}</div>
+                )}
                   {s.dmMode&&!q.revealed && <span className="dm-badge">SEGRETA</span>}
-                </div>
-                {q.desc && <div className="small muted" style={{marginTop:3}}>{q.desc}</div>}
+                {q.desc && !s.dmMode && <div className="small muted" style={{marginTop:3}}>{q.desc}</div>}
+                {s.dmMode && <textarea value={q.desc||''} placeholder="Descrizione…" style={{marginTop:4,fontSize:13,padding:'6px 8px',minHeight:36}}
+                  onChange={e=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,desc:e.target.value}:qq)}))} />}
               </div>
               {s.dmMode && (
                 <div style={{display:'flex',flexDirection:'column',gap:4}}>
@@ -203,26 +215,49 @@ function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updS
 // ─── TAB: PNG ────────────────────────────────────────────────
 function CharactersTab({ s, update, campaignId }: { s:CampaignState; update:U; campaignId:string|null }) {
   const [draft, setDraft] = useState('');
+  const [filter, setFilter] = useState('tutti');
+  const setField = (id:string,f:string,v:string) => update(prev=>({characters:prev.characters.map(c=>c.id===id?{...c,[f]:v}:c)}));
+  const filtered = filter==='tutti' ? s.characters : s.characters.filter(c=>c.relation===filter);
+
   return (
     <div>
       <div className="frame">
         <div className="label" style={{marginBottom:10}}>Personaggi Non Giocanti</div>
-        {s.characters.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun PNG.</div>}
-        {s.characters.map(c => (
+        <div className="row" style={{gap:6,flexWrap:'wrap',marginBottom:12}}>
+          {[{k:'tutti',l:'Tutti',c:'var(--purple)'},{k:'ally',l:'Alleati',c:'var(--green)'},{k:'enemy',l:'Nemici',c:'var(--red)'},{k:'neutral',l:'Neutrali',c:'var(--gold)'}].map(f=>(
+            <button key={f.k} className="pill" style={{cursor:'pointer',background:filter===f.k?'var(--bg-active)':'transparent',borderColor:filter===f.k?f.c:'var(--border)',color:f.c}} onClick={()=>setFilter(f.k)}>
+              <span style={{width:6,height:6,borderRadius:'50%',background:f.c,display:'inline-block'}} />
+              {f.l}
+            </button>
+          ))}
+        </div>
+        {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun PNG.</div>}
+        {filtered.map(c => (
           <div key={c.id} className="card">
             <div className="row" style={{alignItems:'flex-start'}}>
-              <div style={{width:54,height:54,flexShrink:0}}>
+              <div style={{width:60,height:60,flexShrink:0}}>
                 <ImageSlot slotId={'png-'+c.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={c.name.slice(0,2).toUpperCase()} alt={c.name} />
               </div>
-              <div className="grow" style={{marginLeft:10}}>
-                <div className="h2">{c.name}</div>
-                {c.role && <div className="small muted">{c.role}</div>}
-                {c.location && <div className="small muted">{c.location}</div>}
-                {c.note && <div style={{fontSize:13,marginTop:4}}>{c.note}</div>}
-                <div className="row" style={{marginTop:6,gap:6}}>
+              <div className="grow" style={{marginLeft:12}}>
+                {s.dmMode ? (
+                  <>
+                    <input value={c.name} onChange={e=>setField(c.id,'name',e.target.value)} style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15,color:'var(--gold)',marginBottom:4,background:'transparent',border:'1px solid var(--border)',padding:'4px 8px'}} />
+                    <input value={c.role||''} placeholder="Ruolo" onChange={e=>setField(c.id,'role',e.target.value)} style={{marginBottom:3,fontSize:13,padding:'4px 8px'}} />
+                    <input value={c.location||''} placeholder="Luogo" onChange={e=>setField(c.id,'location',e.target.value)} style={{marginBottom:3,fontSize:13,padding:'4px 8px'}} />
+                    <textarea value={c.note||''} placeholder="Note…" onChange={e=>setField(c.id,'note',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:40}} />
+                  </>
+                ) : (
+                  <>
+                    <div className="h2">{c.name}</div>
+                    {c.role && <div className="small" style={{color:'var(--gold-dim)'}}>{c.role}</div>}
+                    {c.location && <div className="small muted">{c.location}</div>}
+                    {c.note && <div style={{fontSize:14,marginTop:6,lineHeight:1.5}}>{c.note}</div>}
+                  </>
+                )}
+                <div className="row" style={{marginTop:8,gap:6}}>
                   <button className={'pill relation-'+c.relation} style={{cursor:'pointer'}}
                     onClick={()=>update(prev=>({characters:prev.characters.map(cc=>cc.id===c.id?{...cc,relation:(REL_NEXT[cc.relation]||'neutral') as any}:cc)}))}>{c.relation==='ally'?'Alleato':c.relation==='enemy'?'Nemico':'Neutrale'}</button>
-                  {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'3px 8px',fontSize:9,marginLeft:'auto'}}
+                  {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'4px 10px',fontSize:10,marginLeft:'auto'}}
                     onClick={()=>{if(confirm('Eliminare?'))update(prev=>({characters:prev.characters.filter(cc=>cc.id!==c.id)}));}}>Elimina</button>}
                 </div>
               </div>
@@ -230,10 +265,10 @@ function CharactersTab({ s, update, campaignId }: { s:CampaignState; update:U; c
           </div>
         ))}
         {s.dmMode && (
-          <div className="row" style={{gap:6,marginTop:10}}>
-            <input className="grow" placeholder="Nuovo PNG…" value={draft} onChange={e=>setDraft(e.target.value)}
+          <div className="row" style={{gap:6,marginTop:12}}>
+            <input className="grow" placeholder="Nuovo personaggio…" value={draft} onChange={e=>setDraft(e.target.value)}
               onKeyDown={e=>{if(e.key==='Enter'&&draft.trim()){update(prev=>({characters:[...prev.characters,{id:uid('c'),name:draft.trim(),role:'',location:'',relation:'neutral',note:''}]}));setDraft('');}}} />
-            <button className="btn btn-primary" onClick={()=>{if(draft.trim()){update(prev=>({characters:[...prev.characters,{id:uid('c'),name:draft.trim(),role:'',location:'',relation:'neutral',note:''}]}));setDraft('');}}}>+</button>
+            <button className="btn btn-gold" onClick={()=>{if(draft.trim()){update(prev=>({characters:[...prev.characters,{id:uid('c'),name:draft.trim(),role:'',location:'',relation:'neutral',note:''}]}));setDraft('');}}}>+</button>
           </div>
         )}
       </div>
@@ -291,7 +326,18 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
                   </div>
                   {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9}} onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.filter((ss:any)=>ss.id!==sp.id)}))}>&times;</button>}
                 </div>
-                {sp.expanded && <div style={{marginTop:6,paddingTop:6,borderTop:'1px solid var(--border)'}}><div style={{fontSize:13}}>{sp.desc||<span className="muted small">(nessuna descrizione)</span>}</div></div>}
+                {sp.expanded && (
+                  <div style={{marginTop:6,paddingTop:6,borderTop:'1px solid var(--border)'}}>
+                    {s.dmMode ? (
+                      <>
+                        <input value={sp.school||''} placeholder="Scuola" onChange={e=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,school:e.target.value}:ss)}))} style={{marginBottom:4,fontSize:13,padding:'4px 8px'}} />
+                        <textarea value={sp.desc||''} placeholder="Descrizione…" onChange={e=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,desc:e.target.value}:ss)}))} style={{fontSize:13,padding:'6px 8px',minHeight:40}} />
+                      </>
+                    ) : (
+                      <div style={{fontSize:14,lineHeight:1.5}}>{sp.desc||<span className="muted small">(nessuna descrizione)</span>}</div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -398,12 +444,16 @@ function CombatTab({ s, update }: { s:CampaignState; update:U }) {
               <div className="row">
                 <div style={{width:32,height:32,borderRadius:'50%',background:'var(--bg-deep)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-display)',color:'var(--gold)',flexShrink:0}}>{k.init||0}</div>
                 <div className="grow" style={{marginLeft:8}}>
-                  <div style={{fontWeight:500}}>{k.name}</div>
-                  <div className="row" style={{gap:6,alignItems:'center'}}>
-                    <button className="btn" style={{padding:'2px 8px',color:'var(--pink)'}} onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.max(0,c.hp-1)}:c)}))}>−</button>
-                    <div style={{minWidth:60,textAlign:'center',fontFamily:'var(--font-display)'}}>{k.hp}/{k.maxHp}</div>
-                    <button className="btn" style={{padding:'2px 8px',color:'var(--green-light)'}} onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.min(c.maxHp,c.hp+1)}:c)}))}>+</button>
-                    <div className="grow hp-bar"><div className="hp-fill" style={{width:pct+'%'}} /></div>
+                  <div className="row" style={{justifyContent:'space-between'}}>
+                    <div style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15}}>{k.name}</div>
+                    <div style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/{k.maxHp}</div>
+                  </div>
+                  <div className="hp-bar" style={{margin:'6px 0'}}><div className="hp-fill" style={{width:pct+'%'}} /></div>
+                  <div className="row" style={{gap:4}}>
+                    <button className="hp-btn hp-btn-neg" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.max(0,c.hp-5)}:c)}))}>-5</button>
+                    <button className="hp-btn hp-btn-neg" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.max(0,c.hp-1)}:c)}))}>-1</button>
+                    <button className="hp-btn hp-btn-pos" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.min(c.maxHp,c.hp+1)}:c)}))}>+1</button>
+                    <button className="hp-btn hp-btn-pos" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.min(c.maxHp,c.hp+5)}:c)}))}>+5</button>
                   </div>
                   {/* Condizioni */}
                   {(k.conditions||[]).length>0 && (
@@ -502,7 +552,11 @@ function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
             </div>
             {l.expanded && (
               <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
-                <div style={{fontSize:13,whiteSpace:'pre-wrap'}}>{l.text||<span className="muted small">(testo non ancora redatto)</span>}</div>
+                {s.dmMode ? (
+                  <textarea value={l.text||''} placeholder="Testo della voce…" onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,text:e.target.value}:ll)}))} style={{fontSize:14,padding:'8px',minHeight:80}} />
+                ) : (
+                  <div style={{fontSize:14,whiteSpace:'pre-wrap',lineHeight:1.6}}>{l.text||<span className="muted small">(testo non ancora redatto)</span>}</div>
+                )}
               </div>
             )}
           </div>
