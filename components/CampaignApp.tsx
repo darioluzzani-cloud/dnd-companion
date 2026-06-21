@@ -50,8 +50,13 @@ export function CampaignApp({ slug }: { slug: string }) {
     <div className="app-wrap">
       {/* === HEADER === */}
       <div className="topbar">
-        <div>
-          <div className="campaign-title">{s.campaign}</div>
+        <div className="grow">
+          {s.dmMode ? (
+            <input value={s.campaign} onChange={e=>update({campaign:e.target.value})}
+              style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:20,color:'var(--gold)',background:'transparent',border:'1px solid var(--border)',padding:'4px 10px',width:'100%',letterSpacing:'1px'}} />
+          ) : (
+            <div className="campaign-title">{s.campaign}</div>
+          )}
           <div className="campaign-sub">Compagno di Sessione</div>
         </div>
         <div className="row">
@@ -112,23 +117,56 @@ type U = (p: Partial<CampaignState> | ((s:CampaignState)=>Partial<CampaignState>
 
 function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:U; p: CampaignState['players'][0]; campaignId:string|null }) {
   const info = getLevelInfo(p.xp||0);
+  const setP = (f:string,v:any) => update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,[f]:v}:pl)}));
   return (
     <div className="frame">
-      <div className="row" style={{gap:8,marginBottom:10}}>
-        <div style={{width:56,height:56,flexShrink:0}}>
+      <div className="row" style={{gap:10,marginBottom:10}}>
+        <div style={{width:64,height:64,flexShrink:0}}>
           <ImageSlot slotId={'portrait-'+p.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={p.short.slice(0,2).toUpperCase()} alt={p.name} />
         </div>
         <div className="grow">
-          <div className="h2" style={{color:p.color}}>{p.name}</div>
-          <div className="small muted">{p.cls} · Liv. {info.level}</div>
-          <div className="xp-bar" style={{marginTop:4}}><div className="xp-fill" style={{width:info.pct+'%'}} /></div>
-          <div className="small muted" style={{marginTop:2}}>{info.text}</div>
+          {s.dmMode ? (
+            <>
+              <input value={p.name} onChange={e=>{setP('name',e.target.value);setP('short',e.target.value);}}
+                style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15,color:p.color,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:4}} />
+              <div className="row" style={{gap:4,marginBottom:4}}>
+                <input value={p.cls} placeholder="Classe" onChange={e=>setP('cls',e.target.value)} style={{fontSize:13,padding:'3px 8px',flex:1}} />
+                <select value={p.caster||'none'} onChange={e=>setP('caster',e.target.value)} style={{width:80,fontSize:12,padding:'3px 6px'}}>
+                  <option value="full">Full</option><option value="half">Half</option><option value="third">Third</option><option value="none">None</option>
+                </select>
+              </div>
+              <input value={p.species||''} placeholder="Specie" onChange={e=>setP('species',e.target.value)} style={{fontSize:13,padding:'3px 8px',marginBottom:4}} />
+              <div className="row" style={{gap:4}}>
+                <input type="color" value={p.color||'#a489dd'} onChange={e=>setP('color',e.target.value)} style={{width:28,height:28,padding:0,border:'none',cursor:'pointer'}} />
+                <span className="small muted">Colore</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="h2" style={{color:p.color}}>{p.name}</div>
+              <div className="small muted">{p.cls}{p.species ? ' · '+p.species : ''} · Liv. {info.level}</div>
+            </>
+          )}
+          <div className="xp-bar" style={{marginTop:6}}><div className="xp-fill" style={{width:info.pct+'%'}} /></div>
+          <div className="row" style={{marginTop:3,justifyContent:'space-between'}}>
+            <div className="small muted">{info.text}</div>
+            {s.dmMode && (
+              <div className="row" style={{gap:4}}>
+                <button className="btn" style={{padding:'2px 8px',fontSize:10}} onClick={()=>setP('xp',(p.xp||0)+100)}>+100</button>
+                <button className="btn" style={{padding:'2px 8px',fontSize:10}} onClick={()=>setP('xp',(p.xp||0)+500)}>+500</button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-      <div className="row" style={{flexWrap:'wrap',gap:6}}>
+      {/* Player tabs */}
+      <div className="row" style={{gap:6}}>
         {s.players.map(pl => (
-          <button key={pl.id} className={'btn'+(pl.id===s.activePlayer?' btn-primary':'')} onClick={()=>update({activePlayer:pl.id})}
-            style={pl.id===s.activePlayer?{borderColor:pl.color}:undefined}>{pl.short||pl.name}</button>
+          <div key={pl.id} className={'player-tab'+(pl.id===s.activePlayer?' active':'')} onClick={()=>update({activePlayer:pl.id})}
+            style={pl.id===s.activePlayer?{borderColor:pl.color}:undefined}>
+            <div className="dot" style={{background:pl.color}} />
+            <div>{pl.short||pl.name}</div>
+          </div>
         ))}
       </div>
     </div>
@@ -154,7 +192,12 @@ function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updS
       </div>
       <div className="frame">
         <div className="row" style={{marginBottom:8}}>
-          <div className="h2 grow">{sc?.name}</div>
+          {s.dmMode ? (
+            <input value={sc?.name||''} onChange={e=>updScen(x=>({...x,name:e.target.value}))}
+              className="grow" style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15,color:'var(--gold)',background:'transparent',border:'1px solid var(--border)',padding:'4px 10px'}} />
+          ) : (
+            <div className="h2 grow">{sc?.name}</div>
+          )}
           <div className={'pill scen-'+(sc?.status||'futuro')}>{sc?.status}</div>
         </div>
         {s.dmMode && (
@@ -374,8 +417,20 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                 <ImageSlot slotId={'item-'+it.id} campaignId={campaignId} shape="rounded" dmMode={s.dmMode} placeholder=" " alt={it.name} />
               </div>
               <div className="grow" style={{marginLeft:10}}>
-                <div style={{fontWeight:500}}>{it.name}</div>
-                <div className="small muted">{it.type}</div>
+                {s.dmMode ? (
+                  <>
+                    <input value={it.name} onChange={e=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,name:e.target.value}:i)}))}
+                      style={{fontWeight:500,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3,fontSize:14}} />
+                    <select value={it.type||'altro'} onChange={e=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,type:e.target.value}:i)}))} style={{fontSize:12,padding:'3px 6px'}}>
+                      {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <div style={{fontWeight:500}}>{it.name}</div>
+                    <div className="small muted">{it.type}</div>
+                  </>
+                )}
               </div>
               <div className="row" style={{gap:4,flexShrink:0}}>
                 <button className="btn" style={{padding:'2px 8px'}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:Math.max(0,(i.qty||0)-1)}:i)}))}>−</button>
@@ -442,11 +497,29 @@ function CombatTab({ s, update }: { s:CampaignState; update:U }) {
           return (
             <div key={k.id} className={'card'+(isCurrent?' turn-indicator':'')}>
               <div className="row">
-                <div style={{width:32,height:32,borderRadius:'50%',background:'var(--bg-deep)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-display)',color:'var(--gold)',flexShrink:0}}>{k.init||0}</div>
+                <div className="init-circle" title="Iniziativa">
+                  {s.dmMode ? (
+                    <input type="number" value={k.init||0} onChange={e=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,init:parseInt(e.target.value)||0}:c)}))}
+                      style={{width:32,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:16,color:'var(--gold)',padding:0}} />
+                  ) : k.init||0}
+                </div>
                 <div className="grow" style={{marginLeft:8}}>
                   <div className="row" style={{justifyContent:'space-between'}}>
-                    <div style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15}}>{k.name}</div>
-                    <div style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/{k.maxHp}</div>
+                    {s.dmMode ? (
+                      <input value={k.name} onChange={e=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,name:e.target.value}:c)}))}
+                        style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15,background:'transparent',border:'1px solid var(--border)',padding:'2px 8px',flex:1,marginRight:8}} />
+                    ) : (
+                      <div style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15}}>{k.name}</div>
+                    )}
+                    {s.dmMode ? (
+                      <div className="row" style={{gap:2}}>
+                        <span style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/</span>
+                        <input type="number" value={k.maxHp||0} onChange={e=>{const v=parseInt(e.target.value)||1;update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
+                          style={{width:40,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)',padding:'2px 4px'}} />
+                      </div>
+                    ) : (
+                      <div style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/{k.maxHp}</div>
+                    )}
                   </div>
                   <div className="hp-bar" style={{margin:'6px 0'}}><div className="hp-fill" style={{width:pct+'%'}} /></div>
                   <div className="row" style={{gap:4}}>
@@ -536,12 +609,23 @@ function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
                 <ImageSlot slotId={'lore-'+l.id} campaignId={campaignId} shape="rounded" dmMode={s.dmMode} placeholder=" " alt={l.name} />
               </div>
               <div className="grow" style={{marginLeft:10,cursor:'pointer'}} onClick={()=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,expanded:!ll.expanded}:ll)}))}>
-                <div style={{fontWeight:500}}>
-                  {l.name}
-                  {s.dmMode&&!l.revealed && <span className="dm-badge">SEGRETA</span>}
-                </div>
-                {l.subtitle && <div className="small muted">{l.subtitle}</div>}
-                <div className={'pill lore-'+l.category} style={{marginTop:4}}>{l.category}</div>
+                {s.dmMode ? (
+                  <input value={l.name} onClick={e=>e.stopPropagation()} onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,name:e.target.value}:ll)}))}
+                    style={{fontWeight:500,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3,fontSize:14}} />
+                ) : (
+                  <div style={{fontWeight:500}}>
+                    {l.name}
+                    {s.dmMode&&!l.revealed && <span className="dm-badge">SEGRETA</span>}
+                  </div>
+                )}
+                {s.dmMode ? (
+                  <input value={l.subtitle||''} placeholder="Sottotitolo" onClick={e=>e.stopPropagation()} onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,subtitle:e.target.value}:ll)}))}
+                    style={{fontSize:13,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3}} />
+                ) : (
+                  l.subtitle && <div className="small muted">{l.subtitle}</div>
+                )}
+                {!l.revealed && !s.dmMode ? null : <div className={'pill lore-'+l.category} style={{marginTop:4}}>{l.category}</div>}
+                {s.dmMode && !l.revealed && <span className="dm-badge" style={{marginLeft:0,marginTop:4}}>SEGRETA</span>}
               </div>
               {s.dmMode && (
                 <div style={{display:'flex',flexDirection:'column',gap:4}}>
