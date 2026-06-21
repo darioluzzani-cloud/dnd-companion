@@ -117,50 +117,12 @@ type U = (p: Partial<CampaignState> | ((s:CampaignState)=>Partial<CampaignState>
 
 function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:U; p: CampaignState['players'][0]; campaignId:string|null }) {
   const info = getLevelInfo(p.xp||0);
+  const [editing, setEditing] = useState(false);
   const setP = (f:string,v:any) => update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,[f]:v}:pl)}));
   return (
     <div className="frame">
-      <div className="row" style={{gap:10,marginBottom:10}}>
-        <div style={{width:64,height:64,flexShrink:0}}>
-          <ImageSlot slotId={'portrait-'+p.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={p.short.slice(0,2).toUpperCase()} alt={p.name} />
-        </div>
-        <div className="grow">
-          {s.dmMode ? (
-            <>
-              <input value={p.name} onChange={e=>{setP('name',e.target.value);setP('short',e.target.value);}}
-                style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15,color:p.color,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:4}} />
-              <div className="row" style={{gap:4,marginBottom:4}}>
-                <input value={p.cls} placeholder="Classe" onChange={e=>setP('cls',e.target.value)} style={{fontSize:13,padding:'3px 8px',flex:1}} />
-                <select value={p.caster||'none'} onChange={e=>setP('caster',e.target.value)} style={{width:80,fontSize:12,padding:'3px 6px'}}>
-                  <option value="full">Full</option><option value="half">Half</option><option value="third">Third</option><option value="none">None</option>
-                </select>
-              </div>
-              <input value={p.species||''} placeholder="Specie" onChange={e=>setP('species',e.target.value)} style={{fontSize:13,padding:'3px 8px',marginBottom:4}} />
-              <div className="row" style={{gap:4}}>
-                <input type="color" value={p.color||'#a489dd'} onChange={e=>setP('color',e.target.value)} style={{width:28,height:28,padding:0,border:'none',cursor:'pointer'}} />
-                <span className="small muted">Colore</span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="h2" style={{color:p.color}}>{p.name}</div>
-              <div className="small muted">{p.cls}{p.species ? ' · '+p.species : ''} · Liv. {info.level}</div>
-            </>
-          )}
-          <div className="xp-bar" style={{marginTop:6}}><div className="xp-fill" style={{width:info.pct+'%'}} /></div>
-          <div className="row" style={{marginTop:3,justifyContent:'space-between'}}>
-            <div className="small muted">{info.text}</div>
-            {s.dmMode && (
-              <div className="row" style={{gap:4}}>
-                <button className="btn" style={{padding:'2px 8px',fontSize:10}} onClick={()=>setP('xp',(p.xp||0)+100)}>+100</button>
-                <button className="btn" style={{padding:'2px 8px',fontSize:10}} onClick={()=>setP('xp',(p.xp||0)+500)}>+500</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
       {/* Player tabs */}
-      <div className="row" style={{gap:6}}>
+      <div className="row" style={{gap:6,marginBottom:12}}>
         {s.players.map(pl => (
           <div key={pl.id} className={'player-tab'+(pl.id===s.activePlayer?' active':'')} onClick={()=>update({activePlayer:pl.id})}
             style={pl.id===s.activePlayer?{borderColor:pl.color}:undefined}>
@@ -168,6 +130,66 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
             <div>{pl.short||pl.name}</div>
           </div>
         ))}
+      </div>
+      {/* Player card */}
+      <div className="card">
+        <div className="row" style={{gap:10,alignItems:'flex-start'}}>
+          <div style={{width:64,height:64,flexShrink:0}}>
+            <ImageSlot slotId={'portrait-'+p.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={p.short.slice(0,2).toUpperCase()} alt={p.name} />
+          </div>
+          <div className="grow">
+            <div className="row" style={{justifyContent:'space-between',marginBottom:4}}>
+              {editing ? (
+                <input value={p.name} onChange={e=>{setP('name',e.target.value);setP('short',e.target.value);}}
+                  style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:16,color:p.color,background:'transparent',border:'1px solid var(--border)',padding:'2px 8px',flex:1,marginRight:8}} />
+              ) : (
+                <div className="h2" style={{color:p.color,fontSize:16}}>{p.name}</div>
+              )}
+              <div className="row" style={{gap:6}}>
+                <button className="btn btn-ghost" style={{padding:'4px 6px',fontSize:12}} onClick={()=>setEditing(!editing)} title="Modifica">✎</button>
+                <div className="pill" style={{padding:'4px 10px',color:p.color,borderColor:p.color,fontWeight:600}}>Lv {info.level}</div>
+              </div>
+            </div>
+            {editing ? (
+              <div style={{marginBottom:6}}>
+                <div className="row" style={{gap:4,marginBottom:4}}>
+                  <input value={p.cls} placeholder="Classe" onChange={e=>setP('cls',e.target.value)} style={{fontSize:13,padding:'3px 8px',flex:1}} />
+                  <select value={p.caster||'none'} onChange={e=>setP('caster',e.target.value)} style={{width:80,fontSize:12,padding:'3px 6px'}}>
+                    <option value="full">Full</option><option value="half">Half</option><option value="third">Third</option><option value="none">None</option>
+                  </select>
+                </div>
+                <div className="row" style={{gap:4}}>
+                  <input value={p.species||''} placeholder="Specie" onChange={e=>setP('species',e.target.value)} style={{fontSize:13,padding:'3px 8px',flex:1}} />
+                  <input type="color" value={p.color||'#a489dd'} onChange={e=>setP('color',e.target.value)} style={{width:28,height:28,padding:0,border:'none',cursor:'pointer'}} />
+                </div>
+              </div>
+            ) : (
+              <div className="small muted">{p.cls}</div>
+            )}
+            {/* HP — editabile da chiunque */}
+            <div className="row" style={{gap:8,marginTop:6}}>
+              <div className="pill" style={{padding:'4px 10px',gap:4}}>
+                <span style={{color:'var(--red)'}}>♥</span>
+                <input type="number" value={p.hp??p.maxHp??0} onChange={e=>setP('hp',parseInt(e.target.value)||0)}
+                  style={{width:32,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:'var(--text)',padding:0}} />
+                <span className="muted">/</span>
+                <input type="number" value={p.maxHp??0} onChange={e=>{const v=parseInt(e.target.value)||0;setP('maxHp',v);if((p.hp??0)>v)setP('hp',v);}}
+                  style={{width:32,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:'var(--text)',padding:0}} />
+                <span className="small muted">PF</span>
+              </div>
+              {p.species && !editing && <div className="pill" style={{padding:'4px 10px',color:'var(--purple-light)'}}>◆ {p.species}</div>}
+            </div>
+          </div>
+        </div>
+        {/* XP bar — colore del giocatore */}
+        <div className="xp-bar" style={{marginTop:10}}><div style={{height:'100%',borderRadius:'3px',transition:'width .35s',width:info.pct+'%',background:`linear-gradient(90deg, ${p.color}88, ${p.color})`}} /></div>
+        <div className="row" style={{marginTop:4,justifyContent:'space-between'}}>
+          <div className="small muted">{info.text}</div>
+          <div className="row" style={{gap:4}}>
+            <button className="btn" style={{padding:'2px 8px',fontSize:10}} onClick={()=>setP('xp',(p.xp||0)+100)}>+100</button>
+            <button className="btn" style={{padding:'2px 8px',fontSize:10}} onClick={()=>setP('xp',(p.xp||0)+500)}>+500</button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -333,24 +355,31 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
     <div>
       <PlayerSelector s={s} update={update} p={p} campaignId={campaignId} />
       <div className="frame">
-        <div className="label" style={{marginBottom:8}}>Slot Incantesimi</div>
+        <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
+          <div className="label">Slot · {p.short||p.name}</div>
+          <button className="btn" style={{fontSize:10}} onClick={()=>updPlayer((pl:any)=>({...pl,slotsUsed:{}}))}>Riposo lungo</button>
+        </div>
         {Object.keys(slots).length===0
-          ? <div className="small muted">Nessuno slot per questa classe/livello.</div>
-          : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(100px,1fr))',gap:8}}>
-              {Object.entries(slots).map(([lv,max]) => {
-                const u = used[lv]||0;
-                return (
-                  <div key={lv} className="card" style={{margin:0,padding:8}}>
-                    <div className="label" style={{fontSize:9}}>Liv. {lv}</div>
-                    <div style={{fontFamily:'var(--font-display)',fontSize:18,color:'var(--gold)',textAlign:'center'}}>{max-u}/{max}</div>
-                    <div className="row" style={{gap:4,justifyContent:'center',marginTop:4}}>
-                      <button className="btn" style={{padding:'2px 8px',fontSize:11}} onClick={()=>updPlayer((pl:any)=>({...pl,slotsUsed:{...pl.slotsUsed,[lv]:Math.max(0,(pl.slotsUsed?.[lv]||0)-1)}}))}>+</button>
-                      <button className="btn" style={{padding:'2px 8px',fontSize:11}} onClick={()=>updPlayer((pl:any)=>({...pl,slotsUsed:{...pl.slotsUsed,[lv]:Math.min(max,(pl.slotsUsed?.[lv]||0)+1)}}))}>−</button>
-                    </div>
-                  </div>
+          ? <div className="small muted" style={{fontStyle:'italic'}}>Nessuno slot incantesimo.</div>
+          : Object.entries(slots).map(([lv,max]) => {
+              const u = used[lv]||0;
+              const boxes = [];
+              for (let i=0; i<max; i++) {
+                const isUsed = i < u;
+                boxes.push(
+                  <button key={i} onClick={()=>updPlayer((pl:any)=>({...pl,slotsUsed:{...pl.slotsUsed,[lv]: isUsed ? Math.max(0,(pl.slotsUsed?.[lv]||0)-1) : (pl.slotsUsed?.[lv]||0)+1 }}))}
+                    style={{width:24,height:24,borderRadius:4,border:'1px solid '+(isUsed?p.color||'var(--gold)':'var(--border)'),
+                      background:isUsed?(p.color||'var(--gold)'):'transparent',cursor:'pointer',transition:'all .15s'}} />
                 );
-              })}
-            </div>
+              }
+              return (
+                <div key={lv} className="row" style={{gap:8,marginBottom:6}}>
+                  <div className="label" style={{width:40,textAlign:'right',fontSize:10}}>Liv {lv}</div>
+                  <div className="row" style={{gap:4,flexWrap:'wrap'}}>{boxes}</div>
+                  <div className="small muted" style={{marginLeft:'auto',whiteSpace:'nowrap'}}>{max-u} / {max}</div>
+                </div>
+              );
+            })
         }
       </div>
       <div className="frame">
