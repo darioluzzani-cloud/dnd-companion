@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
 
 :root {
   --bg-main: #15101f;
@@ -28,7 +28,7 @@
   --pink-border: #6a2f47;
   --blue: #66c2e3;
   --font-display: 'Cinzel', serif;
-  --font-body: 'Spectral', Georgia, serif;
+  --font-body: 'Inter', system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
