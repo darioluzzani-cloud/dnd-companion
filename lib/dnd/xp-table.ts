@@ -32,6 +32,7 @@ export function getLevelInfo(xp: number): {
   level: number;
   pct: number;
   text: string;
+  next: number;
 } {
   let level = 1;
   for (let i = 0; i < XP_TABLE.length; i++) {
@@ -44,6 +45,7 @@ export function getLevelInfo(xp: number): {
       level: 20,
       pct: 100,
       text: `${xp.toLocaleString("it-IT")} PE · MAX`,
+      next: 355000,
     };
   }
 
@@ -58,6 +60,7 @@ export function getLevelInfo(xp: number): {
     level,
     pct,
     text: `${xp.toLocaleString("it-IT")} / ${next.toLocaleString("it-IT")} PE`,
+    next,
   };
 }
 
