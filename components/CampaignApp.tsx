@@ -5,6 +5,7 @@ import { getLevelInfo } from '@/lib/dnd/xp-table';
 import { getSlotTotals, CasterType } from '@/lib/dnd/spell-slots';
 import { CONDITIONS } from '@/lib/dnd/conditions';
 import { CampaignState, uid } from '@/lib/types';
+import { sfxDice, sfxReveal, sfxComplete } from '@/lib/dnd/sounds';
 import { useState, useMemo, useCallback, ReactNode } from 'react';
 
 const TABS = [
@@ -161,8 +162,8 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
       {/* Player card */}
       <div className="card">
         <div className="row" style={{gap:10,alignItems:'flex-start'}}>
-          <div style={{width:64,height:64,flexShrink:0}}>
-            <ImageSlot slotId={'portrait-'+p.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={p.short.slice(0,2).toUpperCase()} alt={p.name} />
+          <div style={{width:72,height:88,flexShrink:0}}>
+            <ImageSlot slotId={'portrait-'+p.id} campaignId={campaignId} shape="rounded" dmMode={s.dmMode} placeholder={p.short.slice(0,2).toUpperCase()} alt={p.name} />
           </div>
           <div className="grow">
             <div className="row" style={{justifyContent:'space-between',marginBottom:4}}>
@@ -277,7 +278,7 @@ function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updS
         {visible.map((q:any) => (
           <div key={q.id} className="card">
             <div className="row" style={{alignItems:'flex-start'}}>
-              <button onClick={()=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,done:!qq.done}:qq)}))}
+              <button onClick={()=>{const wasDone=(sc?.quests||[]).find((qq:any)=>qq.id===q.id)?.done;if(!wasDone)sfxComplete();updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,done:!qq.done}:qq)}));}}
                 style={{width:20,height:20,borderRadius:4,marginTop:2,border:'1px solid '+(q.done?'var(--green)':'var(--border)'),
                   background:q.done?'var(--green)':'var(--bg-deep)',color:'var(--bg-deep)',fontSize:13,lineHeight:1,flexShrink:0}}>
                 {q.done?'✓':''}
@@ -297,7 +298,7 @@ function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updS
               {s.dmMode && (
                 <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'center'}}>
                   <button className="btn btn-ghost" style={{padding:'3px 7px',fontSize:9}}
-                    onClick={()=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,revealed:!qq.revealed}:qq)}))}>{q.revealed?'◉':'◯'}</button>
+                    onClick={()=>{const wasRevealed=(sc?.quests||[]).find((qq:any)=>qq.id===q.id)?.revealed;if(!wasRevealed)sfxReveal();updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,revealed:!qq.revealed}:qq)}));}}>{q.revealed?'◉':'◯'}</button>
                   <button className="btn btn-danger btn-ghost" style={{padding:'3px 7px',fontSize:9}}
                     onClick={()=>updScen(x=>({...x,quests:x.quests.filter((qq:any)=>qq.id!==q.id)}))}>&times;</button>
                 </div>
@@ -377,7 +378,7 @@ function CharactersTab({ s, update, campaignId }: { s:CampaignState; update:U; c
                 ) : (
                   <>
                     {c.location && <div className="small muted" style={{marginBottom:4}}>📍 {c.location}</div>}
-                    {c.note && <div style={{fontSize:14,lineHeight:1.6}}>{c.note}</div>}
+                    {c.note && <div style={{fontSize:14,lineHeight:1.6,fontStyle:'italic'}}>{c.note}</div>}
                   </>
                 )}
                 {s.dmMode && (
@@ -406,25 +407,39 @@ function CharactersTab({ s, update, campaignId }: { s:CampaignState; update:U; c
 // ─── TAB: MAGIE ──────────────────────────────────────────────
 function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; update:U; updPlayer:any; p:any; campaignId:string|null }) {
   const info = getLevelInfo(p.xp||0);
-  const slots = getSlotTotals((p.caster||'none') as CasterType, info.level);
+  const autoSlots = getSlotTotals((p.caster||'none') as CasterType, info.level);
+  // customSlots sovrascrive i valori auto se presente
+  const customSlots = (p as any).customSlots || {};
+  const mergedSlots: Record<string, number> = {...autoSlots};
+  Object.entries(customSlots).forEach(([lv, v]: [string, any]) => { if (typeof v?.max === 'number') mergedSlots[lv] = v.max; });
+  const slots = mergedSlots;
   const used = p.slotsUsed || {};
   const byLevel: Record<number, any[]> = {};
   (p.spells||[]).forEach((sp:any) => { (byLevel[sp.level]=byLevel[sp.level]||[]).push(sp); });
   const [draftName, setDraftName] = useState('');
   const [draftLv, setDraftLv] = useState('1');
+  const slotLabel = (p as any).slotLabel || 'Slot';
+  const setCustomSlot = (lv:string, max:number) => updPlayer((pl:any)=>({...pl, customSlots:{...(pl.customSlots||{}), [lv]:{...(pl.customSlots?.[lv]||{}), max}}}));
+  const setSlotLevelLabel = (lv:string, label:string) => updPlayer((pl:any)=>({...pl, customSlots:{...(pl.customSlots||{}), [lv]:{...(pl.customSlots?.[lv]||{}), label}}}));
 
   return (
     <div>
       <PlayerSelector s={s} update={update} p={p} campaignId={campaignId} />
       <div className="frame">
         <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
-          <div className="label">Slot · {p.short||p.name}</div>
+          {s.dmMode ? (
+            <input value={slotLabel} onChange={e=>updPlayer((pl:any)=>({...pl,slotLabel:e.target.value}))}
+              style={{fontFamily:'var(--font-display)',fontSize:11,letterSpacing:'2px',textTransform:'uppercase',color:'var(--gray-purple)',background:'transparent',border:'1px solid var(--border)',padding:'2px 8px',width:160}} />
+          ) : (
+            <div className="label">{slotLabel} · {p.short||p.name}</div>
+          )}
           <button className="btn" style={{fontSize:10}} onClick={()=>updPlayer((pl:any)=>({...pl,slotsUsed:{}}))}>Riposo lungo</button>
         </div>
-        {Object.keys(slots).length===0
+        {Object.keys(slots).length===0 && !s.dmMode
           ? <div className="small muted" style={{fontStyle:'italic'}}>Nessuno slot incantesimo.</div>
           : Object.entries(slots).map(([lv,max]) => {
               const u = used[lv]||0;
+              const lvLabel = customSlots[lv]?.label || ('Liv '+lv);
               const boxes = [];
               for (let i=0; i<max; i++) {
                 const isUsed = i < u;
@@ -436,13 +451,30 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
               }
               return (
                 <div key={lv} className="row" style={{gap:8,marginBottom:6}}>
-                  <div className="label" style={{width:40,textAlign:'right',fontSize:10}}>Liv {lv}</div>
+                  {s.dmMode ? (
+                    <input value={lvLabel} onChange={e=>setSlotLevelLabel(lv,e.target.value)}
+                      style={{width:50,fontSize:10,padding:'2px 4px',background:'transparent',border:'1px solid var(--border)',color:'var(--gray-purple)',textAlign:'right'}} />
+                  ) : (
+                    <div className="label" style={{width:40,textAlign:'right',fontSize:10}}>{lvLabel}</div>
+                  )}
                   <div className="row" style={{gap:4,flexWrap:'wrap'}}>{boxes}</div>
                   <div className="small muted" style={{marginLeft:'auto',whiteSpace:'nowrap'}}>{max-u} / {max}</div>
+                  {s.dmMode && (
+                    <div className="row" style={{gap:2}}>
+                      <button className="btn btn-ghost" style={{padding:'1px 5px',fontSize:10}} onClick={()=>setCustomSlot(lv,Math.max(0,(customSlots[lv]?.max??max)-1))}>−</button>
+                      <button className="btn btn-ghost" style={{padding:'1px 5px',fontSize:10}} onClick={()=>setCustomSlot(lv,(customSlots[lv]?.max??max)+1)}>+</button>
+                    </div>
+                  )}
                 </div>
               );
             })
         }
+        {s.dmMode && (
+          <button className="btn" style={{fontSize:10,marginTop:6}} onClick={()=>{
+            const newLv = String(Math.max(...Object.keys(slots).map(Number),0)+1);
+            setCustomSlot(newLv, 1);
+          }}>+ Aggiungi livello slot</button>
+        )}
       </div>
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Repertorio · tocca per i dettagli</div>
@@ -489,7 +521,7 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
                         <textarea value={sp.desc||''} placeholder="Descrizione…" onChange={e=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,desc:e.target.value}:ss)}))} style={{fontSize:13,padding:'6px 8px',minHeight:40}} />
                       </>
                     ) : (
-                      <div style={{fontSize:14,lineHeight:1.5}}>{sp.desc||<span className="muted small">(nessuna descrizione)</span>}</div>
+                      <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{sp.desc||<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
                     )}
                   </div>
                 )}
@@ -626,12 +658,10 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
           return (
             <div key={k.id} className={'card'+(isCurrent?' turn-indicator':'')}>
               <div className="row">
-                {/* Ritratto PG se disponibile */}
-                {k.id.startsWith('pc-') && (
-                  <div style={{width:40,height:40,flexShrink:0,marginRight:4}}>
-                    <ImageSlot slotId={'portrait-'+k.id.replace('pc-','')} campaignId={campaignId} shape="circle" dmMode={false} placeholder={k.name.slice(0,2).toUpperCase()} alt={k.name} />
-                  </div>
-                )}
+                {/* Ritratto — per tutti i combattenti */}
+                <div style={{width:40,height:40,flexShrink:0,marginRight:4}}>
+                  <ImageSlot slotId={k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):'combat-'+k.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={k.name.slice(0,2).toUpperCase()} alt={k.name} />
+                </div>
                 <div className="init-circle" title="Iniziativa">
                   {s.dmMode ? (
                     <input type="number" value={k.init||0} onChange={e=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,init:parseInt(e.target.value)||0}:c)}))}
@@ -646,16 +676,21 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
                     ) : (
                       <div style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15}}>{k.name}</div>
                     )}
-                    {s.dmMode ? (
-                      <div className="row" style={{gap:2}}>
-                        <span style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/</span>
-                        <input type="number" value={k.maxHp||0} onChange={e=>{const v=parseInt(e.target.value)||1;update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
-                          style={{width:40,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)',padding:'2px 4px'}} />
-                      </div>
+                    {(k.side==='ally'||s.dmMode) ? (
+                      s.dmMode ? (
+                        <div className="row" style={{gap:2}}>
+                          <span style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/</span>
+                          <input type="number" value={k.maxHp||0} onChange={e=>{const v=parseInt(e.target.value)||1;update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
+                            style={{width:40,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)',padding:'2px 4px'}} />
+                        </div>
+                      ) : (
+                        <div style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/{k.maxHp}</div>
+                      )
                     ) : (
-                      <div style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/{k.maxHp}</div>
+                      <div className="pill" style={{fontSize:9,padding:'2px 8px',color:'var(--red)',borderColor:'var(--pink-border)'}}>Nemico</div>
                     )}
                   </div>
+                  {(k.side==='ally'||s.dmMode) && <>
                   <div className="hp-bar" style={{margin:'6px 0'}}><div className="hp-fill" style={{width:pct+'%'}} /></div>
                   <div className="row" style={{gap:4}}>
                     <button className="hp-btn hp-btn-neg" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.max(0,c.hp-5)}:c)}))}>-5</button>
@@ -663,6 +698,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
                     <button className="hp-btn hp-btn-pos" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.min(c.maxHp,c.hp+1)}:c)}))}>+1</button>
                     <button className="hp-btn hp-btn-pos" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.min(c.maxHp,c.hp+5)}:c)}))}>+5</button>
                   </div>
+                  </>}
                   {/* Condizioni */}
                   {(k.conditions||[]).length>0 && (
                     <div className="row" style={{gap:4,marginTop:4,flexWrap:'wrap'}}>
@@ -703,7 +739,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
             <button key={n} className={'btn'+(dice===n?' btn-primary':'')} onClick={()=>setDice(n)}>d{n}</button>
           ))}
         </div>
-        <button className="btn btn-primary" style={{width:'100%'}} onClick={()=>{const r=Math.floor(Math.random()*dice)+1;setLastRoll({die:dice,value:r,t:Date.now()});}}>Tira d{dice}</button>
+        <button className="btn btn-primary" style={{width:'100%'}} onClick={()=>{sfxDice();const r=Math.floor(Math.random()*dice)+1;setLastRoll({die:dice,value:r,t:Date.now()});}}>Tira d{dice}</button>
         {lastRoll && (
           <div className="dice-display roll-anim" key={lastRoll.t} style={{marginTop:10}}>
             <div className="small muted" style={{fontFamily:'var(--font-body)',fontSize:10}}>d{lastRoll.die}</div>
@@ -778,7 +814,7 @@ function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
                 {s.dmMode ? (
                   <textarea value={l.text||''} placeholder="Testo della voce…" onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,text:e.target.value}:ll)}))} style={{fontSize:14,padding:'8px',minHeight:80}} />
                 ) : (
-                  <div style={{fontSize:14,whiteSpace:'pre-wrap',lineHeight:1.6}}>{l.text||<span className="muted small">(testo non ancora redatto)</span>}</div>
+                  <div style={{fontSize:14,whiteSpace:'pre-wrap',lineHeight:1.6,fontStyle:'italic'}}>{l.text||<span className="muted small" style={{fontStyle:'normal'}}>(testo non ancora redatto)</span>}</div>
                 )}
               </div>
             )}
