@@ -71,3 +71,4 @@ export function xpForLevel(level: number): number {
   const lv = Math.max(1, Math.min(20, level));
   return XP_TABLE[lv - 1];
 }
+
