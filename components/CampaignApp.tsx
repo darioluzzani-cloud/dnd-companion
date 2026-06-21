@@ -83,7 +83,7 @@ export function CampaignApp({ slug }: { slug: string }) {
       {s.tab === 'characters' && <CharactersTab s={s} update={update} campaignId={campaignId} />}
       {s.tab === 'spells' && <SpellsTab s={s} update={update} updPlayer={updPlayer} p={activePlayer} campaignId={campaignId} />}
       {s.tab === 'inventory' && <InventoryTab s={s} update={update} updPlayer={updPlayer} p={activePlayer} campaignId={campaignId} />}
-      {s.tab === 'combat' && <CombatTab s={s} update={update} />}
+      {s.tab === 'combat' && <CombatTab s={s} update={update} campaignId={campaignId} />}
       {s.tab === 'lore' && <LoreTab s={s} update={update} campaignId={campaignId} />}
 
       {/* === BACKUP (DM only) === */}
@@ -184,7 +184,11 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
         {/* XP bar — colore del giocatore */}
         <div className="xp-bar" style={{marginTop:10}}><div style={{height:'100%',borderRadius:'3px',transition:'width .35s',width:info.pct+'%',background:`linear-gradient(90deg, ${p.color}88, ${p.color})`}} /></div>
         <div className="row" style={{marginTop:4,justifyContent:'space-between'}}>
-          <div className="small muted">{info.text}</div>
+          <div className="row" style={{gap:4}}>
+            <input type="number" value={p.xp||0} onChange={e=>setP('xp',parseInt(e.target.value)||0)}
+              style={{width:60,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:12,color:'var(--text)',padding:'2px 4px',borderRadius:4}} />
+            <span className="small muted">/ {info.next} PE</span>
+          </div>
           <div className="row" style={{gap:4}}>
             <button className="btn" style={{padding:'2px 8px',fontSize:10}} onClick={()=>setP('xp',(p.xp||0)+100)}>+100</button>
             <button className="btn" style={{padding:'2px 8px',fontSize:10}} onClick={()=>setP('xp',(p.xp||0)+500)}>+500</button>
@@ -297,38 +301,52 @@ function CharactersTab({ s, update, campaignId }: { s:CampaignState; update:U; c
           ))}
         </div>
         {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun PNG.</div>}
-        {filtered.map(c => (
-          <div key={c.id} className="card">
-            <div className="row" style={{alignItems:'flex-start'}}>
-              <div style={{width:60,height:60,flexShrink:0}}>
+        {filtered.map(c => {
+          const isExp = (c as any).expanded;
+          const toggleExp = () => update(prev=>({characters:prev.characters.map(cc=>cc.id===c.id?{...cc,expanded:!isExp} as any:cc)}));
+          return (
+          <div key={c.id} className="card" style={{cursor:'pointer'}}>
+            {/* Header compatto — sempre visibile */}
+            <div className="row" onClick={toggleExp}>
+              <div style={{width:48,height:48,flexShrink:0}}>
                 <ImageSlot slotId={'png-'+c.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={c.name.slice(0,2).toUpperCase()} alt={c.name} />
               </div>
-              <div className="grow" style={{marginLeft:12}}>
+              <div className="grow" style={{marginLeft:10}}>
+                <div className="h2">{c.name}</div>
+                {c.role && <div className="small" style={{color:'var(--gold-dim)'}}>{c.role}</div>}
+              </div>
+              <button className={'pill relation-'+c.relation} style={{cursor:'pointer'}}
+                onClick={e=>{e.stopPropagation();update(prev=>({characters:prev.characters.map(cc=>cc.id===c.id?{...cc,relation:(REL_NEXT[cc.relation]||'neutral') as any}:cc)}));}}>{c.relation==='ally'?'Alleato':c.relation==='enemy'?'Nemico':'Neutrale'}</button>
+              <span className="small muted" style={{marginLeft:4,fontSize:16}}>{isExp ? '▾' : '▸'}</span>
+            </div>
+
+            {/* Corpo espanso */}
+            {isExp && (
+              <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}}>
                 {s.dmMode ? (
                   <>
                     <input value={c.name} onChange={e=>setField(c.id,'name',e.target.value)} style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15,color:'var(--gold)',marginBottom:4,background:'transparent',border:'1px solid var(--border)',padding:'4px 8px'}} />
                     <input value={c.role||''} placeholder="Ruolo" onChange={e=>setField(c.id,'role',e.target.value)} style={{marginBottom:3,fontSize:13,padding:'4px 8px'}} />
                     <input value={c.location||''} placeholder="Luogo" onChange={e=>setField(c.id,'location',e.target.value)} style={{marginBottom:3,fontSize:13,padding:'4px 8px'}} />
-                    <textarea value={c.note||''} placeholder="Note…" onChange={e=>setField(c.id,'note',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:40}} />
+                    <textarea value={c.note||''} placeholder="Note…" onChange={e=>setField(c.id,'note',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:50}} />
                   </>
                 ) : (
                   <>
-                    <div className="h2">{c.name}</div>
-                    {c.role && <div className="small" style={{color:'var(--gold-dim)'}}>{c.role}</div>}
-                    {c.location && <div className="small muted">{c.location}</div>}
-                    {c.note && <div style={{fontSize:14,marginTop:6,lineHeight:1.5}}>{c.note}</div>}
+                    {c.location && <div className="small muted" style={{marginBottom:4}}>📍 {c.location}</div>}
+                    {c.note && <div style={{fontSize:14,lineHeight:1.6}}>{c.note}</div>}
                   </>
                 )}
-                <div className="row" style={{marginTop:8,gap:6}}>
-                  <button className={'pill relation-'+c.relation} style={{cursor:'pointer'}}
-                    onClick={()=>update(prev=>({characters:prev.characters.map(cc=>cc.id===c.id?{...cc,relation:(REL_NEXT[cc.relation]||'neutral') as any}:cc)}))}>{c.relation==='ally'?'Alleato':c.relation==='enemy'?'Nemico':'Neutrale'}</button>
-                  {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'4px 10px',fontSize:10,marginLeft:'auto'}}
-                    onClick={()=>{if(confirm('Eliminare?'))update(prev=>({characters:prev.characters.filter(cc=>cc.id!==c.id)}));}}>Elimina</button>}
-                </div>
+                {s.dmMode && (
+                  <div className="row" style={{marginTop:8,justifyContent:'flex-end'}}>
+                    <button className="btn btn-danger btn-ghost" style={{padding:'4px 10px',fontSize:10}}
+                      onClick={()=>{if(confirm('Eliminare?'))update(prev=>({characters:prev.characters.filter(cc=>cc.id!==c.id)}));}}>Elimina</button>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
-        ))}
+          );
+        })}
         {s.dmMode && (
           <div className="row" style={{gap:6,marginTop:12}}>
             <input className="grow" placeholder="Nuovo personaggio…" value={draft} onChange={e=>setDraft(e.target.value)}
@@ -488,7 +506,7 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
 }
 
 // ─── TAB: COMBATTIMENTO ──────────────────────────────────────
-function CombatTab({ s, update }: { s:CampaignState; update:U }) {
+function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campaignId:string|null }) {
   const sorted = [...(s.combatants||[])].sort((a,b)=>(b.init||0)-(a.init||0));
   const idx = s.turnIndex||0;
   const current = sorted[idx % (sorted.length||1)];
@@ -500,6 +518,15 @@ function CombatTab({ s, update }: { s:CampaignState; update:U }) {
 
   const nextTurn=()=>{let n=idx+1,r=s.round;if(n>=sorted.length){n=0;r++;}update({turnIndex:n,round:r});};
   const prevTurn=()=>{let n=idx-1,r=s.round;if(n<0){n=sorted.length-1;r=Math.max(1,r-1);}update({turnIndex:n,round:r});};
+
+  // Importa i PG come combattenti
+  const addPlayers = () => {
+    const existing = new Set((s.combatants||[]).map(c=>c.id));
+    const newCombatants = s.players.filter(p=>!existing.has('pc-'+p.id)).map(p=>({
+      id:'pc-'+p.id, name:p.name, init:p.init||10, hp:p.hp??p.maxHp??30, maxHp:p.maxHp??30, side:'ally' as const, conditions:[]
+    }));
+    if(newCombatants.length) update(prev=>({combatants:[...prev.combatants,...newCombatants]}));
+  };
 
   return (
     <div>
@@ -518,7 +545,10 @@ function CombatTab({ s, update }: { s:CampaignState; update:U }) {
         {current && <div className="small"><span className="muted">Turno:</span> <strong style={{color:'var(--gold)'}}>{current.name}</strong></div>}
       </div>
       <div className="frame">
-        <div className="label" style={{marginBottom:8}}>Iniziativa</div>
+        <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
+          <div className="label">Ordine di Iniziativa</div>
+          {s.dmMode && <button className="btn" style={{fontSize:10}} onClick={addPlayers}>+ PG</button>}
+        </div>
         {sorted.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun combattente.</div>}
         {sorted.map((k,i) => {
           const isCurrent = i===(idx%sorted.length);
@@ -526,6 +556,12 @@ function CombatTab({ s, update }: { s:CampaignState; update:U }) {
           return (
             <div key={k.id} className={'card'+(isCurrent?' turn-indicator':'')}>
               <div className="row">
+                {/* Ritratto PG se disponibile */}
+                {k.id.startsWith('pc-') && (
+                  <div style={{width:40,height:40,flexShrink:0,marginRight:4}}>
+                    <ImageSlot slotId={'portrait-'+k.id.replace('pc-','')} campaignId={campaignId} shape="circle" dmMode={false} placeholder={k.name.slice(0,2).toUpperCase()} alt={k.name} />
+                  </div>
+                )}
                 <div className="init-circle" title="Iniziativa">
                   {s.dmMode ? (
                     <input type="number" value={k.init||0} onChange={e=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,init:parseInt(e.target.value)||0}:c)}))}
