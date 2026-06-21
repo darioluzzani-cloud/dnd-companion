@@ -435,9 +435,9 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
           )}
           <button className="btn" style={{fontSize:10}} onClick={()=>updPlayer((pl:any)=>({...pl,slotsUsed:{}}))}>Riposo lungo</button>
         </div>
-        {Object.keys(slots).length===0 && !s.dmMode
+        {Object.keys(slots).filter(lv=>slots[lv]>0).length===0 && !s.dmMode
           ? <div className="small muted" style={{fontStyle:'italic'}}>Nessuno slot incantesimo.</div>
-          : Object.entries(slots).map(([lv,max]) => {
+          : Object.entries(slots).filter(([,max])=>max>0||s.dmMode).map(([lv,max]) => {
               const u = used[lv]||0;
               const lvLabel = customSlots[lv]?.label || ('Liv '+lv);
               const boxes = [];
@@ -458,11 +458,20 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
                     <div className="label" style={{width:40,textAlign:'right',fontSize:10}}>{lvLabel}</div>
                   )}
                   <div className="row" style={{gap:4,flexWrap:'wrap'}}>{boxes}</div>
-                  <div className="small muted" style={{marginLeft:'auto',whiteSpace:'nowrap'}}>{max-u} / {max}</div>
+                  <div className="small muted" style={{marginLeft:'auto',whiteSpace:'nowrap'}}>{u} / {max}</div>
                   {s.dmMode && (
                     <div className="row" style={{gap:2}}>
                       <button className="btn btn-ghost" style={{padding:'1px 5px',fontSize:10}} onClick={()=>setCustomSlot(lv,Math.max(0,(customSlots[lv]?.max??max)-1))}>−</button>
                       <button className="btn btn-ghost" style={{padding:'1px 5px',fontSize:10}} onClick={()=>setCustomSlot(lv,(customSlots[lv]?.max??max)+1)}>+</button>
+                      <button className="btn btn-danger btn-ghost" style={{padding:'1px 5px',fontSize:9}} onClick={()=>{
+                        updPlayer((pl:any)=>{
+                          const cs = {...(pl.customSlots||{})};
+                          cs[lv] = {...(cs[lv]||{}), max:0};
+                          const su = {...(pl.slotsUsed||{})};
+                          delete su[lv];
+                          return {...pl, customSlots:cs, slotsUsed:su};
+                        });
+                      }} title="Rimuovi livello">&times;</button>
                     </div>
                   )}
                 </div>
@@ -488,8 +497,8 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
               <div key={sp.id} className="card" style={{borderLeft:sp.prepared?`3px solid ${p.color||'var(--gold)'}`:'3px solid transparent'}}>
                 <div className="row">
                   <button onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,expanded:!ss.expanded}:ss)}))}
-                    style={{width:28,height:28,borderRadius:'50%',border:'1px solid var(--border)',background:'var(--bg-deep)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:14,color:'var(--gray-purple)',cursor:'pointer'}}>
-                    {sp.expanded ? '−' : '+'}
+                    style={{width:30,height:30,borderRadius:'50%',border:'1px solid var(--border)',background:'var(--bg-deep)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',transition:'all .15s',color:sp.expanded?p.color||'var(--gold)':'var(--gray-purple-deep)'}}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.4 5.6 21.2 8 14 2 9.2h7.6z"/></svg>
                   </button>
                   <div className="grow" style={{marginLeft:8,cursor:'pointer'}} onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,expanded:!ss.expanded}:ss)}))}>
                     <div style={{fontWeight:600,fontFamily:'var(--font-display)',fontSize:14,letterSpacing:'.3px'}}>{sp.name}</div>
@@ -691,7 +700,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
                     )}
                   </div>
                   {(k.side==='ally'||s.dmMode) && <>
-                  <div className="hp-bar" style={{margin:'6px 0'}}><div className="hp-fill" style={{width:pct+'%'}} /></div>
+                  <div className="hp-bar" style={{margin:'6px 0'}}><div className="hp-fill" style={{width:pct+'%',background:`hsl(${Math.round(pct*1.2)},65%,55%)`}} /></div>
                   <div className="row" style={{gap:4}}>
                     <button className="hp-btn hp-btn-neg" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.max(0,c.hp-5)}:c)}))}>-5</button>
                     <button className="hp-btn hp-btn-neg" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.max(0,c.hp-1)}:c)}))}>-1</button>
