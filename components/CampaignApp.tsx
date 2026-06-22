@@ -232,6 +232,46 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
           ) : null;
         })()}
 
+        {/* Companion */}
+        {((p as any).companion || s.dmMode) && (
+          <div className="card" style={{marginTop:10,padding:10}}>
+            <div className="row" style={{gap:8}}>
+              <div style={{width:40,height:40,flexShrink:0}}>
+                <ImageSlot slotId={'companion-'+p.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder="🐾" alt={(p as any).companion?.name||'Companion'} />
+              </div>
+              <div className="grow">
+                <input value={(p as any).companion?.name||''} placeholder="Nome companion"
+                  onChange={e=>setP('companion' as any, {...((p as any).companion||{hp:10,maxHp:10}), name:e.target.value})}
+                  style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:13,color:'var(--green)',background:'transparent',border:'1px solid var(--border)',padding:'2px 8px',marginBottom:3}} />
+                <div className="row" style={{gap:4}}>
+                  <span style={{color:'var(--red)',fontSize:12}}>♥</span>
+                  <input type="number" value={(p as any).companion?.hp??0}
+                    onChange={e=>{const v=parseInt(e.target.value)||0;const comp={...((p as any).companion||{name:'',maxHp:10}),hp:v};setP('companion' as any,comp);
+                      // Sync verso combattente
+                      update(prev=>({combatants:prev.combatants.map(c=>c.id==='comp-'+p.id?{...c,hp:v}:c)}));
+                    }}
+                    style={{width:30,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
+                  <span className="muted" style={{fontSize:12}}>/</span>
+                  <input type="number" value={(p as any).companion?.maxHp??0}
+                    onChange={e=>{const v=parseInt(e.target.value)||0;const comp={...((p as any).companion||{name:'',hp:0}),maxHp:v};if(comp.hp>v)comp.hp=v;setP('companion' as any,comp);
+                      update(prev=>({combatants:prev.combatants.map(c=>c.id==='comp-'+p.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));
+                    }}
+                    style={{width:30,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
+                  <span className="small muted">PF</span>
+                  {(() => {
+                    const comp = (p as any).companion;
+                    const pct = comp && comp.maxHp > 0 ? Math.round((comp.hp/comp.maxHp)*100) : 0;
+                    return <div className="hp-bar" style={{flex:1}}><div className="hp-fill" style={{width:pct+'%',background:`hsl(${Math.round(pct*1.2)},65%,55%)`}} /></div>;
+                  })()}
+                </div>
+              </div>
+              {s.dmMode && !(p as any).companion && (
+                <button className="btn" style={{fontSize:9}} onClick={()=>setP('companion' as any, {name:'',hp:10,maxHp:10})}>+ Companion</button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* XP bar — colore del giocatore */}
         <div className="xp-bar" style={{marginTop:10}}><div style={{height:'100%',borderRadius:'3px',transition:'width .35s',width:info.pct+'%',background:`linear-gradient(90deg, ${p.color}88, ${p.color})`}} /></div>
         <div className="row" style={{marginTop:4,justifyContent:'space-between'}}>
@@ -245,6 +285,29 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
             <button className="btn" style={{padding:'2px 8px',fontSize:10}} onClick={()=>setP('xp',(p.xp||0)+500)}>+500</button>
           </div>
         </div>
+
+        {/* Punteggi Caratteristica */}
+        {(() => {
+          const abs = (p as any).abilities || {str:10,dex:10,con:10,int:10,wis:10,cha:10};
+          const stats = [
+            {k:'str',l:'FOR'},{k:'dex',l:'DES'},{k:'con',l:'COS'},
+            {k:'int',l:'INT'},{k:'wis',l:'SAG'},{k:'cha',l:'CAR'}
+          ];
+          const mod = (v:number) => { const m=Math.floor((v-10)/2); return m>=0?'+'+m:''+m; };
+          const setAb = (k:string,v:number) => setP('abilities' as any, {...abs, [k]:v});
+          return (
+            <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:4,marginTop:10}}>
+              {stats.map(s => (
+                <div key={s.k} style={{textAlign:'center',background:'var(--bg-deep)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 2px'}}>
+                  <div style={{fontFamily:'var(--font-display)',fontSize:8,letterSpacing:'1px',color:'var(--gray-purple)',textTransform:'uppercase'}}>{s.l}</div>
+                  <input type="number" value={abs[s.k]??10} onChange={e=>setAb(s.k,parseInt(e.target.value)||0)}
+                    style={{width:'100%',textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:16,fontWeight:600,color:'var(--text)',padding:0}} />
+                  <div style={{fontFamily:'var(--font-display)',fontSize:11,color:p.color||'var(--gold)',fontWeight:600}}>{mod(abs[s.k]??10)}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -578,7 +641,7 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Inventario</div>
         {(p.inventory||[]).length===0 && <div className="card muted small" style={{textAlign:'center'}}>Inventario vuoto.</div>}
-        {(p.inventory||[]).map((it:any) => (
+        {[...(p.inventory||[])].sort((a:any,b:any)=>(b.equipped?1:0)-(a.equipped?1:0)).map((it:any) => (
           <div key={it.id} className="card" style={{borderLeft: it.equipped ? '3px solid '+(p.color||'var(--gold)') : '3px solid transparent'}}>
             <div className="row" style={{alignItems:'flex-start'}}>
               <button onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,equipped:!i.equipped}:i)}))}
@@ -605,10 +668,12 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                   </>
                 )}
               </div>
-              <div className="row" style={{gap:4,flexShrink:0}}>
-                <button className="btn" style={{padding:'2px 8px'}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:Math.max(0,(i.qty||0)-1)}:i)}))}>−</button>
-                <div style={{minWidth:24,textAlign:'center',fontFamily:'var(--font-display)'}}>{it.qty||0}</div>
-                <button className="btn" style={{padding:'2px 8px'}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:(i.qty||0)+1}:i)}))}>+</button>
+              <div className="row" style={{gap:3,flexShrink:0}}>
+                <button className="btn" style={{padding:'2px 6px',fontSize:11}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:Math.max(0,(i.qty||0)-1)}:i)}))}>−</button>
+                <input type="number" value={it.qty||0}
+                  onChange={e=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:Math.max(0,parseInt(e.target.value)||0)}:i)}))}
+                  style={{width:44,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:'var(--text)',padding:'2px 0',borderRadius:4}} />
+                <button className="btn" style={{padding:'2px 6px',fontSize:11}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:(i.qty||0)+1}:i)}))}>+</button>
               </div>
               {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.filter((i:any)=>i.id!==it.id)}))}>&times;</button>}
               <ReorderBtns
@@ -646,19 +711,29 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
   const [dice,setDice]=useState(20);
   const [lastRoll,setLastRoll]=useState<{die:number;value:number;t:number}|null>(null);
 
-  // HP change con sync bidirezionale combattente ↔ giocatore
+  // HP change con sync bidirezionale combattente ↔ giocatore/companion
   const changeHp = (kId:string, delta:number) => {
     update(prev => {
       const newCombatants = prev.combatants.map(c =>
         c.id===kId ? {...c, hp: Math.max(0, Math.min(c.maxHp, c.hp + delta))} : c
       );
-      // Sync verso player se è un PG
       let newPlayers = prev.players;
+      // Sync verso player se è un PG
       if (kId.startsWith('pc-')) {
         const pId = kId.replace('pc-','');
         const comb = newCombatants.find(c=>c.id===kId);
         if (comb) {
           newPlayers = prev.players.map(p => p.id===pId ? {...p, hp: comb.hp, maxHp: comb.maxHp} : p);
+        }
+      }
+      // Sync verso companion se è un companion
+      if (kId.startsWith('comp-')) {
+        const pId = kId.replace('comp-','');
+        const comb = newCombatants.find(c=>c.id===kId);
+        if (comb) {
+          newPlayers = prev.players.map(p => p.id===pId && (p as any).companion
+            ? {...p, companion: {...(p as any).companion, hp: comb.hp, maxHp: comb.maxHp}} as any
+            : p);
         }
       }
       return { combatants: newCombatants, players: newPlayers };
@@ -668,12 +743,23 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
   const nextTurn=()=>{let n=idx+1,r=s.round;if(n>=sorted.length){n=0;r++;}update({turnIndex:n,round:r});};
   const prevTurn=()=>{let n=idx-1,r=s.round;if(n<0){n=sorted.length-1;r=Math.max(1,r-1);}update({turnIndex:n,round:r});};
 
-  // Importa i PG come combattenti
+  // Importa i PG come combattenti (+ companion se presente)
   const addPlayers = () => {
     const existing = new Set((s.combatants||[]).map(c=>c.id));
-    const newCombatants = s.players.filter(p=>!existing.has('pc-'+p.id)).map(p=>({
-      id:'pc-'+p.id, name:p.name, init:p.init||10, hp:p.hp??p.maxHp??30, maxHp:p.maxHp??30, side:'ally' as const, conditions:[]
-    }));
+    const newCombatants: any[] = [];
+    s.players.forEach(p => {
+      if (!existing.has('pc-'+p.id)) {
+        newCombatants.push({
+          id:'pc-'+p.id, name:p.name, init:p.init||10, hp:p.hp??p.maxHp??30, maxHp:p.maxHp??30, side:'ally' as const, conditions:[]
+        });
+      }
+      const comp = (p as any).companion;
+      if (comp && comp.name && !existing.has('comp-'+p.id)) {
+        newCombatants.push({
+          id:'comp-'+p.id, name:comp.name, init:(p.init||10)-1, hp:comp.hp??comp.maxHp??10, maxHp:comp.maxHp??10, side:'ally' as const, conditions:[]
+        });
+      }
+    });
     if(newCombatants.length) update(prev=>({combatants:[...prev.combatants,...newCombatants]}));
   };
 
