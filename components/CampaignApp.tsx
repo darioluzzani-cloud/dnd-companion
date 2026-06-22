@@ -286,25 +286,47 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
           </div>
         </div>
 
-        {/* Punteggi Caratteristica */}
+        {/* Punteggi Caratteristica — stile medaglione fantasy */}
         {(() => {
           const abs = (p as any).abilities || {str:10,dex:10,con:10,int:10,wis:10,cha:10};
           const stats = [
-            {k:'str',l:'FOR'},{k:'dex',l:'DES'},{k:'con',l:'COS'},
-            {k:'int',l:'INT'},{k:'wis',l:'SAG'},{k:'cha',l:'CAR'}
+            {k:'str',l:'FOR',icon:'⚔'},{k:'dex',l:'DES',icon:'🏹'},{k:'con',l:'COS',icon:'🛡'},
+            {k:'int',l:'INT',icon:'📖'},{k:'wis',l:'SAG',icon:'👁'},{k:'cha',l:'CAR',icon:'✦'}
           ];
           const mod = (v:number) => { const m=Math.floor((v-10)/2); return m>=0?'+'+m:''+m; };
           const setAb = (k:string,v:number) => setP('abilities' as any, {...abs, [k]:v});
           return (
-            <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:4,marginTop:10}}>
-              {stats.map(s => (
-                <div key={s.k} style={{textAlign:'center',background:'var(--bg-deep)',border:'1px solid var(--border)',borderRadius:6,padding:'6px 2px'}}>
-                  <div style={{fontFamily:'var(--font-display)',fontSize:8,letterSpacing:'1px',color:'var(--gray-purple)',textTransform:'uppercase'}}>{s.l}</div>
-                  <input type="number" value={abs[s.k]??10} onChange={e=>setAb(s.k,parseInt(e.target.value)||0)}
-                    style={{width:'100%',textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:16,fontWeight:600,color:'var(--text)',padding:0}} />
-                  <div style={{fontFamily:'var(--font-display)',fontSize:11,color:p.color||'var(--gold)',fontWeight:600}}>{mod(abs[s.k]??10)}</div>
-                </div>
-              ))}
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginTop:12}}>
+              {stats.map(s => {
+                const val = abs[s.k] ?? 10;
+                const m = Math.floor((val-10)/2);
+                const modColor = m > 0 ? 'var(--green)' : m < 0 ? 'var(--red)' : 'var(--gray-purple)';
+                return (
+                  <div key={s.k} style={{
+                    textAlign:'center',
+                    background:'linear-gradient(180deg, #1a1230 0%, var(--bg-deep) 100%)',
+                    border:'1px solid var(--border)',
+                    borderTop:`2px solid ${p.color||'var(--gold)'}44`,
+                    borderRadius:10,
+                    padding:'8px 4px 10px',
+                    position:'relative',
+                  }}>
+                    {/* Label + icona */}
+                    <div style={{fontFamily:'var(--font-display)',fontSize:9,letterSpacing:'2px',color:'var(--gray-purple)',textTransform:'uppercase',marginBottom:2}}>
+                      <span style={{fontSize:11,marginRight:3}}>{s.icon}</span>{s.l}
+                    </div>
+                    {/* Modificatore — grande e centrale */}
+                    <div style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:700,color:modColor,lineHeight:1.1,margin:'2px 0'}}>
+                      {mod(val)}
+                    </div>
+                    {/* Punteggio in cerchietto */}
+                    <div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:30,height:30,borderRadius:'50%',border:`1px solid ${p.color||'var(--gold)'}55`,background:'var(--bg-deep)',marginTop:2}}>
+                      <input type="number" value={val} onChange={e=>setAb(s.k,parseInt(e.target.value)||0)}
+                        style={{width:26,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })()}
