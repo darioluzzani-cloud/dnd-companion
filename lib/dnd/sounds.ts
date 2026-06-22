@@ -124,123 +124,84 @@ export function sfxReveal(): void {
 
 /**
  * Effetto sonoro: quest completata
- * Fanfara trionfale stile JRPG (~2.5 secondi)
- * Struttura: arpeggio ascendente → accordo pieno → risoluzione melodica → shimmer
+ * Frase melodica unica high fantasy (~2.5s)
+ * Pad armonico continuo + melodia ascendente fluida che si dissolve
  */
 export function sfxComplete(): void {
   try {
     const ctx = getContext();
     const now = ctx.currentTime;
+    const dur = 2.6;
 
-    // === FASE 1: Arpeggio ascendente (0.0s – 0.6s) ===
-    // Do-Mi-Sol-Do⁵ — arpa che sale, ogni nota staccata e chiara
-    [262, 330, 392, 523].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.value = freq;
-      const t = now + i * 0.14;
-      gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.12, t + 0.02);
-      gain.gain.setValueAtTime(0.10, t + 0.08);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.4);
-    });
-
-    // === FASE 2: Accordo trionfale pieno (0.65s – 1.6s) ===
-    // Do-Mi-Sol-Do⁵ simultanei, attacco deciso, sustain caldo
-    [262, 330, 392, 523].forEach((freq) => {
+    // === Pad armonico continuo — quinta aperta medievale, sostiene tutto ===
+    [196, 294, 392, 587].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, now + 0.65);
-      gain.gain.linearRampToValueAtTime(0.07, now + 0.72);
-      gain.gain.setValueAtTime(0.06, now + 1.2);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+      const vol = [0.045, 0.04, 0.035, 0.02][i];
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(vol, now + 0.3);
+      gain.gain.setValueAtTime(vol, now + 1.6);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(now + 0.65);
-      osc.stop(now + 1.85);
+      osc.start(now);
+      osc.stop(now + dur + 0.1);
     });
-    // Quinta bassa di rinforzo (Sol₃) per dare corpo
-    const bass = ctx.createOscillator();
-    const bassGain = ctx.createGain();
-    bass.type = 'sine';
-    bass.frequency.value = 196;
-    bassGain.gain.setValueAtTime(0, now + 0.65);
-    bassGain.gain.linearRampToValueAtTime(0.05, now + 0.72);
-    bassGain.gain.exponentialRampToValueAtTime(0.001, now + 1.6);
-    bass.connect(bassGain);
-    bassGain.connect(ctx.destination);
-    bass.start(now + 0.65);
-    bass.stop(now + 1.65);
 
-    // === FASE 3: Risoluzione melodica (1.1s – 1.9s) ===
-    // Re⁵-Mi⁵-Sol⁵ — tre note ascendenti che risolvono sull'alto
-    [587, 659, 784].forEach((freq, i) => {
+    // === Melodia fluida — ogni nota ha un lungo decay che si sovrappone alla successiva ===
+    // Sol₄ → La → Si → Re₅ → Mi → Sol₅ → La → Si → Re₆
+    const melody = [
+      { f: 392,  t: 0.0  },
+      { f: 440,  t: 0.18 },
+      { f: 494,  t: 0.34 },
+      { f: 587,  t: 0.52 },
+      { f: 659,  t: 0.68 },
+      { f: 784,  t: 0.88 },
+      { f: 880,  t: 1.08 },
+      { f: 988,  t: 1.30 },
+      { f: 1175, t: 1.55 },
+    ];
+
+    melody.forEach((note, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'triangle';
-      osc.frequency.value = freq;
-      const t = now + 1.1 + i * 0.18;
-      gain.gain.setValueAtTime(0, t);
-      gain.gain.linearRampToValueAtTime(0.10, t + 0.03);
-      gain.gain.setValueAtTime(0.08, t + 0.12);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+      osc.frequency.value = note.f;
+      const attack = now + note.t;
+      // Volume decresce gradualmente per le note più alte — effetto naturale
+      const peak = 0.11 - i * 0.007;
+      // Ogni nota dura a lungo e sfuma, creando sovrapposizione
+      const noteLen = 0.7 + (i * 0.05);
+      gain.gain.setValueAtTime(0, attack);
+      gain.gain.linearRampToValueAtTime(peak, attack + 0.035);
+      gain.gain.setValueAtTime(peak * 0.7, attack + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, attack + noteLen);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.55);
+      osc.start(attack);
+      osc.stop(attack + noteLen + 0.05);
     });
 
-    // === FASE 4: Nota finale sostenuta + shimmer (1.7s – 2.5s) ===
-    // Do⁶ — la nota trionfale che chiude tutto
-    const finale = ctx.createOscillator();
-    const finaleGain = ctx.createGain();
-    finale.type = 'sine';
-    finale.frequency.value = 1047; // Do⁶
-    finaleGain.gain.setValueAtTime(0, now + 1.7);
-    finaleGain.gain.linearRampToValueAtTime(0.08, now + 1.78);
-    finaleGain.gain.setValueAtTime(0.06, now + 2.0);
-    finaleGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
-    finale.connect(finaleGain);
-    finaleGain.connect(ctx.destination);
-    finale.start(now + 1.7);
-    finale.stop(now + 2.55);
-
-    // Shimmer: ottava alta sottile che brilla sopra
-    const shimmer = ctx.createOscillator();
-    const shimmerGain = ctx.createGain();
-    shimmer.type = 'sine';
-    shimmer.frequency.value = 2093; // Do⁷
-    shimmerGain.gain.setValueAtTime(0, now + 1.8);
-    shimmerGain.gain.linearRampToValueAtTime(0.025, now + 1.88);
-    shimmerGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
-    shimmer.connect(shimmerGain);
-    shimmerGain.connect(ctx.destination);
-    shimmer.start(now + 1.8);
-    shimmer.stop(now + 2.55);
-
-    // Pad armonico di chiusura — Sol⁴+Do⁵ che si dissolve
-    [392, 523].forEach((freq) => {
+    // === Risonanza finale — la nota più alta si allarga con un'armonica ===
+    [1175, 1760].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, now + 1.7);
-      gain.gain.linearRampToValueAtTime(0.035, now + 1.8);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+      const vol = i === 0 ? 0.05 : 0.018;
+      gain.gain.setValueAtTime(0, now + 1.6);
+      gain.gain.linearRampToValueAtTime(vol, now + 1.7);
+      gain.gain.setValueAtTime(vol * 0.8, now + 2.0);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start(now + 1.7);
-      osc.stop(now + 2.55);
+      osc.start(now + 1.6);
+      osc.stop(now + dur + 0.1);
     });
 
   } catch (e) {
-    // Web Audio non disponibile, ignora silenziosamente
+    // Web Audio non disponibile
   }
 }
