@@ -13,7 +13,7 @@ const TABS = [
   {id:'characters',label:'NPC',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>},
   {id:'lore',label:'Lore',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>},
   {id:'spells',label:'Magie',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>},
-  {id:'inventory',label:'Bottino',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>},
+  {id:'inventory',label:'Inventario',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>},
   {id:'combat',label:'Battaglia',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 18L18 6M6 6l12 12"/></svg>},
 ];
 const LORE_CATS = ['oggetti','luoghi','culti','tutti'] as const;
@@ -207,10 +207,10 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
             <div className="row" style={{gap:8,marginTop:6}}>
               <div className="pill" style={{padding:'4px 10px',gap:4}}>
                 <span style={{color:'var(--red)'}}>♥</span>
-                <input type="number" value={p.hp??p.maxHp??0} onChange={e=>setP('hp',parseInt(e.target.value)||0)}
+                <input type="number" value={p.hp??p.maxHp??0} onChange={e=>{const v=parseInt(e.target.value)||0;update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,hp:v}:pl),combatants:prev.combatants.map(c=>c.id==='pc-'+p.id?{...c,hp:v}:c)}));}}
                   style={{width:32,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:'var(--text)',padding:0}} />
                 <span className="muted">/</span>
-                <input type="number" value={p.maxHp??0} onChange={e=>{const v=parseInt(e.target.value)||0;setP('maxHp',v);if((p.hp??0)>v)setP('hp',v);}}
+                <input type="number" value={p.maxHp??0} onChange={e=>{const v=parseInt(e.target.value)||0;update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,maxHp:v,hp:Math.min(pl.hp??0,v)}:pl),combatants:prev.combatants.map(c=>c.id==='pc-'+p.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
                   style={{width:32,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:'var(--text)',padding:0}} />
                 <span className="small muted">PF</span>
               </div>
@@ -218,6 +218,20 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
             </div>
           </div>
         </div>
+        {/* Oggetti equipaggiati */}
+        {(() => {
+          const equipped = (p.inventory||[]).filter((i:any)=>i.equipped);
+          return equipped.length > 0 ? (
+            <div className="row" style={{gap:6,marginTop:8,flexWrap:'wrap'}}>
+              {equipped.map((it:any) => (
+                <div key={it.id} className="pill" style={{padding:'3px 10px',fontSize:10,gap:4,color:p.color||'var(--gold)',borderColor:(p.color||'var(--gold)')+'66'}}>
+                  <span>⚔</span> {it.name}{it.qty>1?' ×'+it.qty:''}
+                </div>
+              ))}
+            </div>
+          ) : null;
+        })()}
+
         {/* XP bar — colore del giocatore */}
         <div className="xp-bar" style={{marginTop:10}}><div style={{height:'100%',borderRadius:'3px',transition:'width .35s',width:info.pct+'%',background:`linear-gradient(90deg, ${p.color}88, ${p.color})`}} /></div>
         <div className="row" style={{marginTop:4,justifyContent:'space-between'}}>
@@ -565,8 +579,13 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
         <div className="label" style={{marginBottom:8}}>Inventario</div>
         {(p.inventory||[]).length===0 && <div className="card muted small" style={{textAlign:'center'}}>Inventario vuoto.</div>}
         {(p.inventory||[]).map((it:any) => (
-          <div key={it.id} className="card">
+          <div key={it.id} className="card" style={{borderLeft: it.equipped ? '3px solid '+(p.color||'var(--gold)') : '3px solid transparent'}}>
             <div className="row" style={{alignItems:'flex-start'}}>
+              <button onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,equipped:!i.equipped}:i)}))}
+                title={it.equipped?'Rimuovi equipaggiamento':'Equipaggia'}
+                style={{width:28,height:28,borderRadius:4,border:'1px solid '+(it.equipped?p.color||'var(--gold)':'var(--border)'),background:it.equipped?(p.color||'var(--gold)')+'22':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:6,marginRight:6,fontSize:14,color:it.equipped?p.color||'var(--gold)':'var(--gray-purple-deep)'}}>
+                {it.equipped ? '⚔' : '○'}
+              </button>
               <div style={{width:42,height:42,flexShrink:0}}>
                 <ImageSlot slotId={'item-'+it.id} campaignId={campaignId} shape="rounded" dmMode={s.dmMode} placeholder=" " alt={it.name} />
               </div>
@@ -626,6 +645,25 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
   const [hp,setHp]=useState('');
   const [dice,setDice]=useState(20);
   const [lastRoll,setLastRoll]=useState<{die:number;value:number;t:number}|null>(null);
+
+  // HP change con sync bidirezionale combattente ↔ giocatore
+  const changeHp = (kId:string, delta:number) => {
+    update(prev => {
+      const newCombatants = prev.combatants.map(c =>
+        c.id===kId ? {...c, hp: Math.max(0, Math.min(c.maxHp, c.hp + delta))} : c
+      );
+      // Sync verso player se è un PG
+      let newPlayers = prev.players;
+      if (kId.startsWith('pc-')) {
+        const pId = kId.replace('pc-','');
+        const comb = newCombatants.find(c=>c.id===kId);
+        if (comb) {
+          newPlayers = prev.players.map(p => p.id===pId ? {...p, hp: comb.hp, maxHp: comb.maxHp} : p);
+        }
+      }
+      return { combatants: newCombatants, players: newPlayers };
+    });
+  };
 
   const nextTurn=()=>{let n=idx+1,r=s.round;if(n>=sorted.length){n=0;r++;}update({turnIndex:n,round:r});};
   const prevTurn=()=>{let n=idx-1,r=s.round;if(n<0){n=sorted.length-1;r=Math.max(1,r-1);}update({turnIndex:n,round:r});};
@@ -702,10 +740,10 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
                   {(k.side==='ally'||s.dmMode) && <>
                   <div className="hp-bar" style={{margin:'6px 0'}}><div className="hp-fill" style={{width:pct+'%',background:`hsl(${Math.round(pct*1.2)},65%,55%)`}} /></div>
                   <div className="row" style={{gap:4}}>
-                    <button className="hp-btn hp-btn-neg" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.max(0,c.hp-5)}:c)}))}>-5</button>
-                    <button className="hp-btn hp-btn-neg" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.max(0,c.hp-1)}:c)}))}>-1</button>
-                    <button className="hp-btn hp-btn-pos" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.min(c.maxHp,c.hp+1)}:c)}))}>+1</button>
-                    <button className="hp-btn hp-btn-pos" onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,hp:Math.min(c.maxHp,c.hp+5)}:c)}))}>+5</button>
+                    <button className="hp-btn hp-btn-neg" onClick={()=>changeHp(k.id,-5)}>-5</button>
+                    <button className="hp-btn hp-btn-neg" onClick={()=>changeHp(k.id,-1)}>-1</button>
+                    <button className="hp-btn hp-btn-pos" onClick={()=>changeHp(k.id,1)}>+1</button>
+                    <button className="hp-btn hp-btn-pos" onClick={()=>changeHp(k.id,5)}>+5</button>
                   </div>
                   </>}
                   {/* Condizioni */}
