@@ -18,6 +18,31 @@ const TABS = [
 ];
 const LORE_CATS = ['oggetti','luoghi','culti','tutti'] as const;
 const ITEM_TYPES = ['equipaggiamento','arma','armatura','magico','consumabile','tesoro','quest','altro'];
+const ITEM_TEMPLATES = [
+  {name:'Pozione di cura',type:'consumabile',effect:'Recupera 2d4+2 PF',desc:'Liquido rosso che luccica quando viene agitato.'},
+  {name:'Pozione di cura superiore',type:'consumabile',effect:'Recupera 4d4+4 PF',desc:'Liquido rosso brillante, più denso della versione base.'},
+  {name:'Pozione di cura maggiore',type:'consumabile',effect:'Recupera 8d4+8 PF',desc:'Liquido cremisi con riflessi dorati.'},
+  {name:'Razione giornaliera',type:'consumabile',effect:'Nutrimento per 1 giorno',desc:'Carne secca, frutta disidratata, gallette.'},
+  {name:'Torcia',type:'equipaggiamento',effect:'Luce intensa 6m, luce fioca altri 6m. Dura 1 ora.',desc:''},
+  {name:'Corda di canapa (15m)',type:'equipaggiamento',effect:'',desc:'Resistente, utile per scalare o legare.'},
+  {name:'Arnesi da scasso',type:'equipaggiamento',effect:'Necessari per scassinare serrature (prova Destrezza)',desc:''},
+  {name:'Kit da guaritore',type:'equipaggiamento',effect:'10 usi. Stabilizza una creatura a 0 PF.',desc:''},
+  {name:'Spada lunga',type:'arma',effect:'1d8 tagliente (versatile 1d10)',desc:''},
+  {name:'Spada corta',type:'arma',effect:'1d6 perforante (accuratezza, leggera)',desc:''},
+  {name:'Arco lungo',type:'arma',effect:'1d8 perforante (munizioni, portata 45/180m, a due mani, pesante)',desc:''},
+  {name:'Pugnale',type:'arma',effect:'1d4 perforante (accuratezza, leggera, lancio 6/18m)',desc:''},
+  {name:'Ascia a due mani',type:'arma',effect:'1d12 tagliente (pesante, a due mani)',desc:''},
+  {name:'Mazza',type:'arma',effect:'1d6 contundente',desc:''},
+  {name:'Balestra leggera',type:'arma',effect:'1d8 perforante (munizioni, portata 24/96m, caricamento, a due mani)',desc:''},
+  {name:'Armatura di cuoio',type:'armatura',effect:'CA 11 + mod DES',desc:''},
+  {name:'Armatura di cuoio borchiato',type:'armatura',effect:'CA 12 + mod DES',desc:''},
+  {name:'Cotta di maglia',type:'armatura',effect:'CA 16 (FOR 13 richiesta, svantaggio Furtività)',desc:''},
+  {name:'Scudo',type:'armatura',effect:'+2 CA',desc:''},
+  {name:"Monete d'oro",type:'tesoro',effect:'',desc:''},
+  {name:"Monete d'argento",type:'tesoro',effect:'',desc:''},
+  {name:"Monete di rame",type:'tesoro',effect:'',desc:''},
+  {name:'Gemma',type:'tesoro',effect:'',desc:'Valore variabile a seconda del tipo.'},
+];
 const REL_NEXT: Record<string,string> = {ally:'enemy',enemy:'neutral',neutral:'ally'};
 
 // Helper: sposta un elemento su/giù in un array
@@ -272,17 +297,17 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
           </div>
         </div>
 
-        {/* Punteggi Caratteristica — stile medaglione fantasy */}
+        {/* Punteggi Caratteristica — 6x1, punteggio sopra, modificatore sotto */}
         {(() => {
           const abs = (p as any).abilities || {str:10,dex:10,con:10,int:10,wis:10,cha:10};
           const stats = [
-            {k:'str',l:'FOR',icon:'⚔'},{k:'dex',l:'DES',icon:'🏹'},{k:'con',l:'COS',icon:'🛡'},
-            {k:'int',l:'INT',icon:'📖'},{k:'wis',l:'SAG',icon:'👁'},{k:'cha',l:'CAR',icon:'✦'}
+            {k:'str',l:'FOR'},{k:'dex',l:'DES'},{k:'con',l:'COS'},
+            {k:'int',l:'INT'},{k:'wis',l:'SAG'},{k:'cha',l:'CAR'}
           ];
           const mod = (v:number) => { const m=Math.floor((v-10)/2); return m>=0?'+'+m:''+m; };
           const setAb = (k:string,v:number) => setP('abilities' as any, {...abs, [k]:v});
           return (
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginTop:10}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:4,marginTop:10}}>
               {stats.map(s => {
                 const val = abs[s.k] ?? 10;
                 const m = Math.floor((val-10)/2);
@@ -293,19 +318,13 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
                     background:'linear-gradient(180deg, #1a1230 0%, var(--bg-deep) 100%)',
                     border:'1px solid var(--border)',
                     borderTop:`2px solid ${p.color||'var(--gold)'}44`,
-                    borderRadius:8,
-                    padding:'5px 3px 7px',
+                    borderRadius:6,
+                    padding:'4px 2px 5px',
                   }}>
-                    <div style={{fontFamily:'var(--font-display)',fontSize:8,letterSpacing:'1.5px',color:'var(--gray-purple)',textTransform:'uppercase'}}>
-                      <span style={{fontSize:9,marginRight:2}}>{s.icon}</span>{s.l}
-                    </div>
-                    <div style={{fontFamily:'var(--font-display)',fontSize:18,fontWeight:700,color:modColor,lineHeight:1.1,margin:'1px 0'}}>
-                      {mod(val)}
-                    </div>
-                    <div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:26,height:26,borderRadius:'50%',border:`1px solid ${p.color||'var(--gold)'}55`,background:'var(--bg-deep)',marginTop:1}}>
-                      <input type="number" value={val} onChange={e=>setAb(s.k,parseInt(e.target.value)||0)}
-                        style={{width:22,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:11,fontWeight:600,color:'var(--text)',padding:0}} />
-                    </div>
+                    <div style={{fontFamily:'var(--font-display)',fontSize:7,letterSpacing:'1px',color:'var(--gray-purple)',textTransform:'uppercase',marginBottom:1}}>{s.l}</div>
+                    <input type="number" value={val} onChange={e=>setAb(s.k,parseInt(e.target.value)||0)}
+                      style={{width:'100%',textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:15,fontWeight:600,color:'var(--text)',padding:0,lineHeight:1.1}} />
+                    <div style={{fontFamily:'var(--font-display)',fontSize:11,fontWeight:700,color:modColor,marginTop:1}}>{mod(val)}</div>
                   </div>
                 );
               })}
@@ -698,7 +717,7 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                 onDown={()=>{const idx=(p.inventory||[]).findIndex((i:any)=>i.id===it.id);updPlayer((pl:any)=>({...pl,inventory:moveInArray(pl.inventory,idx,1)}));}}
               />
             </div>
-            {/* Descrizione espandibile */}
+            {/* Dettagli espandibili */}
             {it.expanded && (
               <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
                 {s.dmMode ? (
@@ -706,10 +725,23 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                     <select value={it.type||'altro'} onChange={e=>setItemField(it.id,'type',e.target.value)} style={{fontSize:12,padding:'3px 6px',marginBottom:4}}>
                       {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
-                    <textarea value={it.desc||''} placeholder="Descrizione oggetto…" onChange={e=>setItemField(it.id,'desc',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:40}} />
+                    <textarea value={it.effect||''} placeholder="Effetto (es. +1 ai tiri per colpire)" onChange={e=>setItemField(it.id,'effect',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:36,marginBottom:4}} />
+                    <textarea value={it.desc||''} placeholder="Descrizione oggetto…" onChange={e=>setItemField(it.id,'desc',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:36}} />
                   </>
                 ) : (
-                  <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{it.desc||<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
+                  <>
+                    {it.effect && <div style={{fontSize:14,lineHeight:1.5,color:'var(--gold)',marginBottom:4}}>✦ {it.effect}</div>}
+                    <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{it.desc||<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
+                  </>
+                )}
+                {/* Punti Usura — solo per arma e equipaggiamento */}
+                {(it.type==='arma'||it.type==='equipaggiamento') && (
+                  <div className="row" style={{gap:6,marginTop:6}}>
+                    <span className="label" style={{fontSize:9}}>PU</span>
+                    <input type="number" value={it.pu??0} onChange={e=>setItemField(it.id,'pu',Math.max(0,parseInt(e.target.value)||0))}
+                      style={{width:44,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:13,color:((it.pu??0)>0)?'var(--red)':'var(--gray-purple)',padding:'2px 4px',borderRadius:4}} />
+                    <span className="small muted">Punti Usura</span>
+                  </div>
                 )}
               </div>
             )}
@@ -717,10 +749,21 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
         ))}
         {s.dmMode && (
           <div style={{marginTop:10}}>
+            {/* Template oggetti comuni */}
             <div className="row" style={{gap:6,marginBottom:6}}>
-              <input className="grow" placeholder="Nuovo oggetto…" value={draftName} onChange={e=>setDraftName(e.target.value)}
-                onKeyDown={e=>{if(e.key==='Enter'&&draftName.trim()){updPlayer((pl:any)=>({...pl,inventory:[...pl.inventory,{id:uid('i'),name:draftName.trim(),qty:1,type:draftType,desc:'',expanded:false,equipped:false}]}));setDraftName('');}}} />
-              <button className="btn btn-primary" onClick={()=>{if(draftName.trim()){updPlayer((pl:any)=>({...pl,inventory:[...pl.inventory,{id:uid('i'),name:draftName.trim(),qty:1,type:draftType,desc:'',expanded:false,equipped:false}]}));setDraftName('');}}}>+</button>
+              <select style={{flex:1,fontSize:12,padding:'5px 6px'}} defaultValue="" onChange={e=>{
+                const tpl = ITEM_TEMPLATES.find(t=>t.name===e.target.value);
+                if(tpl){updPlayer((pl:any)=>({...pl,inventory:[...pl.inventory,{id:uid('i'),...tpl,qty:1,expanded:false,equipped:false}]}));}
+                e.target.value='';
+              }}>
+                <option value="" disabled>Inserisci da modello…</option>
+                {ITEM_TEMPLATES.map(t=><option key={t.name} value={t.name}>{t.name} ({t.type})</option>)}
+              </select>
+            </div>
+            <div className="row" style={{gap:6,marginBottom:6}}>
+              <input className="grow" placeholder="…oppure crea nuovo" value={draftName} onChange={e=>setDraftName(e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter'&&draftName.trim()){updPlayer((pl:any)=>({...pl,inventory:[...pl.inventory,{id:uid('i'),name:draftName.trim(),qty:1,type:draftType,desc:'',effect:'',expanded:false,equipped:false,pu:0}]}));setDraftName('');}}} />
+              <button className="btn btn-primary" onClick={()=>{if(draftName.trim()){updPlayer((pl:any)=>({...pl,inventory:[...pl.inventory,{id:uid('i'),name:draftName.trim(),qty:1,type:draftType,desc:'',effect:'',expanded:false,equipped:false,pu:0}]}));setDraftName('');}}}>+</button>
             </div>
             <select value={draftType} onChange={e=>setDraftType(e.target.value)}>
               {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
@@ -925,9 +968,16 @@ function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
   const [draftName,setDraftName]=useState('');
   const [draftSub,setDraftSub]=useState('');
   const [draftCat,setDraftCat]=useState<string>('oggetti');
+  const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
 
   return (
     <div>
+      {/* Overlay immagine ingrandita */}
+      {enlargedImg && (
+        <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
+          <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
+        </div>
+      )}
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Categoria</div>
         <div className="row" style={{gap:6,flexWrap:'wrap'}}>
@@ -938,11 +988,22 @@ function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
       </div>
       <div className="frame">
         {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessuna voce.</div>}
-        {filtered.map(l=>(
+        {filtered.map(l=>{
+          const isCulti = l.category === 'culti';
+          const imgW = isCulti ? 80 : 46;
+          const imgH = isCulti ? 56 : 46;
+          return (
           <div key={l.id} className="card">
             <div className="row" style={{alignItems:'flex-start'}}>
-              <div style={{width:46,height:46,flexShrink:0}}>
-                <ImageSlot slotId={'lore-'+l.id} campaignId={campaignId} shape="rounded" dmMode={s.dmMode} placeholder=" " alt={l.name} />
+              <div style={{width:imgW,height:imgH,flexShrink:0,cursor:'pointer'}}
+                onClick={()=>{
+                  // Costruisci URL immagine per l'overlay
+                  const imgEl = document.querySelector(`[data-slot="lore-${l.id}"] img`) as HTMLImageElement;
+                  if(imgEl?.src) setEnlargedImg(imgEl.src);
+                }}>
+                <div data-slot={'lore-'+l.id}>
+                  <ImageSlot slotId={'lore-'+l.id} campaignId={campaignId} shape={isCulti?'rounded':'circle'} dmMode={s.dmMode} placeholder=" " alt={l.name} />
+                </div>
               </div>
               <div className="grow" style={{marginLeft:10,cursor:'pointer'}} onClick={()=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,expanded:!ll.expanded}:ll)}))}>
                 {s.dmMode ? (
@@ -984,7 +1045,7 @@ function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
               </div>
             )}
           </div>
-        ))}
+        )})}
         {s.dmMode && (
           <div style={{marginTop:10}}>
             <input placeholder="Nome voce…" value={draftName} onChange={e=>setDraftName(e.target.value)} style={{marginBottom:6}} />
