@@ -145,13 +145,38 @@ textarea { resize: vertical; min-height: 60px; }
 .roll-anim { animation: rollpop .45s cubic-bezier(.2,.8,.3,1.2); }
 
 /* === RESPONSIVE === */
-@media (min-width: 768px) {
-  .app-wrap { max-width: 680px; padding-bottom: 100px; }
-  .topbar { padding: 16px 24px; }
-  .frame { margin: 14px 20px; padding: 20px; }
+@media (min-width: 640px) {
+  .app-wrap { max-width: 580px; }
+  .frame { padding: 18px; margin: 12px 16px; }
+  .card { padding: 16px 18px; }
+  .tab { font-size: 10px; padding: 10px 8px 12px; }
+  .tab svg { width: 22px; height: 22px; }
 }
-@media (min-width: 1200px) {
-  .app-wrap { max-width: 900px; }
+@media (min-width: 768px) {
+  .app-wrap { max-width: 720px; padding-bottom: 100px; }
+  .topbar { padding: 16px 24px; }
+  .campaign-title { font-size: 24px; }
+  .frame { margin: 14px 20px; padding: 22px; border-radius: 12px; }
+  .card { padding: 16px 20px; border-radius: 10px; }
+  .tab-bar { padding: 0 16px; }
+  .tab { padding: 10px 12px 14px; font-size: 10px; gap: 4px; }
+  .tab svg { width: 24px; height: 24px; }
+  .h1 { font-size: 26px; }
+  .h2 { font-size: 17px; }
+  .btn { padding: 9px 16px; font-size: 11px; }
+  .pill { padding: 7px 16px; font-size: 11px; }
+  .hp-btn { padding: 8px 0; font-size: 13px; }
+  .dice-display { font-size: 42px; padding: 20px; }
+  .player-tab { padding: 12px 10px; font-size: 12px; }
+  .init-circle { width: 48px; height: 48px; font-size: 20px; }
+}
+@media (min-width: 1024px) {
+  .app-wrap { max-width: 860px; }
   .topbar { padding: 18px 32px; }
-  .frame { margin: 16px 28px; padding: 24px; }
+  .frame { margin: 16px 28px; padding: 26px; }
+  input, textarea, select { font-size: 15px; padding: 11px 14px; }
+}
+@media (min-width: 1280px) {
+  .app-wrap { max-width: 960px; }
+  .frame { padding: 28px; }
 }
