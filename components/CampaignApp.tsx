@@ -742,6 +742,7 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
   const [draftName, setDraftName] = useState('');
   const [draftType, setDraftType] = useState('equipaggiamento');
   const [filter, setFilter] = useState('tutti');
+  const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
   const setItemField = (iid:string, f:string, v:any) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,[f]:v}:i)}));
   const toggleExpand = (iid:string) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,expanded:!i.expanded}:i)}));
 
@@ -751,6 +752,12 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
 
   return (
     <div>
+      {/* Overlay immagine ingrandita */}
+      {enlargedImg && (
+        <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
+          <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
+        </div>
+      )}
       <PlayerSelector s={s} update={update} p={p} campaignId={campaignId} />
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Inventario</div>
@@ -781,8 +788,11 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                 style={{width:28,height:28,borderRadius:4,border:'1px solid '+(it.equipped?p.color||'var(--gold)':'var(--border)'),background:it.equipped?(p.color||'var(--gold)')+'22':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:6,marginRight:6,fontSize:14,color:it.equipped?p.color||'var(--gold)':'var(--gray-purple-deep)'}}>
                 {it.equipped ? '⚔' : '○'}
               </button>
-              <div style={{width:42,height:42,flexShrink:0}}>
-                <ImageSlot slotId={'item-'+it.id} campaignId={campaignId} shape="rounded" dmMode={s.dmMode} placeholder=" " alt={it.name} />
+              <div style={{width:42,height:42,flexShrink:0,cursor:'pointer',overflow:'hidden',borderRadius:6}}
+                onClick={e=>{e.stopPropagation();const img=document.querySelector(`[data-slot="item-${it.id}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
+                <div data-slot={'item-'+it.id} style={{width:42,height:42}}>
+                  <ImageSlot slotId={'item-'+it.id} campaignId={campaignId} shape="rounded" width={42} height={42} dmMode={s.dmMode} placeholder=" " alt={it.name} />
+                </div>
               </div>
               <div className="grow" style={{marginLeft:10,cursor:'pointer'}} onClick={()=>toggleExpand(it.id)}>
                 {s.dmMode ? (
