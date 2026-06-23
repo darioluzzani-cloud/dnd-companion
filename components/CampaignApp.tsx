@@ -735,12 +735,36 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                   </>
                 )}
                 {/* Punti Usura — solo per arma e equipaggiamento */}
-                {(it.type==='arma'||it.type==='equipaggiamento') && (
+                {(it.type==='arma'||it.type==='armatura'||it.type==='magico') && (
                   <div className="row" style={{gap:6,marginTop:6}}>
                     <span className="label" style={{fontSize:9}}>PU</span>
                     <input type="number" value={it.pu??0} onChange={e=>setItemField(it.id,'pu',Math.max(0,parseInt(e.target.value)||0))}
                       style={{width:44,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:13,color:((it.pu??0)>0)?'var(--red)':'var(--gray-purple)',padding:'2px 4px',borderRadius:4}} />
                     <span className="small muted">Punti Usura</span>
+                  </div>
+                )}
+                {/* Cerchi potenziamento — arma, armatura, magico */}
+                {(it.type==='arma'||it.type==='armatura'||it.type==='magico') && (
+                  <div className="row" style={{gap:8,marginTop:6}}>
+                    <span className="label" style={{fontSize:9}}>Potenziamenti</span>
+                    {[0,1,2].map(i => {
+                      const maxSlots = it.enhSlots ?? 0;
+                      const used = it.enhUsed ?? 0;
+                      if (i >= maxSlots && !s.dmMode) return null;
+                      const isFilled = i < used;
+                      return i < maxSlots ? (
+                        <button key={i} onClick={()=>setItemField(it.id,'enhUsed',isFilled ? Math.max(0,used-1) : Math.min(maxSlots,used+1))}
+                          style={{width:22,height:22,borderRadius:'50%',border:'1px solid '+(isFilled?p.color||'var(--gold)':'var(--border)'),
+                            background:isFilled?(p.color||'var(--gold)'):'transparent',cursor:'pointer',transition:'all .15s'}} />
+                      ) : null;
+                    })}
+                    {s.dmMode && (
+                      <div className="row" style={{gap:2,marginLeft:'auto'}}>
+                        <button className="btn btn-ghost" style={{padding:'1px 5px',fontSize:10}} onClick={()=>setItemField(it.id,'enhSlots',Math.max(0,(it.enhSlots??0)-1))}>−</button>
+                        <span className="small muted">{it.enhSlots??0}/3</span>
+                        <button className="btn btn-ghost" style={{padding:'1px 5px',fontSize:10}} onClick={()=>setItemField(it.id,'enhSlots',Math.min(3,(it.enhSlots??0)+1))}>+</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -868,7 +892,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
               <div className="row">
                 {/* Ritratto — per tutti i combattenti */}
                 <div style={{width:40,height:40,flexShrink:0,marginRight:4}}>
-                  <ImageSlot slotId={k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):'combat-'+k.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={k.name.slice(0,2).toUpperCase()} alt={k.name} />
+                  <ImageSlot slotId={k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):k.id.startsWith('comp-')?'companion-'+k.id.replace('comp-',''):'combat-'+k.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={k.name.slice(0,2).toUpperCase()} alt={k.name} />
                 </div>
                 <div className="init-circle" title="Iniziativa">
                   {s.dmMode ? (
@@ -990,8 +1014,8 @@ function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
         {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessuna voce.</div>}
         {filtered.map(l=>{
           const isCulti = l.category === 'culti';
-          const imgW = isCulti ? 80 : 46;
-          const imgH = isCulti ? 56 : 46;
+          const imgW = isCulti ? 56 : 46;
+          const imgH = isCulti ? 80 : 46;
           return (
           <div key={l.id} className="card">
             <div className="row" style={{alignItems:'flex-start'}}>
