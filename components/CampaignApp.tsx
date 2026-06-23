@@ -341,35 +341,96 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
 function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updScen:(fn:(sc:any)=>any)=>void; sc:any }) {
   const sub = s.questSubTab || 'main';
   const quests = (sc?.quests||[]).filter((q:any)=>q.type===sub);
+  // Visibilità: in PG mode nascondi quest non rivelate E scenari nascosti
   const visible = s.dmMode ? quests : quests.filter((q:any)=>q.revealed);
+  const visibleScenarios = s.dmMode ? s.scenarios : s.scenarios.filter((sc2:any)=>sc2.revealed!==false);
   const [draft, setDraft] = useState('');
+  const [newScenName, setNewScenName] = useState('');
+
+  // CRUD scenari
+  const addScenario = () => {
+    if (!newScenName.trim()) return;
+    const id = uid('sc');
+    update(prev => ({
+      scenarios: [...prev.scenarios, {id, name:newScenName.trim(), status:'futuro' as const, quests:[], revealed:true} as any],
+      activeScenario: id,
+    }));
+    setNewScenName('');
+  };
+  const delScenario = (id:string) => {
+    if (!confirm('Eliminare questo scenario e tutte le sue quest?')) return;
+    update(prev => ({
+      scenarios: prev.scenarios.filter(sc2=>sc2.id!==id),
+      activeScenario: prev.scenarios.find(sc2=>sc2.id!==id)?.id || '',
+    }));
+  };
+  const toggleScenReveal = (id:string) => {
+    update(prev => ({scenarios: prev.scenarios.map(sc2=>sc2.id===id?{...sc2,revealed:(sc2 as any).revealed===false?true:false} as any:sc2)}));
+  };
+  const moveScen = (id:string, dir:-1|1) => {
+    const idx = s.scenarios.findIndex(sc2=>sc2.id===id);
+    update(prev => ({scenarios: moveInArray(prev.scenarios, idx, dir)}));
+  };
 
   return (
     <div>
+      {/* === Lista scenari con CRUD === */}
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Scenari</div>
-        <div className="row" style={{flexWrap:'wrap',gap:6,marginBottom:10}}>
-          {s.scenarios.map(sc2 => (
-            <button key={sc2.id} className={'btn'+(sc2.id===s.activeScenario?' btn-primary':'')} onClick={()=>update({activeScenario:sc2.id})}>{sc2.name}</button>
-          ))}
-        </div>
+        {visibleScenarios.map(sc2 => (
+          <div key={sc2.id} className="row" style={{gap:4,marginBottom:4}}>
+            <button className={'btn grow'+(sc2.id===s.activeScenario?' btn-primary':'')}
+              style={{textAlign:'left'}} onClick={()=>update({activeScenario:sc2.id})}>
+              {sc2.name}
+              {s.dmMode && (sc2 as any).revealed===false && <span className="dm-badge" style={{marginLeft:6}}>NASCOSTO</span>}
+            </button>
+            <div className={'pill scen-'+sc2.status} style={{padding:'3px 8px',fontSize:8,flexShrink:0}}>{sc2.status}</div>
+            {s.dmMode && (
+              <>
+                <ReorderBtns onUp={()=>moveScen(sc2.id,-1)} onDown={()=>moveScen(sc2.id,1)} />
+                <button className="btn btn-ghost" style={{padding:'2px 5px',fontSize:9}}
+                  onClick={()=>toggleScenReveal(sc2.id)} title={(sc2 as any).revealed===false?'Mostra':'Nascondi'}>
+                  {(sc2 as any).revealed===false?'◯':'◉'}
+                </button>
+                <button className="btn btn-danger btn-ghost" style={{padding:'2px 5px',fontSize:9}}
+                  onClick={()=>delScenario(sc2.id)}>&times;</button>
+              </>
+            )}
+          </div>
+        ))}
+        {s.dmMode && (
+          <div className="row" style={{gap:6,marginTop:8}}>
+            <input className="grow" placeholder="Nuovo scenario…" value={newScenName} onChange={e=>setNewScenName(e.target.value)}
+              onKeyDown={e=>{if(e.key==='Enter')addScenario();}} />
+            <button className="btn btn-primary" onClick={addScenario}>+</button>
+          </div>
+        )}
       </div>
+
+      {/* === Scenario attivo === */}
+      {sc && (
       <div className="frame">
         <div className="row" style={{marginBottom:8}}>
           {s.dmMode ? (
-            <input value={sc?.name||''} onChange={e=>updScen(x=>({...x,name:e.target.value}))}
+            <input value={sc.name||''} onChange={e=>updScen(x=>({...x,name:e.target.value}))}
               className="grow" style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:15,color:'var(--gold)',background:'transparent',border:'1px solid var(--border)',padding:'4px 10px'}} />
           ) : (
-            <div className="h2 grow">{sc?.name}</div>
+            <div className="h2 grow">{sc.name}</div>
           )}
-          <div className={'pill scen-'+(sc?.status||'futuro')}>{sc?.status}</div>
+          <div className={'pill scen-'+(sc.status||'futuro')}>{sc.status}</div>
         </div>
         {s.dmMode && (
-          <div className="row" style={{gap:6,marginBottom:10}}>
-            {(['futuro','corso','concluso'] as const).map(st => (
-              <button key={st} className={'btn'+(sc?.status===st?' btn-primary':'')} onClick={()=>updScen(x=>({...x,status:st}))}>{st}</button>
-            ))}
-          </div>
+          <>
+            <div className="row" style={{gap:6,marginBottom:6}}>
+              {(['futuro','corso','concluso'] as const).map(st => (
+                <button key={st} className={'btn'+(sc.status===st?' btn-primary':'')} onClick={()=>updScen(x=>({...x,status:st}))}>{st}</button>
+              ))}
+            </div>
+            {/* Note DM — visibili solo in DM mode */}
+            <textarea value={sc.dmNotes||''} placeholder="Note DM (non visibili ai giocatori)…"
+              onChange={e=>updScen(x=>({...x,dmNotes:e.target.value}))}
+              style={{fontSize:13,padding:'6px 8px',minHeight:36,marginBottom:8,borderColor:'var(--gold)',borderStyle:'dashed'}} />
+          </>
         )}
         <div className="row" style={{gap:6,marginBottom:10}}>
           <button className={'btn'+(sub==='main'?' btn-primary':'')} onClick={()=>update({questSubTab:'main'})}>Principali</button>
@@ -391,16 +452,27 @@ function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updS
                 ) : (
                   <div style={{fontWeight:500,textDecoration:q.done?'line-through':'none'}}>{q.title}</div>
                 )}
+                <div className="row" style={{gap:4,marginTop:3,flexWrap:'wrap'}}>
                   {s.dmMode&&!q.revealed && <span className="dm-badge">SEGRETA</span>}
-                {q.desc && !s.dmMode && <div className="small muted" style={{marginTop:3}}>{q.desc}</div>}
-                {s.dmMode && <textarea value={q.desc||''} placeholder="Descrizione…" style={{marginTop:4,fontSize:13,padding:'6px 8px',minHeight:36}}
+                  {q.longTerm && <span className="pill" style={{padding:'2px 7px',fontSize:8,color:'var(--blue)',borderColor:'var(--blue)'}}>LUNGO TERMINE</span>}
+                </div>
+                {/* Descrizione giocatori */}
+                {q.desc && !s.dmMode && <div className="small muted" style={{marginTop:3,fontStyle:'italic'}}>{q.desc}</div>}
+                {s.dmMode && <textarea value={q.desc||''} placeholder="Descrizione (visibile ai giocatori)…" style={{marginTop:4,fontSize:13,padding:'6px 8px',minHeight:36}}
                   onChange={e=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,desc:e.target.value}:qq)}))} />}
+                {/* Note DM sulla quest */}
+                {s.dmMode && <textarea value={q.dmNote||''} placeholder="Note DM (non visibili ai giocatori)…"
+                  style={{marginTop:3,fontSize:12,padding:'5px 8px',minHeight:30,borderColor:'var(--gold)',borderStyle:'dashed'}}
+                  onChange={e=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,dmNote:e.target.value}:qq)}))} />}
               </div>
               {s.dmMode && (
-                <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'center'}}>
-                  <button className="btn btn-ghost" style={{padding:'3px 7px',fontSize:9}}
+                <div style={{display:'flex',flexDirection:'column',gap:3,alignItems:'center'}}>
+                  <button className="btn btn-ghost" style={{padding:'2px 6px',fontSize:9}}
                     onClick={()=>{const wasRevealed=(sc?.quests||[]).find((qq:any)=>qq.id===q.id)?.revealed;if(!wasRevealed)sfxReveal();updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,revealed:!qq.revealed}:qq)}));}}>{q.revealed?'◉':'◯'}</button>
-                  <button className="btn btn-danger btn-ghost" style={{padding:'3px 7px',fontSize:9}}
+                  <button className={'btn btn-ghost'} style={{padding:'2px 6px',fontSize:8,color:q.longTerm?'var(--blue)':'var(--gray-purple-deep)'}}
+                    onClick={()=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,longTerm:!qq.longTerm}:qq)}))}
+                    title="Lungo termine">⟳</button>
+                  <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9}}
                     onClick={()=>updScen(x=>({...x,quests:x.quests.filter((qq:any)=>qq.id!==q.id)}))}>&times;</button>
                 </div>
               )}
@@ -414,11 +486,12 @@ function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updS
         {s.dmMode && (
           <div className="row" style={{gap:6,marginTop:10}}>
             <input className="grow" placeholder="Nuova quest…" value={draft} onChange={e=>setDraft(e.target.value)}
-              onKeyDown={e=>{if(e.key==='Enter'&&draft.trim()){updScen(x=>({...x,quests:[...x.quests,{id:uid('q'),type:sub,title:draft.trim(),desc:'',done:false,revealed:false}]}));setDraft('');}}} />
-            <button className="btn btn-primary" onClick={()=>{if(draft.trim()){updScen(x=>({...x,quests:[...x.quests,{id:uid('q'),type:sub,title:draft.trim(),desc:'',done:false,revealed:false}]}));setDraft('');}}}>+</button>
+              onKeyDown={e=>{if(e.key==='Enter'&&draft.trim()){updScen(x=>({...x,quests:[...x.quests,{id:uid('q'),type:sub,title:draft.trim(),desc:'',dmNote:'',done:false,revealed:false,longTerm:false}]}));setDraft('');}}} />
+            <button className="btn btn-primary" onClick={()=>{if(draft.trim()){updScen(x=>({...x,quests:[...x.quests,{id:uid('q'),type:sub,title:draft.trim(),desc:'',dmNote:'',done:false,revealed:false,longTerm:false}]}));setDraft('');}}}>+</button>
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }
