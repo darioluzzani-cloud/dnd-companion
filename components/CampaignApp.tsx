@@ -995,14 +995,13 @@ function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
           return (
           <div key={l.id} className="card">
             <div className="row" style={{alignItems:'flex-start'}}>
-              <div style={{width:imgW,height:imgH,flexShrink:0,cursor:'pointer'}}
+              <div style={{width:imgW,height:imgH,flexShrink:0,cursor:'pointer',overflow:'hidden',borderRadius:isCulti?6:24}}
                 onClick={()=>{
-                  // Costruisci URL immagine per l'overlay
                   const imgEl = document.querySelector(`[data-slot="lore-${l.id}"] img`) as HTMLImageElement;
                   if(imgEl?.src) setEnlargedImg(imgEl.src);
                 }}>
-                <div data-slot={'lore-'+l.id}>
-                  <ImageSlot slotId={'lore-'+l.id} campaignId={campaignId} shape={isCulti?'rounded':'circle'} dmMode={s.dmMode} placeholder=" " alt={l.name} />
+                <div data-slot={'lore-'+l.id} style={{width:imgW,height:imgH}}>
+                  <ImageSlot slotId={'lore-'+l.id} campaignId={campaignId} shape={isCulti?'rect':'circle'} width={imgW} height={imgH} dmMode={s.dmMode} placeholder=" " alt={l.name} />
                 </div>
               </div>
               <div className="grow" style={{marginLeft:10,cursor:'pointer'}} onClick={()=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,expanded:!ll.expanded}:ll)}))}>
