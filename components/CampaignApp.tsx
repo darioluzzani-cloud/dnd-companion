@@ -218,20 +218,6 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
             </div>
           </div>
         </div>
-        {/* Oggetti equipaggiati */}
-        {(() => {
-          const equipped = (p.inventory||[]).filter((i:any)=>i.equipped);
-          return equipped.length > 0 ? (
-            <div className="row" style={{gap:6,marginTop:8,flexWrap:'wrap'}}>
-              {equipped.map((it:any) => (
-                <div key={it.id} className="pill" style={{padding:'3px 10px',fontSize:10,gap:4,color:p.color||'var(--gold)',borderColor:(p.color||'var(--gold)')+'66'}}>
-                  <span>⚔</span> {it.name}{it.qty>1?' ×'+it.qty:''}
-                </div>
-              ))}
-            </div>
-          ) : null;
-        })()}
-
         {/* Companion */}
         {((p as any).companion || s.dmMode) && (
           <div className="card" style={{marginTop:10,padding:10}}>
@@ -296,7 +282,7 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
           const mod = (v:number) => { const m=Math.floor((v-10)/2); return m>=0?'+'+m:''+m; };
           const setAb = (k:string,v:number) => setP('abilities' as any, {...abs, [k]:v});
           return (
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginTop:12}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginTop:10}}>
               {stats.map(s => {
                 const val = abs[s.k] ?? 10;
                 const m = Math.floor((val-10)/2);
@@ -307,22 +293,18 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
                     background:'linear-gradient(180deg, #1a1230 0%, var(--bg-deep) 100%)',
                     border:'1px solid var(--border)',
                     borderTop:`2px solid ${p.color||'var(--gold)'}44`,
-                    borderRadius:10,
-                    padding:'8px 4px 10px',
-                    position:'relative',
+                    borderRadius:8,
+                    padding:'5px 3px 7px',
                   }}>
-                    {/* Label + icona */}
-                    <div style={{fontFamily:'var(--font-display)',fontSize:9,letterSpacing:'2px',color:'var(--gray-purple)',textTransform:'uppercase',marginBottom:2}}>
-                      <span style={{fontSize:11,marginRight:3}}>{s.icon}</span>{s.l}
+                    <div style={{fontFamily:'var(--font-display)',fontSize:8,letterSpacing:'1.5px',color:'var(--gray-purple)',textTransform:'uppercase'}}>
+                      <span style={{fontSize:9,marginRight:2}}>{s.icon}</span>{s.l}
                     </div>
-                    {/* Modificatore — grande e centrale */}
-                    <div style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:700,color:modColor,lineHeight:1.1,margin:'2px 0'}}>
+                    <div style={{fontFamily:'var(--font-display)',fontSize:18,fontWeight:700,color:modColor,lineHeight:1.1,margin:'1px 0'}}>
                       {mod(val)}
                     </div>
-                    {/* Punteggio in cerchietto */}
-                    <div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:30,height:30,borderRadius:'50%',border:`1px solid ${p.color||'var(--gold)'}55`,background:'var(--bg-deep)',marginTop:2}}>
+                    <div style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:26,height:26,borderRadius:'50%',border:`1px solid ${p.color||'var(--gold)'}55`,background:'var(--bg-deep)',marginTop:1}}>
                       <input type="number" value={val} onChange={e=>setAb(s.k,parseInt(e.target.value)||0)}
-                        style={{width:26,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
+                        style={{width:22,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:11,fontWeight:600,color:'var(--text)',padding:0}} />
                     </div>
                   </div>
                 );
@@ -657,16 +639,36 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
 function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; update:U; updPlayer:any; p:any; campaignId:string|null }) {
   const [draftName, setDraftName] = useState('');
   const [draftType, setDraftType] = useState('equipaggiamento');
+  const [filter, setFilter] = useState('tutti');
+  const setItemField = (iid:string, f:string, v:any) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,[f]:v}:i)}));
+  const toggleExpand = (iid:string) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,expanded:!i.expanded}:i)}));
+
+  const allItems = [...(p.inventory||[])].sort((a:any,b:any)=>(b.equipped?1:0)-(a.equipped?1:0));
+  const filtered = filter==='tutti' ? allItems : allItems.filter((it:any)=>it.type===filter);
+
   return (
     <div>
       <PlayerSelector s={s} update={update} p={p} campaignId={campaignId} />
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Inventario</div>
-        {(p.inventory||[]).length===0 && <div className="card muted small" style={{textAlign:'center'}}>Inventario vuoto.</div>}
-        {[...(p.inventory||[])].sort((a:any,b:any)=>(b.equipped?1:0)-(a.equipped?1:0)).map((it:any) => (
+        {/* Filtri per tipo */}
+        <div className="row" style={{gap:5,flexWrap:'wrap',marginBottom:10}}>
+          {['tutti',...ITEM_TYPES].map(t => (
+            <button key={t} className="pill" style={{cursor:'pointer',padding:'4px 10px',fontSize:9,
+              background:filter===t?'var(--bg-active)':'transparent',
+              borderColor:filter===t?'var(--gold)':'var(--border)',
+              color:filter===t?'var(--gold)':'var(--gray-purple-deep)'}}
+              onClick={()=>setFilter(t)}>
+              {t.charAt(0).toUpperCase()+t.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun oggetto.</div>}
+        {filtered.map((it:any) => (
           <div key={it.id} className="card" style={{borderLeft: it.equipped ? '3px solid '+(p.color||'var(--gold)') : '3px solid transparent'}}>
             <div className="row" style={{alignItems:'flex-start'}}>
-              <button onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,equipped:!i.equipped}:i)}))}
+              <button onClick={()=>setItemField(it.id,'equipped',!it.equipped)}
                 title={it.equipped?'Rimuovi equipaggiamento':'Equipaggia'}
                 style={{width:28,height:28,borderRadius:4,border:'1px solid '+(it.equipped?p.color||'var(--gold)':'var(--border)'),background:it.equipped?(p.color||'var(--gold)')+'22':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:6,marginRight:6,fontSize:14,color:it.equipped?p.color||'var(--gold)':'var(--gray-purple-deep)'}}>
                 {it.equipped ? '⚔' : '○'}
@@ -674,28 +676,21 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
               <div style={{width:42,height:42,flexShrink:0}}>
                 <ImageSlot slotId={'item-'+it.id} campaignId={campaignId} shape="rounded" dmMode={s.dmMode} placeholder=" " alt={it.name} />
               </div>
-              <div className="grow" style={{marginLeft:10}}>
+              <div className="grow" style={{marginLeft:10,cursor:'pointer'}} onClick={()=>toggleExpand(it.id)}>
                 {s.dmMode ? (
-                  <>
-                    <input value={it.name} onChange={e=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,name:e.target.value}:i)}))}
-                      style={{fontWeight:500,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3,fontSize:14}} />
-                    <select value={it.type||'altro'} onChange={e=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,type:e.target.value}:i)}))} style={{fontSize:12,padding:'3px 6px'}}>
-                      {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </>
+                  <input value={it.name} onClick={e=>e.stopPropagation()} onChange={e=>setItemField(it.id,'name',e.target.value)}
+                    style={{fontWeight:500,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3,fontSize:14}} />
                 ) : (
-                  <>
-                    <div style={{fontWeight:500}}>{it.name}</div>
-                    <div className="small muted">{it.type}</div>
-                  </>
+                  <div style={{fontWeight:500}}>{it.name}</div>
                 )}
+                <div className="small muted">{it.type}</div>
               </div>
               <div className="row" style={{gap:3,flexShrink:0}}>
-                <button className="btn" style={{padding:'2px 6px',fontSize:11}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:Math.max(0,(i.qty||0)-1)}:i)}))}>−</button>
+                <button className="btn" style={{padding:'2px 6px',fontSize:11}} onClick={()=>setItemField(it.id,'qty',Math.max(0,(it.qty||0)-1))}>−</button>
                 <input type="number" value={it.qty||0}
-                  onChange={e=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:Math.max(0,parseInt(e.target.value)||0)}:i)}))}
+                  onChange={e=>setItemField(it.id,'qty',Math.max(0,parseInt(e.target.value)||0))}
                   style={{width:44,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:'var(--text)',padding:'2px 0',borderRadius:4}} />
-                <button className="btn" style={{padding:'2px 6px',fontSize:11}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===it.id?{...i,qty:(i.qty||0)+1}:i)}))}>+</button>
+                <button className="btn" style={{padding:'2px 6px',fontSize:11}} onClick={()=>setItemField(it.id,'qty',(it.qty||0)+1)}>+</button>
               </div>
               {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.filter((i:any)=>i.id!==it.id)}))}>&times;</button>}
               <ReorderBtns
@@ -703,14 +698,29 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                 onDown={()=>{const idx=(p.inventory||[]).findIndex((i:any)=>i.id===it.id);updPlayer((pl:any)=>({...pl,inventory:moveInArray(pl.inventory,idx,1)}));}}
               />
             </div>
+            {/* Descrizione espandibile */}
+            {it.expanded && (
+              <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+                {s.dmMode ? (
+                  <>
+                    <select value={it.type||'altro'} onChange={e=>setItemField(it.id,'type',e.target.value)} style={{fontSize:12,padding:'3px 6px',marginBottom:4}}>
+                      {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <textarea value={it.desc||''} placeholder="Descrizione oggetto…" onChange={e=>setItemField(it.id,'desc',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:40}} />
+                  </>
+                ) : (
+                  <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{it.desc||<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
+                )}
+              </div>
+            )}
           </div>
         ))}
         {s.dmMode && (
           <div style={{marginTop:10}}>
             <div className="row" style={{gap:6,marginBottom:6}}>
               <input className="grow" placeholder="Nuovo oggetto…" value={draftName} onChange={e=>setDraftName(e.target.value)}
-                onKeyDown={e=>{if(e.key==='Enter'&&draftName.trim()){updPlayer((pl:any)=>({...pl,inventory:[...pl.inventory,{id:uid('i'),name:draftName.trim(),qty:1,type:draftType}]}));setDraftName('');}}} />
-              <button className="btn btn-primary" onClick={()=>{if(draftName.trim()){updPlayer((pl:any)=>({...pl,inventory:[...pl.inventory,{id:uid('i'),name:draftName.trim(),qty:1,type:draftType}]}));setDraftName('');}}}>+</button>
+                onKeyDown={e=>{if(e.key==='Enter'&&draftName.trim()){updPlayer((pl:any)=>({...pl,inventory:[...pl.inventory,{id:uid('i'),name:draftName.trim(),qty:1,type:draftType,desc:'',expanded:false,equipped:false}]}));setDraftName('');}}} />
+              <button className="btn btn-primary" onClick={()=>{if(draftName.trim()){updPlayer((pl:any)=>({...pl,inventory:[...pl.inventory,{id:uid('i'),name:draftName.trim(),qty:1,type:draftType,desc:'',expanded:false,equipped:false}]}));setDraftName('');}}}>+</button>
             </div>
             <select value={draftType} onChange={e=>setDraftType(e.target.value)}>
               {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
