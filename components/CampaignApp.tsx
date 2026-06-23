@@ -17,7 +17,7 @@ const TABS = [
   {id:'combat',label:'Battaglia',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 18L18 6M6 6l12 12"/></svg>},
 ];
 const LORE_CATS = ['oggetti','luoghi','culti','tutti'] as const;
-const ITEM_TYPES = ['equipaggiamento','arma','armatura','magico','consumabile','tesoro','quest','altro'];
+const ITEM_TYPES = ['equipaggiamento','arma','armatura','magico','unico','consumabile','tesoro','quest','altro'];
 const ITEM_TEMPLATES = [
   {name:'Pozione di cura',type:'consumabile',effect:'Recupera 2d4+2 PF',desc:'Liquido rosso che luccica quando viene agitato.'},
   {name:'Pozione di cura superiore',type:'consumabile',effect:'Recupera 4d4+4 PF',desc:'Liquido rosso brillante, più denso della versione base.'},
@@ -320,11 +320,12 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
                     borderTop:`2px solid ${p.color||'var(--gold)'}44`,
                     borderRadius:6,
                     padding:'4px 2px 5px',
+                    display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
                   }}>
-                    <div style={{fontFamily:'var(--font-display)',fontSize:7,letterSpacing:'1px',color:'var(--gray-purple)',textTransform:'uppercase',marginBottom:1}}>{s.l}</div>
+                    <div style={{fontFamily:'var(--font-display)',fontSize:7,letterSpacing:'1px',color:'var(--gray-purple)',textTransform:'uppercase',marginBottom:1,width:'100%',textAlign:'center'}}>{s.l}</div>
                     <input type="number" value={val} onChange={e=>setAb(s.k,parseInt(e.target.value)||0)}
-                      style={{width:'100%',textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:15,fontWeight:600,color:'var(--text)',padding:0,lineHeight:1.1}} />
-                    <div style={{fontFamily:'var(--font-display)',fontSize:11,fontWeight:700,color:modColor,marginTop:1}}>{mod(val)}</div>
+                      style={{width:'100%',maxWidth:40,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:15,fontWeight:600,color:'var(--text)',padding:0,lineHeight:1.1,display:'block',margin:'0 auto'}} />
+                    <div style={{fontFamily:'var(--font-display)',fontSize:11,fontWeight:700,color:modColor,marginTop:1,width:'100%',textAlign:'center'}}>{mod(val)}</div>
                   </div>
                 );
               })}
@@ -685,7 +686,12 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
 
         {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun oggetto.</div>}
         {filtered.map((it:any) => (
-          <div key={it.id} className="card" style={{borderLeft: it.equipped ? '3px solid '+(p.color||'var(--gold)') : '3px solid transparent'}}>
+          <div key={it.id} className="card" style={{
+            borderLeft: it.equipped ? '3px solid '+(p.color||'var(--gold)') : '3px solid transparent',
+            background: it.type==='magico' ? 'linear-gradient(90deg, rgba(60,100,180,.18) 0%, var(--bg-input) 40%)' :
+                        it.type==='unico'  ? 'linear-gradient(90deg, rgba(140,60,160,.18) 0%, var(--bg-input) 40%)' :
+                        undefined
+          }}>
             <div className="row" style={{alignItems:'flex-start'}}>
               <button onClick={()=>setItemField(it.id,'equipped',!it.equipped)}
                 title={it.equipped?'Rimuovi equipaggiamento':'Equipaggia'}
@@ -735,7 +741,7 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                   </>
                 )}
                 {/* Punti Usura — solo per arma e equipaggiamento */}
-                {(it.type==='arma'||it.type==='armatura'||it.type==='magico') && (
+                {(it.type==='arma'||it.type==='armatura'||it.type==='magico'||it.type==='unico') && (
                   <div className="row" style={{gap:6,marginTop:6}}>
                     <span className="label" style={{fontSize:9}}>PU</span>
                     <input type="number" value={it.pu??0} onChange={e=>setItemField(it.id,'pu',Math.max(0,parseInt(e.target.value)||0))}
@@ -744,7 +750,7 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                   </div>
                 )}
                 {/* Cerchi potenziamento — arma, armatura, magico */}
-                {(it.type==='arma'||it.type==='armatura'||it.type==='magico') && (
+                {(it.type==='arma'||it.type==='armatura'||it.type==='magico'||it.type==='unico') && (
                   <div className="row" style={{gap:8,marginTop:6}}>
                     <span className="label" style={{fontSize:9}}>Potenziamenti</span>
                     {[0,1,2].map(i => {
@@ -842,7 +848,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
   const nextTurn=()=>{let n=idx+1,r=s.round;if(n>=sorted.length){n=0;r++;}update({turnIndex:n,round:r});};
   const prevTurn=()=>{let n=idx-1,r=s.round;if(n<0){n=sorted.length-1;r=Math.max(1,r-1);}update({turnIndex:n,round:r});};
 
-  // Importa i PG come combattenti (+ companion se presente)
+  // Importa i PG come combattenti (companion mostrato dentro la card del padrone)
   const addPlayers = () => {
     const existing = new Set((s.combatants||[]).map(c=>c.id));
     const newCombatants: any[] = [];
@@ -850,12 +856,6 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
       if (!existing.has('pc-'+p.id)) {
         newCombatants.push({
           id:'pc-'+p.id, name:p.name, init:p.init||10, hp:p.hp??p.maxHp??30, maxHp:p.maxHp??30, side:'ally' as const, conditions:[]
-        });
-      }
-      const comp = (p as any).companion;
-      if (comp && comp.name && !existing.has('comp-'+p.id)) {
-        newCombatants.push({
-          id:'comp-'+p.id, name:comp.name, init:(p.init||10)-1, hp:comp.hp??comp.maxHp??10, maxHp:comp.maxHp??10, side:'ally' as const, conditions:[]
         });
       }
     });
@@ -931,6 +931,38 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
                     <button className="hp-btn hp-btn-pos" onClick={()=>changeHp(k.id,5)}>+5</button>
                   </div>
                   </>}
+                  {/* Companion inline — nel turno del padrone */}
+                  {k.id.startsWith('pc-') && (() => {
+                    const owner = s.players.find(pl=>pl.id===k.id.replace('pc-',''));
+                    const comp = owner && (owner as any).companion;
+                    if (!comp || !comp.name) return null;
+                    const compPct = comp.maxHp > 0 ? Math.round((comp.hp/comp.maxHp)*100) : 0;
+                    return (
+                      <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+                        <div className="row" style={{gap:6}}>
+                          <div style={{width:28,height:28,flexShrink:0}}>
+                            <ImageSlot slotId={'companion-'+k.id.replace('pc-','')} campaignId={campaignId} shape="circle" dmMode={false} placeholder="🐾" alt={comp.name} />
+                          </div>
+                          <div className="grow">
+                            <div style={{fontFamily:'var(--font-display)',fontSize:12,fontWeight:600,color:'var(--green)'}}>{comp.name}</div>
+                            <div className="row" style={{gap:4}}>
+                              <span style={{fontSize:11,color:'var(--red)'}}>♥</span>
+                              <span style={{fontFamily:'var(--font-display)',fontSize:12}}>{comp.hp}/{comp.maxHp}</span>
+                              <div className="hp-bar" style={{flex:1,height:4}}><div className="hp-fill" style={{width:compPct+'%',background:`hsl(${Math.round(compPct*1.2)},65%,55%)`}} /></div>
+                            </div>
+                          </div>
+                          <div className="row" style={{gap:2}}>
+                            <button className="hp-btn hp-btn-neg" style={{padding:'3px 6px',fontSize:10}} onClick={()=>{
+                              update(prev=>({players:prev.players.map(p=>p.id===k.id.replace('pc-','')?{...p,companion:{...(p as any).companion,hp:Math.max(0,((p as any).companion?.hp??0)-1)}} as any:p)}));
+                            }}>-1</button>
+                            <button className="hp-btn hp-btn-pos" style={{padding:'3px 6px',fontSize:10}} onClick={()=>{
+                              update(prev=>({players:prev.players.map(p=>p.id===k.id.replace('pc-','')?{...p,companion:{...(p as any).companion,hp:Math.min((p as any).companion?.maxHp??0,((p as any).companion?.hp??0)+1)}} as any:p)}));
+                            }}>+1</button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {/* Condizioni */}
                   {(k.conditions||[]).length>0 && (
                     <div className="row" style={{gap:4,marginTop:4,flexWrap:'wrap'}}>
