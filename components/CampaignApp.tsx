@@ -229,17 +229,17 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
               <div className="small muted">{p.cls}{(p as any).subclass ? ' — '+(p as any).subclass : ''}</div>
             )}
             {/* HP — editabile da chiunque */}
-            <div className="row" style={{gap:8,marginTop:6}}>
-              <div className="pill" style={{padding:'4px 10px',gap:4}}>
+            <div className="row" style={{gap:6,marginTop:6,flexWrap:'wrap',alignItems:'center'}}>
+              <div className="pill" style={{padding:'4px 8px',gap:4,flexShrink:0}}>
                 <span style={{color:'var(--red)'}}>♥</span>
                 <input type="number" value={p.hp??p.maxHp??0} onChange={e=>{const v=parseInt(e.target.value)||0;update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,hp:v}:pl),combatants:prev.combatants.map(c=>c.id==='pc-'+p.id?{...c,hp:v}:c)}));}}
-                  style={{width:32,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:'var(--text)',padding:0}} />
+                  style={{width:30,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
                 <span className="muted">/</span>
                 <input type="number" value={p.maxHp??0} onChange={e=>{const v=parseInt(e.target.value)||0;update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,maxHp:v,hp:Math.min(pl.hp??0,v)}:pl),combatants:prev.combatants.map(c=>c.id==='pc-'+p.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
-                  style={{width:32,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:'var(--text)',padding:0}} />
-                <span className="small muted">PF</span>
+                  style={{width:30,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
+                <span className="small muted" style={{fontSize:11}}>PF</span>
               </div>
-              {p.species && !editing && <div className="pill" style={{padding:'4px 10px',color:'var(--purple-light)'}}>◆ {p.species}</div>}
+              {p.species && !editing && <div className="pill" style={{padding:'4px 8px',color:'var(--purple-light)',flexShrink:0,fontSize:11}}>◆ {p.species}</div>}
             </div>
           </div>
         </div>
@@ -516,7 +516,8 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
   const slots = mergedSlots;
   const used = p.slotsUsed || {};
   const byLevel: Record<number, any[]> = {};
-  (p.spells||[]).forEach((sp:any) => { (byLevel[sp.level]=byLevel[sp.level]||[]).push(sp); });
+  const visibleSpells = s.dmMode ? (p.spells||[]) : (p.spells||[]).filter((sp:any) => sp.revealed !== false);
+  visibleSpells.forEach((sp:any) => { (byLevel[sp.level]=byLevel[sp.level]||[]).push(sp); });
   const [draftName, setDraftName] = useState('');
   const [draftLv, setDraftLv] = useState('1');
   const slotLabel = (p as any).slotLabel || 'Slot';
@@ -612,7 +613,13 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
                     onUp={()=>updPlayer((pl:any)=>({...pl,spells:moveInArray(pl.spells,globalIdx,-1)}))}
                     onDown={()=>updPlayer((pl:any)=>({...pl,spells:moveInArray(pl.spells,globalIdx,1)}))}
                   />
+                  {s.dmMode && (
+                    <button className="btn btn-ghost" style={{padding:'2px 6px',fontSize:9,flexShrink:0}}
+                      onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,revealed:sp.revealed===false?true:false}:ss)}))}
+                      title={sp.revealed===false?'Rivela':'Nascondi'}>{sp.revealed===false?'◯':'◉'}</button>
+                  )}
                 </div>
+                {s.dmMode && sp.revealed===false && <div className="dm-badge" style={{marginTop:4}}>SEGRETA</div>}
                 {sp.expanded && (
                   <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
                     <div className="row" style={{gap:6,marginBottom:6}}>
@@ -664,7 +671,8 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
   const toggleExpand = (iid:string) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,expanded:!i.expanded}:i)}));
 
   const allItems = [...(p.inventory||[])].sort((a:any,b:any)=>(b.equipped?1:0)-(a.equipped?1:0));
-  const filtered = filter==='tutti' ? allItems : allItems.filter((it:any)=>it.type===filter);
+  const visibleItems = s.dmMode ? allItems : allItems.filter((it:any)=>it.revealed!==false);
+  const filtered = filter==='tutti' ? visibleItems : visibleItems.filter((it:any)=>it.type===filter);
 
   return (
     <div>
@@ -688,8 +696,8 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
         {filtered.map((it:any) => (
           <div key={it.id} className="card" style={{
             borderLeft: it.equipped ? '3px solid '+(p.color||'var(--gold)') : '3px solid transparent',
-            background: it.type==='magico' ? 'linear-gradient(90deg, rgba(60,100,180,.18) 0%, var(--bg-input) 40%)' :
-                        it.type==='unico'  ? 'linear-gradient(90deg, rgba(140,60,160,.18) 0%, var(--bg-input) 40%)' :
+            background: it.type==='magico' ? 'linear-gradient(90deg, rgba(80,140,220,.22) 0%, var(--bg-input) 40%)' :
+                        it.type==='unico'  ? 'linear-gradient(90deg, rgba(180,50,90,.2) 0%, var(--bg-input) 40%)' :
                         undefined
           }}>
             <div className="row" style={{alignItems:'flex-start'}}>
@@ -718,6 +726,11 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                 <button className="btn" style={{padding:'2px 6px',fontSize:11}} onClick={()=>setItemField(it.id,'qty',(it.qty||0)+1)}>+</button>
               </div>
               {s.dmMode && <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9}} onClick={()=>updPlayer((pl:any)=>({...pl,inventory:pl.inventory.filter((i:any)=>i.id!==it.id)}))}>&times;</button>}
+              {s.dmMode && (
+                <button className="btn btn-ghost" style={{padding:'2px 6px',fontSize:9,flexShrink:0}}
+                  onClick={()=>setItemField(it.id,'revealed',it.revealed===false?true:false)}
+                  title={it.revealed===false?'Rivela':'Nascondi'}>{it.revealed===false?'◯':'◉'}</button>
+              )}
               <ReorderBtns
                 onUp={()=>{const idx=(p.inventory||[]).findIndex((i:any)=>i.id===it.id);updPlayer((pl:any)=>({...pl,inventory:moveInArray(pl.inventory,idx,-1)}));}}
                 onDown={()=>{const idx=(p.inventory||[]).findIndex((i:any)=>i.id===it.id);updPlayer((pl:any)=>({...pl,inventory:moveInArray(pl.inventory,idx,1)}));}}
@@ -808,6 +821,7 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
 // ─── TAB: COMBATTIMENTO ──────────────────────────────────────
 function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campaignId:string|null }) {
   const sorted = [...(s.combatants||[])].sort((a,b)=>(b.init||0)-(a.init||0));
+  const visibleCombatants = s.dmMode ? sorted : sorted.filter(k=>(k as any).revealed!==false);
   const idx = s.turnIndex||0;
   const current = sorted[idx % (sorted.length||1)];
   const [name,setName]=useState('');
@@ -883,9 +897,9 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
           <div className="label">Ordine di Iniziativa</div>
           {s.dmMode && <button className="btn" style={{fontSize:10}} onClick={addPlayers}>+ PG</button>}
         </div>
-        {sorted.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun combattente.</div>}
-        {sorted.map((k,i) => {
-          const isCurrent = i===(idx%sorted.length);
+        {visibleCombatants.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun combattente.</div>}
+        {visibleCombatants.map((k,i) => {
+          const isCurrent = sorted.indexOf(k)===(idx%sorted.length);
           const pct = Math.round(((k.hp||0)/(k.maxHp||1))*100);
           return (
             <div key={k.id} className={'card'+(isCurrent?' turn-indicator':'')}>
@@ -976,6 +990,9 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
                         return <button key={c.id} className="pill" style={{fontSize:7,padding:'2px 5px',cursor:'pointer',opacity:active?1:.4,color:c.color,borderColor:c.color}}
                           onClick={()=>update(prev=>({combatants:prev.combatants.map(x=>x.id===k.id?{...x,conditions:active?(x.conditions||[]).filter(cc=>cc!==c.id):[...(x.conditions||[]),c.id]}:x)}))}>{c.label}</button>;
                       })}
+                      <button className="btn btn-ghost" style={{padding:'2px 6px',fontSize:9}}
+                        onClick={()=>update(prev=>({combatants:prev.combatants.map(x=>x.id===k.id?{...x,revealed:(x as any).revealed===false?true:false} as any:x)}))}
+                        title={(k as any).revealed===false?'Rivela':'Nascondi'}>{(k as any).revealed===false?'◯':'◉'}</button>
                       <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9,marginLeft:'auto'}}
                         onClick={()=>{if(confirm('Rimuovere?'))update(prev=>({combatants:prev.combatants.filter(x=>x.id!==k.id)}));}}>&times;</button>
                     </div>
