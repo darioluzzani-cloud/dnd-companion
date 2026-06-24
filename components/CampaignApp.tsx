@@ -1,6 +1,7 @@
 'use client';
 import { useCampaignState } from '@/hooks/useCampaignState';
 import { ImageSlot } from '@/components/ImageSlot';
+import { supabase } from '@/lib/supabase';
 import { getLevelInfo } from '@/lib/dnd/xp-table';
 import { getSlotTotals, CasterType } from '@/lib/dnd/spell-slots';
 import { CONDITIONS } from '@/lib/dnd/conditions';
@@ -410,10 +411,10 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
                       const slotId='scenario-'+sc2.id;
                       const folder=campaignId;
                       try{
-                        const{data:ex}=await(window as any)._sb?.storage?.from?.('campaign-images')?.list?.(folder,{search:slotId})||{data:[]};
+                        const{data:ex}=await supabase.storage.from('campaign-images').list(folder,{search:slotId});
                         const rm=(ex||[]).filter((f:any)=>f.name.startsWith(slotId+'.')).map((f:any)=>`${folder}/${f.name}`);
-                        if(rm.length)await(window as any)._sb.storage.from('campaign-images').remove(rm);
-                        await(window as any)._sb.storage.from('campaign-images').upload(`${folder}/${slotId}.${ext}`,file,{upsert:true,contentType:file.type});
+                        if(rm.length) await supabase.storage.from('campaign-images').remove(rm);
+                        await supabase.storage.from('campaign-images').upload(`${folder}/${slotId}.${ext}`,file,{upsert:true,contentType:file.type});
                         window.location.reload();
                       }catch(err:any){alert('Errore: '+(err.message||err));}
                       e.target.value='';
