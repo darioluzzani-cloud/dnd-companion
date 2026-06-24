@@ -402,6 +402,23 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
               {s.dmMode && (
                 <div className="row" style={{gap:2}} onClick={e=>e.stopPropagation()}>
                   <ReorderBtns onUp={()=>moveScen(sc2.id,-1)} onDown={()=>moveScen(sc2.id,1)} />
+                  <label className="btn btn-ghost" style={{padding:'2px 5px',fontSize:9,cursor:'pointer'}} title="Immagine sfondo">
+                    📷
+                    <input type="file" accept="image/*" style={{display:'none'}} onChange={async(e)=>{
+                      const file=e.target.files?.[0]; if(!file||!campaignId)return;
+                      const ext=(file.name.split('.').pop()||'png').toLowerCase();
+                      const slotId='scenario-'+sc2.id;
+                      const folder=campaignId;
+                      try{
+                        const{data:ex}=await(window as any)._sb?.storage?.from?.('campaign-images')?.list?.(folder,{search:slotId})||{data:[]};
+                        const rm=(ex||[]).filter((f:any)=>f.name.startsWith(slotId+'.')).map((f:any)=>`${folder}/${f.name}`);
+                        if(rm.length)await(window as any)._sb.storage.from('campaign-images').remove(rm);
+                        await(window as any)._sb.storage.from('campaign-images').upload(`${folder}/${slotId}.${ext}`,file,{upsert:true,contentType:file.type});
+                        window.location.reload();
+                      }catch(err:any){alert('Errore: '+(err.message||err));}
+                      e.target.value='';
+                    }} />
+                  </label>
                   <button className="btn btn-ghost" style={{padding:'2px 5px',fontSize:9}}
                     onClick={()=>toggleScenReveal(sc2.id)} title={(sc2 as any).revealed===false?'Mostra':'Nascondi'}>
                     {(sc2 as any).revealed===false?'◯':'◉'}
