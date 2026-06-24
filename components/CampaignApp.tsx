@@ -133,7 +133,7 @@ export function CampaignApp({ slug }: { slug: string }) {
       </div>
 
       {/* === TAB CONTENT === */}
-      {s.tab === 'quests' && <QuestsTab s={s} update={update} updScen={updScen} sc={activeScen} />}
+      {s.tab === 'quests' && <QuestsTab s={s} update={update} updScen={updScen} sc={activeScen} campaignId={campaignId} />}
       {s.tab === 'characters' && <CharactersTab s={s} update={update} campaignId={campaignId} />}
       {s.tab === 'spells' && <SpellsTab s={s} update={update} updPlayer={updPlayer} p={activePlayer} campaignId={campaignId} />}
       {s.tab === 'inventory' && <InventoryTab s={s} update={update} updPlayer={updPlayer} p={activePlayer} campaignId={campaignId} />}
@@ -340,7 +340,7 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
 }
 
 // ─── TAB: QUEST ──────────────────────────────────────────────
-function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updScen:(fn:(sc:any)=>any)=>void; sc:any }) {
+function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; update:U; updScen:(fn:(sc:any)=>any)=>void; sc:any; campaignId:string|null }) {
   const sub = s.questSubTab || 'main';
   const quests = (sc?.quests||[]).filter((q:any)=>q.type===sub);
   // Visibilità: in PG mode nascondi quest non rivelate E scenari nascosti
@@ -380,24 +380,37 @@ function QuestsTab({ s, update, updScen, sc }: { s:CampaignState; update:U; updS
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Scenari</div>
         {visibleScenarios.map(sc2 => (
-          <div key={sc2.id} className="row" style={{gap:4,marginBottom:4}}>
-            <button className={'btn grow'+(sc2.id===s.activeScenario?' btn-primary':'')}
-              style={{textAlign:'left'}} onClick={()=>update({activeScenario:sc2.id})}>
-              {sc2.name}
-              {s.dmMode && (sc2 as any).revealed===false && <span className="dm-badge" style={{marginLeft:6}}>NASCOSTO</span>}
-            </button>
-            <div className={'pill scen-'+sc2.status} style={{padding:'3px 8px',fontSize:8,flexShrink:0}}>{sc2.status}</div>
-            {s.dmMode && (
-              <>
-                <ReorderBtns onUp={()=>moveScen(sc2.id,-1)} onDown={()=>moveScen(sc2.id,1)} />
-                <button className="btn btn-ghost" style={{padding:'2px 5px',fontSize:9}}
-                  onClick={()=>toggleScenReveal(sc2.id)} title={(sc2 as any).revealed===false?'Mostra':'Nascondi'}>
-                  {(sc2 as any).revealed===false?'◯':'◉'}
-                </button>
-                <button className="btn btn-danger btn-ghost" style={{padding:'2px 5px',fontSize:9}}
-                  onClick={()=>delScenario(sc2.id)}>&times;</button>
-              </>
-            )}
+          <div key={sc2.id} style={{position:'relative',overflow:'hidden',borderRadius:8,marginBottom:8,
+            border:sc2.id===s.activeScenario?'1px solid var(--gold)':'1px solid var(--border)',
+            cursor:'pointer',minHeight:72}}
+            onClick={()=>update({activeScenario:sc2.id})}>
+            {/* Immagine di sfondo */}
+            <div style={{position:'absolute',inset:0,zIndex:0}}>
+              <div data-slot={'scenario-'+sc2.id} style={{width:'100%',height:'100%'}}>
+                <ImageSlot slotId={'scenario-'+sc2.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={s.dmMode} placeholder="" alt={sc2.name} />
+              </div>
+            </div>
+            {/* Gradiente scuro per leggibilità */}
+            <div style={{position:'absolute',inset:0,zIndex:1,background:'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.7) 50%, rgba(11,8,20,.45) 100%)'}} />
+            {/* Contenuto sopra */}
+            <div style={{position:'relative',zIndex:2,padding:'14px 16px',display:'flex',alignItems:'center',gap:8}}>
+              <div className="grow">
+                <div style={{fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:sc2.id===s.activeScenario?'var(--gold)':'var(--text)',letterSpacing:'.5px'}}>{sc2.name}</div>
+                {s.dmMode && (sc2 as any).revealed===false && <span className="dm-badge" style={{marginTop:4}}>NASCOSTO</span>}
+              </div>
+              <div className={'pill scen-'+sc2.status} style={{padding:'3px 8px',fontSize:8,flexShrink:0,background:'rgba(11,8,20,.6)'}}>{sc2.status}</div>
+              {s.dmMode && (
+                <div className="row" style={{gap:2}} onClick={e=>e.stopPropagation()}>
+                  <ReorderBtns onUp={()=>moveScen(sc2.id,-1)} onDown={()=>moveScen(sc2.id,1)} />
+                  <button className="btn btn-ghost" style={{padding:'2px 5px',fontSize:9}}
+                    onClick={()=>toggleScenReveal(sc2.id)} title={(sc2 as any).revealed===false?'Mostra':'Nascondi'}>
+                    {(sc2 as any).revealed===false?'◯':'◉'}
+                  </button>
+                  <button className="btn btn-danger btn-ghost" style={{padding:'2px 5px',fontSize:9}}
+                    onClick={()=>delScenario(sc2.id)}>&times;</button>
+                </div>
+              )}
+            </div>
           </div>
         ))}
         {s.dmMode && (
