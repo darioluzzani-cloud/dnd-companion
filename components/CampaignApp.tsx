@@ -392,7 +392,7 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
               </div>
             </div>
             {/* Gradiente scuro per leggibilità */}
-            <div style={{position:'absolute',inset:0,zIndex:1,background:'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.1) 50%, rgba(11,8,20,.25) 100%)'}} />
+            <div style={{position:'absolute',inset:0,zIndex:1,background:'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.6) 50%, rgba(11,8,20,.1) 100%)'}} />
             {/* Contenuto sopra */}
             <div style={{position:'relative',zIndex:2,padding:'14px 16px',display:'flex',alignItems:'center',gap:8}}>
               <div className="grow">
