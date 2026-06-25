@@ -392,7 +392,7 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
               </div>
             </div>
             {/* Gradiente scuro per leggibilità */}
-            <div style={{position:'absolute',inset:0,zIndex:1,background:'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.3) 50%, rgba(11,8,20,0) 100%)'}} />
+            <div style={{position:'absolute',inset:0,zIndex:1,background:'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.7) 50%, rgba(11,8,20,.45) 100%)'}} />
             {/* Contenuto sopra */}
             <div style={{position:'relative',zIndex:2,padding:'14px 16px',display:'flex',alignItems:'center',gap:8}}>
               <div className="grow">
@@ -533,11 +533,17 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
 function CharactersTab({ s, update, campaignId }: { s:CampaignState; update:U; campaignId:string|null }) {
   const [draft, setDraft] = useState('');
   const [filter, setFilter] = useState('tutti');
+  const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
   const setField = (id:string,f:string,v:string) => update(prev=>({characters:prev.characters.map(c=>c.id===id?{...c,[f]:v}:c)}));
   const filtered = filter==='tutti' ? s.characters : s.characters.filter(c=>c.relation===filter);
 
   return (
     <div>
+      {enlargedImg && (
+        <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
+          <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
+        </div>
+      )}
       <div className="frame">
         <div className="label" style={{marginBottom:10}}>Personaggi Non Giocanti</div>
         <div className="row" style={{gap:6,flexWrap:'wrap',marginBottom:12}}>
@@ -556,8 +562,11 @@ function CharactersTab({ s, update, campaignId }: { s:CampaignState; update:U; c
           <div key={c.id} className="card" style={{cursor:'pointer'}}>
             {/* Header compatto — sempre visibile */}
             <div className="row" onClick={toggleExp}>
-              <div style={{width:48,height:48,flexShrink:0}}>
-                <ImageSlot slotId={'png-'+c.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={c.name.slice(0,2).toUpperCase()} alt={c.name} />
+              <div style={{width:48,height:48,flexShrink:0,cursor:'pointer',overflow:'hidden',borderRadius:24}}
+                onClick={e=>{e.stopPropagation();const img=document.querySelector(`[data-slot="png-${c.id}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
+                <div data-slot={'png-'+c.id} style={{width:48,height:48}}>
+                  <ImageSlot slotId={'png-'+c.id} campaignId={campaignId} shape="circle" width={48} height={48} dmMode={s.dmMode} placeholder={c.name.slice(0,2).toUpperCase()} alt={c.name} />
+                </div>
               </div>
               <div className="grow" style={{marginLeft:10}}>
                 <div className="h2">{c.name}</div>
@@ -777,6 +786,47 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
   const setItemField = (iid:string, f:string, v:any) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,[f]:v}:i)}));
   const toggleExpand = (iid:string) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,expanded:!i.expanded}:i)}));
 
+  // Sposta oggetto a un altro PG
+  const moveItem = (item:any, targetId:string) => {
+    update(prev => ({
+      players: prev.players.map(pl => {
+        if (pl.id === p.id) return {...pl, inventory: pl.inventory.filter((i:any)=>i.id!==item.id)};
+        if (pl.id === targetId) return {...pl, inventory: [...pl.inventory, {...item, id:uid('i')}]};
+        return pl;
+      })
+    }));
+  };
+  // Copia oggetto a un altro PG (duplica nome, effetto, desc, tipo)
+  const copyItem = (item:any, targetId:string) => {
+    update(prev => ({
+      players: prev.players.map(pl => {
+        if (pl.id === targetId) return {...pl, inventory: [...pl.inventory, {
+          ...item, id:uid('i'), qty:1, equipped:false, expanded:false, enhUsed:0
+        }]};
+        return pl;
+      })
+    }));
+  };
+  // Calcola gradiente per potenziamento
+  const getEnhGradient = (it:any) => {
+    const enh = it.enhUsed || 0;
+    if (enh === 0 && it.type !== 'magico' && it.type !== 'unico') return undefined;
+    if (it.type === 'magico') {
+      const base = enh > 0 ? .22 + enh * .12 : .22;
+      return `linear-gradient(90deg, rgba(80,140,220,${base}) 0%, var(--bg-input) 40%)`;
+    }
+    if (it.type === 'unico') {
+      const base = enh > 0 ? .2 + enh * .12 : .2;
+      return `linear-gradient(90deg, rgba(180,50,90,${base}) 0%, var(--bg-input) 40%)`;
+    }
+    if (enh > 0) {
+      const pColor = p.color || '#a489dd';
+      const intensity = [0, .18, .3, .45][Math.min(enh, 3)];
+      return `linear-gradient(90deg, ${pColor}${Math.round(intensity*255).toString(16).padStart(2,'0')} 0%, var(--bg-input) 40%)`;
+    }
+    return undefined;
+  };
+
   const allItems = [...(p.inventory||[])].sort((a:any,b:any)=>(b.equipped?1:0)-(a.equipped?1:0));
   const visibleItems = s.dmMode ? allItems : allItems.filter((it:any)=>it.revealed!==false);
   const filtered = filter==='tutti' ? visibleItems : visibleItems.filter((it:any)=>it.type===filter);
@@ -809,9 +859,9 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
         {filtered.map((it:any) => (
           <div key={it.id} className="card" style={{
             borderLeft: it.equipped ? '3px solid '+(p.color||'var(--gold)') : '3px solid transparent',
-            background: it.type==='magico' ? 'linear-gradient(90deg, rgba(80,140,220,.22) 0%, var(--bg-input) 40%)' :
+            background: getEnhGradient(it) || (it.type==='magico' ? 'linear-gradient(90deg, rgba(80,140,220,.22) 0%, var(--bg-input) 40%)' :
                         it.type==='unico'  ? 'linear-gradient(90deg, rgba(180,50,90,.2) 0%, var(--bg-input) 40%)' :
-                        undefined
+                        undefined)
           }}>
             <div className="row" style={{alignItems:'flex-start'}}>
               <button onClick={()=>setItemField(it.id,'equipped',!it.equipped)}
@@ -902,6 +952,19 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                     )}
                   </div>
                 )}
+                {/* Sposta / Copia a un altro PG */}
+                {s.dmMode && (
+                  <div className="row" style={{gap:6,marginTop:8,flexWrap:'wrap'}}>
+                    <select style={{flex:1,fontSize:11,padding:'4px 6px'}} defaultValue="" onChange={e=>{if(e.target.value){moveItem(it,e.target.value);} e.target.value='';}}>
+                      <option value="" disabled>Sposta a…</option>
+                      {s.players.filter(pl=>pl.id!==p.id).map(pl=><option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                    </select>
+                    <select style={{flex:1,fontSize:11,padding:'4px 6px'}} defaultValue="" onChange={e=>{if(e.target.value){copyItem(it,e.target.value);} e.target.value='';}}>
+                      <option value="" disabled>Copia a…</option>
+                      {s.players.filter(pl=>pl.id!==p.id).map(pl=><option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -936,7 +999,10 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
 
 // ─── TAB: COMBATTIMENTO ──────────────────────────────────────
 function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campaignId:string|null }) {
-  const sorted = [...(s.combatants||[])].sort((a,b)=>(b.init||0)-(a.init||0));
+  const combatScen = (s as any).combatScenario || s.activeScenario || '';
+  const setCombatScen = (id:string) => update({combatScenario:id} as any);
+  const allCombatants = (s.combatants||[]).filter((k:any)=>!k.scenarioId || k.scenarioId===combatScen);
+  const sorted = [...allCombatants].sort((a,b)=>(b.init||0)-(a.init||0));
   const visibleCombatants = s.dmMode ? sorted : sorted.filter(k=>(k as any).revealed!==false);
   const idx = s.turnIndex||0;
   const current = sorted[idx % (sorted.length||1)];
@@ -985,7 +1051,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
     s.players.forEach(p => {
       if (!existing.has('pc-'+p.id)) {
         newCombatants.push({
-          id:'pc-'+p.id, name:p.name, init:p.init||10, hp:p.hp??p.maxHp??30, maxHp:p.maxHp??30, side:'ally' as const, conditions:[]
+          id:'pc-'+p.id, name:p.name, init:p.init||10, hp:p.hp??p.maxHp??30, maxHp:p.maxHp??30, side:'ally' as const, conditions:[], scenarioId:combatScen
         });
       }
     });
@@ -994,6 +1060,16 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
 
   return (
     <div>
+      {/* Selettore scenario */}
+      <div className="frame">
+        <div className="label" style={{marginBottom:6}}>Scenario</div>
+        <div className="row" style={{gap:5,flexWrap:'wrap'}}>
+          {s.scenarios.map(sc => (
+            <button key={sc.id} className={'btn'+(combatScen===sc.id?' btn-primary':'')}
+              style={{fontSize:10}} onClick={()=>setCombatScen(sc.id)}>{sc.name}</button>
+          ))}
+        </div>
+      </div>
       <div className="frame">
         <div className="row" style={{justifyContent:'space-between',marginBottom:10}}>
           <div>
@@ -1124,7 +1200,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
               <input placeholder="Nome" value={name} onChange={e=>setName(e.target.value)} style={{flex:1}} />
               <input placeholder="Init" value={init} onChange={e=>setInit(e.target.value)} style={{width:52}} />
               <input placeholder="PF" value={hp} onChange={e=>setHp(e.target.value)} style={{width:52}} />
-              <button className="btn btn-primary" onClick={()=>{if(name.trim()){update(prev=>({combatants:[...prev.combatants,{id:uid('k'),name:name.trim(),init:parseInt(init)||10,hp:parseInt(hp)||10,maxHp:parseInt(hp)||10,side:'enemy'}]}));setName('');setInit('');setHp('');}}}>+</button>
+              <button className="btn btn-primary" onClick={()=>{if(name.trim()){update(prev=>({combatants:[...prev.combatants,{id:uid('k'),name:name.trim(),init:parseInt(init)||10,hp:parseInt(hp)||10,maxHp:parseInt(hp)||10,side:'enemy',scenarioId:combatScen} as any]}));setName('');setInit('');setHp('');}}}>+</button>
             </div>
           </div>
         )}
