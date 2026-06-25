@@ -110,6 +110,7 @@ textarea { resize: vertical; min-height: 60px; }
 .lore-oggetti { color: var(--gold); border-color: #5a4624; }
 .lore-luoghi { color: var(--green); border-color: #3a6a4d; }
 .lore-culti { color: var(--red); border-color: var(--pink-border); }
+.lore-fazioni { color: #e0a040; border-color: #7a5a20; }
 .lore-tutti { color: var(--purple); border-color: var(--border); }
 
 /* === IMAGE SLOT === */
