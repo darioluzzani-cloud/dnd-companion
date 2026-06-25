@@ -1454,7 +1454,6 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
                 <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}}>
                   {s.dmMode && <input value={b.name} onChange={e=>setBuilding(b.id,{name:e.target.value})}
                     style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:14,color:'var(--gold)',background:'transparent',border:'1px solid var(--border)',padding:'4px 8px',marginBottom:6}} />}
-                  {curDesc && !s.dmMode && <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic',marginBottom:6}}>{curDesc}</div>}
                   {s.dmMode ? (
                     <div style={{marginBottom:8}}>
                       {Array.from({length:(b.maxLevel||4)+1}).map((_,li) => {
@@ -1483,17 +1482,30 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
                       })}
                     </div>
                   ) : (
-                    b.level < b.maxLevel && (
-                      <div style={{background:'var(--bg-deep)',border:'1px solid var(--border)',borderRadius:6,padding:10,marginBottom:6}}>
-                        <div className="label" style={{fontSize:9,marginBottom:4}}>Prossimo upgrade (Liv {b.level+1})</div>
-                        {nextDesc && <div className="small" style={{marginBottom:6}}>{nextDesc}</div>}
-                        <div className="row" style={{gap:10,flexWrap:'wrap'}}>
-                          <div className="row" style={{gap:4}}><span style={{fontSize:12}}>🪙</span><span className="small">{nextGold} mo</span></div>
-                          <div className="row" style={{gap:4}}><span style={{fontSize:12}}>⏳</span><span className="small">{nextTime||'—'}</span></div>
-                          <div className="row" style={{gap:4}}><span style={{fontSize:12}}>👥</span><span className="small">{nextPeople} persone</span></div>
+                    <>
+                      {/* Livello attuale — descrizione */}
+                      {curDesc && (
+                        <div style={{background:'var(--bg-deep)',border:`1px solid ${gate.color}44`,borderRadius:6,padding:10,marginBottom:6}}>
+                          <div className="label" style={{fontSize:9,marginBottom:4,color:gate.color}}>Livello {b.level} — Attuale</div>
+                          <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{curDesc}</div>
                         </div>
-                      </div>
-                    )
+                      )}
+                      {/* Prossimo upgrade — vantaggi + costi */}
+                      {b.level < b.maxLevel && nextDesc && (
+                        <div style={{background:'var(--bg-deep)',border:'1px solid var(--border)',borderRadius:6,padding:10,marginBottom:6}}>
+                          <div className="label" style={{fontSize:9,marginBottom:4}}>Prossimo upgrade → Liv {b.level+1}</div>
+                          <div className="small" style={{marginBottom:6}}>{nextDesc}</div>
+                          <div className="row" style={{gap:10,flexWrap:'wrap'}}>
+                            {nextGold > 0 && <div className="row" style={{gap:4}}><span style={{fontSize:12}}>🪙</span><span className="small">{nextGold} mo</span></div>}
+                            {nextTime && <div className="row" style={{gap:4}}><span style={{fontSize:12}}>⏳</span><span className="small">{nextTime}</span></div>}
+                            {nextPeople > 0 && <div className="row" style={{gap:4}}><span style={{fontSize:12}}>👥</span><span className="small">{nextPeople} persone</span></div>}
+                          </div>
+                        </div>
+                      )}
+                      {b.level >= b.maxLevel && (
+                        <div className="pill" style={{padding:'6px 14px',color:gate.color,borderColor:gate.color,fontSize:10}}>✦ Livello massimo raggiunto</div>
+                      )}
+                    </>
                   )}
                   {s.dmMode && (
                     <div style={{marginTop:6}}>
