@@ -14,6 +14,7 @@ const LOCAL_KEYS = new Set([
   'draftSpell', 'draftSpellLevel', 'draftItem',
   'draftCombName', 'draftCombInit', 'draftCombHp',
   'draftLoreCat', 'draftLoreName', 'draftLoreSub',
+  'combatScenario',
   'lastRoll', 'rollSeq', 'history',
 ]);
 
