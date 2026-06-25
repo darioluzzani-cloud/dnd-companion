@@ -755,6 +755,22 @@ function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; u
                     ) : (
                       <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{sp.desc||<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
                     )}
+                    {/* Copia a un altro PG */}
+                    {s.dmMode && (
+                      <div className="row" style={{gap:6,marginTop:6}}>
+                        <select style={{flex:1,fontSize:11,padding:'4px 6px'}} defaultValue="" onChange={e=>{
+                          if(e.target.value){
+                            update(prev=>({players:prev.players.map(pl=>
+                              pl.id===e.target.value ? {...pl, spells:[...pl.spells, {id:uid('s'),name:sp.name,level:sp.level,school:sp.school||'',desc:sp.desc||'',prepared:false,expanded:false,revealed:true}]} : pl
+                            )}));
+                          }
+                          e.target.value='';
+                        }}>
+                          <option value="" disabled>Copia a…</option>
+                          {s.players.filter(pl=>pl.id!==p.id).map(pl=><option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                        </select>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1004,8 +1020,9 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
   const allCombatants = (s.combatants||[]).filter((k:any)=>!k.scenarioId || k.scenarioId===combatScen);
   const sorted = [...allCombatants].sort((a,b)=>(b.init||0)-(a.init||0));
   const visibleCombatants = s.dmMode ? sorted : sorted.filter(k=>(k as any).revealed!==false);
+  const turnList = visibleCombatants;
   const idx = s.turnIndex||0;
-  const current = sorted[idx % (sorted.length||1)];
+  const current = turnList[idx % (turnList.length||1)];
   const [name,setName]=useState('');
   const [init,setInit]=useState('');
   const [hp,setHp]=useState('');
@@ -1041,8 +1058,8 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
     });
   };
 
-  const nextTurn=()=>{let n=idx+1,r=s.round;if(n>=sorted.length){n=0;r++;}update({turnIndex:n,round:r});};
-  const prevTurn=()=>{let n=idx-1,r=s.round;if(n<0){n=sorted.length-1;r=Math.max(1,r-1);}update({turnIndex:n,round:r});};
+  const nextTurn=()=>{let n=idx+1,r=s.round;if(n>=turnList.length){n=0;r++;}update({turnIndex:n,round:r});};
+  const prevTurn=()=>{let n=idx-1,r=s.round;if(n<0){n=turnList.length-1;r=Math.max(1,r-1);}update({turnIndex:n,round:r});};
 
   // Importa i PG come combattenti (companion mostrato dentro la card del padrone)
   const addPlayers = () => {
@@ -1091,7 +1108,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
         </div>
         {visibleCombatants.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun combattente.</div>}
         {visibleCombatants.map((k,i) => {
-          const isCurrent = sorted.indexOf(k)===(idx%sorted.length);
+          const isCurrent = turnList.indexOf(k)===(idx%turnList.length);
           const pct = Math.round(((k.hp||0)/(k.maxHp||1))*100);
           return (
             <div key={k.id} className={'card'+(isCurrent?' turn-indicator':'')}>
