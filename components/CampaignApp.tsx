@@ -18,7 +18,7 @@ const TABS = [
   {id:'combat',label:'Battaglia',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M6 18L18 6M6 6l12 12"/></svg>},
   {id:'base',label:'Base',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>},
 ];
-const LORE_CATS = ['oggetti','luoghi','culti','tutti'] as const;
+const LORE_CATS = ['oggetti','luoghi','culti','fazioni','tutti'] as const;
 const ITEM_TYPES = ['equipaggiamento','arma','armatura','magico','unico','consumabile','tesoro','quest','altro'];
 const ITEM_TEMPLATES = [
   {name:'Pozione di cura',type:'consumabile',effect:'Recupera 2d4+2 PF',desc:'Liquido rosso che luccica quando viene agitato.'},
@@ -1020,7 +1020,8 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
   const allCombatants = (s.combatants||[]).filter((k:any)=>!k.scenarioId || k.scenarioId===combatScen);
   const sorted = [...allCombatants].sort((a,b)=>(b.init||0)-(a.init||0));
   const visibleCombatants = s.dmMode ? sorted : sorted.filter(k=>(k as any).revealed!==false);
-  const turnList = visibleCombatants;
+  // Il ciclo turni esclude SEMPRE i nascosti — sono "preparati ma non in campo"
+  const turnList = sorted.filter(k=>(k as any).revealed!==false);
   const idx = s.turnIndex||0;
   const current = turnList[idx % (turnList.length||1)];
   const [name,setName]=useState('');
@@ -1028,6 +1029,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
   const [hp,setHp]=useState('');
   const [dice,setDice]=useState(20);
   const [lastRoll,setLastRoll]=useState<{die:number;value:number;t:number}|null>(null);
+  const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
 
   // HP change con sync bidirezionale combattente ↔ giocatore/companion
   const changeHp = (kId:string, delta:number) => {
@@ -1077,6 +1079,12 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
 
   return (
     <div>
+      {/* Overlay immagine ingrandita */}
+      {enlargedImg && (
+        <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
+          <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
+        </div>
+      )}
       {/* Selettore scenario */}
       <div className="frame">
         <div className="label" style={{marginBottom:6}}>Scenario</div>
@@ -1113,9 +1121,13 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
           return (
             <div key={k.id} className={'card'+(isCurrent?' turn-indicator':'')}>
               <div className="row">
-                {/* Ritratto — per tutti i combattenti */}
-                <div style={{width:40,height:40,flexShrink:0,marginRight:4}}>
-                  <ImageSlot slotId={k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):k.id.startsWith('comp-')?'companion-'+k.id.replace('comp-',''):'combat-'+k.id} campaignId={campaignId} shape="circle" dmMode={s.dmMode} placeholder={k.name.slice(0,2).toUpperCase()} alt={k.name} />
+                {/* Ritratto rettangolare verticale — per tutti i combattenti */}
+                <div style={{width:44,height:60,flexShrink:0,marginRight:4,overflow:'hidden',borderRadius:6,cursor:'pointer'}}
+                  onClick={e=>{e.stopPropagation();const slotId=k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):k.id.startsWith('comp-')?'companion-'+k.id.replace('comp-',''):'combat-'+k.id;const img=document.querySelector(`[data-slot="${slotId}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
+                  {(() => {
+                    const slotId=k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):k.id.startsWith('comp-')?'companion-'+k.id.replace('comp-',''):'combat-'+k.id;
+                    return <div data-slot={slotId} style={{width:44,height:60}}><ImageSlot slotId={slotId} campaignId={campaignId} shape="rect" width={44} height={60} dmMode={s.dmMode} placeholder={k.name.slice(0,2).toUpperCase()} alt={k.name} /></div>;
+                  })()}
                 </div>
                 <div className="init-circle" title="Iniziativa">
                   {s.dmMode ? (
@@ -1360,14 +1372,25 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
   const setBuilding = (id:string, patch:any) => update(prev => ({
     buildings: ((prev as any).buildings||[]).map((b:any) => b.id===id ? {...b,...patch} : b)
   } as any));
+  const setLevelData = (bId:string, lvIdx:number, field:string, value:any) => {
+    update(prev => ({
+      buildings: ((prev as any).buildings||[]).map((b:any) => {
+        if (b.id !== bId) return b;
+        const levels = [...(b.levels||[])];
+        while (levels.length <= lvIdx) levels.push({desc:'',costGold:0,costTime:'',costPeople:0});
+        levels[lvIdx] = {...levels[lvIdx], [field]:value};
+        return {...b, levels};
+      })
+    } as any));
+  };
   const addBuilding = () => {
     if (!draftName.trim()) return;
+    const emptyLv = {desc:'',costGold:0,costTime:'',costPeople:0};
     update(prev => ({
       buildings: [...((prev as any).buildings||[]), {
         id:uid('bld'), name:draftName.trim(), level:0, maxLevel:4,
-        desc:'', nextDesc:'', gate:'mondano',
-        costGold:0, costTime:'', costPeople:0,
-        revealed:true, expanded:false,
+        gate:'mondano', revealed:true, expanded:false,
+        levels: [emptyLv,emptyLv,emptyLv,emptyLv,emptyLv],
       }]
     } as any));
     setDraftName('');
@@ -1379,28 +1402,31 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
 
   return (
     <div>
-      {/* Overlay immagine ingrandita */}
       {enlargedImg && (
         <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
           <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
         </div>
       )}
-
       <div className="frame">
         <div className="row" style={{justifyContent:'space-between',marginBottom:10}}>
           <div className="h1" style={{fontSize:18}}>Olmobianco</div>
           {s.dmMode && <div className="small muted">{buildings.length} edifici</div>}
         </div>
-
-        {visible.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun edificio registrato.</div>}
+        {visible.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun edificio.</div>}
         {visible.map((b:any) => {
           const gate = GATE_TYPES.find(g=>g.id===b.gate) || GATE_TYPES[0];
           const pct = b.maxLevel > 0 ? Math.round((b.level/b.maxLevel)*100) : 0;
+          const levels: any[] = b.levels || [];
+          const curLvData = levels[b.level] || {};
+          const nextLvData = levels[b.level+1] || {};
+          const curDesc = curLvData.desc || b.desc || '';
+          const nextDesc = nextLvData.desc || b.nextDesc || '';
+          const nextGold = nextLvData.costGold ?? b.costGold ?? 0;
+          const nextTime = nextLvData.costTime || b.costTime || '';
+          const nextPeople = nextLvData.costPeople ?? b.costPeople ?? 0;
           return (
             <div key={b.id} className="card" style={{borderLeft:`3px solid ${gate.color}`}}>
-              {/* Header — click per espandere */}
               <div className="row" style={{cursor:'pointer',alignItems:'flex-start'}} onClick={()=>setBuilding(b.id,{expanded:!b.expanded})}>
-                {/* Immagine verticale grande */}
                 <div style={{width:64,height:88,flexShrink:0,overflow:'hidden',borderRadius:6,cursor:'pointer'}}
                   onClick={e=>{e.stopPropagation();const img=document.querySelector(`[data-slot="base-${b.id}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
                   <div data-slot={'base-'+b.id} style={{width:64,height:88}}>
@@ -1410,12 +1436,9 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
                 <div className="grow" style={{marginLeft:12}}>
                   <div className="row" style={{justifyContent:'space-between'}}>
                     <div className="h2" style={{fontSize:15}}>{b.name}</div>
-                    <div className="pill" style={{padding:'3px 8px',fontSize:9,color:gate.color,borderColor:gate.color}}>
-                      Liv {b.level}/{b.maxLevel}
-                    </div>
+                    <div className="pill" style={{padding:'3px 8px',fontSize:9,color:gate.color,borderColor:gate.color}}>Liv {b.level}/{b.maxLevel}</div>
                   </div>
                   <div className="pill" style={{padding:'2px 7px',fontSize:8,marginTop:4,color:gate.color,borderColor:gate.color}}>{gate.label}</div>
-                  {/* Barra progresso livello */}
                   <div style={{height:5,background:'var(--bg-deep)',borderRadius:3,overflow:'hidden',border:'1px solid var(--border)',marginTop:6}}>
                     <div style={{height:'100%',width:pct+'%',background:gate.color,borderRadius:3,transition:'width .3s'}} />
                   </div>
@@ -1427,65 +1450,51 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
                   onDown={()=>{const idx=buildings.findIndex((x:any)=>x.id===b.id);update(prev=>({buildings:moveInArray((prev as any).buildings||[],idx,1)} as any));}}
                 />
               </div>
-
-              {/* Corpo espanso */}
               {b.expanded && (
                 <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}}>
-                  {/* Descrizione livello attuale */}
+                  {s.dmMode && <input value={b.name} onChange={e=>setBuilding(b.id,{name:e.target.value})}
+                    style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:14,color:'var(--gold)',background:'transparent',border:'1px solid var(--border)',padding:'4px 8px',marginBottom:6}} />}
+                  {curDesc && !s.dmMode && <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic',marginBottom:6}}>{curDesc}</div>}
                   {s.dmMode ? (
-                    <>
-                      <input value={b.name} onChange={e=>setBuilding(b.id,{name:e.target.value})}
-                        style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:14,color:'var(--gold)',background:'transparent',border:'1px solid var(--border)',padding:'4px 8px',marginBottom:4}} />
-                      <textarea value={b.desc||''} placeholder="Descrizione livello attuale…" onChange={e=>setBuilding(b.id,{desc:e.target.value})}
-                        style={{fontSize:13,padding:'6px 8px',minHeight:36,marginBottom:4}} />
-                    </>
+                    <div style={{marginBottom:8}}>
+                      {Array.from({length:(b.maxLevel||4)+1}).map((_,li) => {
+                        const ld = levels[li] || {};
+                        const isCurrent = li === b.level;
+                        return (
+                          <div key={li} style={{background:isCurrent?'var(--bg-active)':'var(--bg-deep)',border:isCurrent?`1px solid ${gate.color}`:'1px solid var(--border)',borderRadius:6,padding:8,marginBottom:4}}>
+                            <div className="label" style={{fontSize:9,marginBottom:4}}>Livello {li} {isCurrent ? '← attuale' : ''}</div>
+                            <textarea value={ld.desc||''} placeholder={`Descrizione livello ${li}…`} onChange={e=>setLevelData(b.id,li,'desc',e.target.value)}
+                              style={{fontSize:12,padding:'4px 8px',minHeight:28,marginBottom:4}} />
+                            {li > 0 && (
+                              <div className="row" style={{gap:8,flexWrap:'wrap'}}>
+                                <div className="row" style={{gap:3}}><span style={{fontSize:11}}>🪙</span>
+                                  <input type="number" value={ld.costGold||0} onChange={e=>setLevelData(b.id,li,'costGold',parseInt(e.target.value)||0)}
+                                    style={{width:50,fontSize:11,padding:'2px 4px',background:'transparent',border:'1px solid var(--border)',borderRadius:4,textAlign:'center'}} /></div>
+                                <div className="row" style={{gap:3}}><span style={{fontSize:11}}>⏳</span>
+                                  <input value={ld.costTime||''} placeholder="tempo" onChange={e=>setLevelData(b.id,li,'costTime',e.target.value)}
+                                    style={{width:80,fontSize:11,padding:'2px 4px',background:'transparent',border:'1px solid var(--border)',borderRadius:4}} /></div>
+                                <div className="row" style={{gap:3}}><span style={{fontSize:11}}>👥</span>
+                                  <input type="number" value={ld.costPeople||0} onChange={e=>setLevelData(b.id,li,'costPeople',parseInt(e.target.value)||0)}
+                                    style={{width:36,fontSize:11,padding:'2px 4px',background:'transparent',border:'1px solid var(--border)',borderRadius:4,textAlign:'center'}} /></div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   ) : (
-                    b.desc && <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic',marginBottom:6}}>{b.desc}</div>
-                  )}
-
-                  {/* Prossimo livello */}
-                  {b.level < b.maxLevel && (
-                    <div style={{background:'var(--bg-deep)',border:'1px solid var(--border)',borderRadius:6,padding:10,marginBottom:6}}>
-                      <div className="label" style={{fontSize:9,marginBottom:4}}>Prossimo upgrade (Liv {b.level+1})</div>
-                      {s.dmMode ? (
-                        <textarea value={b.nextDesc||''} placeholder="Cosa sblocca il prossimo livello…" onChange={e=>setBuilding(b.id,{nextDesc:e.target.value})}
-                          style={{fontSize:13,padding:'5px 8px',minHeight:30,marginBottom:6}} />
-                      ) : (
-                        b.nextDesc && <div className="small" style={{marginBottom:6}}>{b.nextDesc}</div>
-                      )}
-                      <div className="row" style={{gap:10,flexWrap:'wrap'}}>
-                        <div className="row" style={{gap:4}}>
-                          <span style={{fontSize:12}}>🪙</span>
-                          {s.dmMode ? (
-                            <input type="number" value={b.costGold||0} onChange={e=>setBuilding(b.id,{costGold:parseInt(e.target.value)||0})}
-                              style={{width:50,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontSize:12,padding:'2px 4px',borderRadius:4}} />
-                          ) : (
-                            <span className="small">{b.costGold||0} mo</span>
-                          )}
-                        </div>
-                        <div className="row" style={{gap:4}}>
-                          <span style={{fontSize:12}}>⏳</span>
-                          {s.dmMode ? (
-                            <input value={b.costTime||''} placeholder="es. 2 settimane" onChange={e=>setBuilding(b.id,{costTime:e.target.value})}
-                              style={{width:100,background:'transparent',border:'1px solid var(--border)',fontSize:12,padding:'2px 4px',borderRadius:4}} />
-                          ) : (
-                            <span className="small">{b.costTime||'—'}</span>
-                          )}
-                        </div>
-                        <div className="row" style={{gap:4}}>
-                          <span style={{fontSize:12}}>👥</span>
-                          {s.dmMode ? (
-                            <input type="number" value={b.costPeople||0} onChange={e=>setBuilding(b.id,{costPeople:parseInt(e.target.value)||0})}
-                              style={{width:40,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontSize:12,padding:'2px 4px',borderRadius:4}} />
-                          ) : (
-                            <span className="small">{b.costPeople||0} persone</span>
-                          )}
+                    b.level < b.maxLevel && (
+                      <div style={{background:'var(--bg-deep)',border:'1px solid var(--border)',borderRadius:6,padding:10,marginBottom:6}}>
+                        <div className="label" style={{fontSize:9,marginBottom:4}}>Prossimo upgrade (Liv {b.level+1})</div>
+                        {nextDesc && <div className="small" style={{marginBottom:6}}>{nextDesc}</div>}
+                        <div className="row" style={{gap:10,flexWrap:'wrap'}}>
+                          <div className="row" style={{gap:4}}><span style={{fontSize:12}}>🪙</span><span className="small">{nextGold} mo</span></div>
+                          <div className="row" style={{gap:4}}><span style={{fontSize:12}}>⏳</span><span className="small">{nextTime||'—'}</span></div>
+                          <div className="row" style={{gap:4}}><span style={{fontSize:12}}>👥</span><span className="small">{nextPeople} persone</span></div>
                         </div>
                       </div>
-                    </div>
+                    )
                   )}
-
-                  {/* Controlli DM */}
                   {s.dmMode && (
                     <div style={{marginTop:6}}>
                       <div className="row" style={{gap:6,marginBottom:6}}>
@@ -1500,19 +1509,13 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
                       <div className="row" style={{gap:6,marginBottom:6}}>
                         <div className="label" style={{fontSize:9}}>Tipo</div>
                         {GATE_TYPES.map(g=>(
-                          <button key={g.id} className="pill" style={{padding:'3px 8px',fontSize:9,cursor:'pointer',
-                            color:g.color, borderColor:b.gate===g.id?g.color:'var(--border)',
-                            background:b.gate===g.id?'var(--bg-active)':'transparent'}}
+                          <button key={g.id} className="pill" style={{padding:'3px 8px',fontSize:9,cursor:'pointer',color:g.color,borderColor:b.gate===g.id?g.color:'var(--border)',background:b.gate===g.id?'var(--bg-active)':'transparent'}}
                             onClick={()=>setBuilding(b.id,{gate:g.id})}>{g.label}</button>
                         ))}
                       </div>
                       <div className="row" style={{gap:6}}>
-                        <button className="btn btn-ghost" style={{fontSize:9}}
-                          onClick={()=>setBuilding(b.id,{revealed:b.revealed===false?true:false})}>
-                          {b.revealed===false?'◯ Nascondi':'◉ Visibile'}
-                        </button>
-                        <button className="btn btn-danger btn-ghost" style={{fontSize:9,marginLeft:'auto'}}
-                          onClick={()=>delBuilding(b.id)}>Elimina</button>
+                        <button className="btn btn-ghost" style={{fontSize:9}} onClick={()=>setBuilding(b.id,{revealed:b.revealed===false?true:false})}>{b.revealed===false?'◯ Nascosto':'◉ Visibile'}</button>
+                        <button className="btn btn-danger btn-ghost" style={{fontSize:9,marginLeft:'auto'}} onClick={()=>delBuilding(b.id)}>Elimina</button>
                       </div>
                     </div>
                   )}
@@ -1521,8 +1524,6 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
             </div>
           );
         })}
-
-        {/* Aggiungi edificio */}
         {s.dmMode && (
           <div className="row" style={{gap:6,marginTop:10}}>
             <input className="grow" placeholder="Nuovo edificio…" value={draftName} onChange={e=>setDraftName(e.target.value)}
