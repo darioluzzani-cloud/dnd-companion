@@ -88,6 +88,19 @@ export interface LoreEntry {
   expanded: boolean;
 }
 
+export interface AlchemyRecipe {
+  id: string;
+  tool: string;
+  ingredients: string[];
+  result: {
+    name: string;
+    type: string;
+    effect: string;
+    desc: string;
+    qty: number;
+  };
+}
+
 export interface DiceRoll {
   die: number;
   value: number;
@@ -109,6 +122,7 @@ export interface CampaignState {
   turnIndex: number;
   lore: LoreEntry[];
   loreCatFilter: string;
+  alchemyRecipes?: AlchemyRecipe[];
   lastRoll: DiceRoll | null;
   rollSeq: number;
   history: DiceRoll[];
