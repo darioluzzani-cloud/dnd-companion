@@ -145,6 +145,20 @@ textarea { resize: vertical; min-height: 60px; }
 @keyframes rollpop { 0% { transform: scale(.5) rotate(-12deg); opacity:0; } 55% { transform: scale(1.18) rotate(3deg); } 100% { transform: scale(1) rotate(0); opacity:1; } }
 .roll-anim { animation: rollpop .45s cubic-bezier(.2,.8,.3,1.2); }
 
+/* === ALCHEMY === */
+.alchemy-btn { color: var(--green) !important; border-color: var(--green) !important; background: rgba(98,185,138,.1); cursor: pointer; font-weight: 600; }
+.alchemy-btn:hover { background: rgba(98,185,138,.2); }
+.alchemy-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.88); display: flex; align-items: flex-start; justify-content: center; padding: 24px 12px; overflow-y: auto; }
+.alchemy-popup { background: var(--bg-card); border: 1px solid var(--green); border-radius: 12px; padding: 18px; width: 100%; max-width: 420px; margin-top: 20px; box-shadow: 0 0 40px rgba(98,185,138,.12); }
+.alchemy-slot { background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; align-items: center; }
+.alchemy-mix-btn { position: relative; width: 100%; height: 44px; border-radius: 8px; border: 1px solid var(--green); background: var(--bg-deep); overflow: hidden; cursor: pointer; margin-bottom: 12px; transition: opacity .15s; }
+.alchemy-mix-btn:disabled { cursor: not-allowed; }
+.alchemy-mix-bar { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(98,185,138,.25), rgba(98,185,138,.45)); transition: width 50ms linear; border-radius: 7px; }
+.alchemy-mix-label { position: relative; z-index: 1; font-family: var(--font-display); font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--green); font-weight: 600; }
+.alchemy-result { background: var(--bg-deep); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+.alchemy-success { border: 1px solid rgba(98,185,138,.4); }
+.alchemy-fail { border: 1px solid rgba(214,100,122,.4); }
+
 /* === RESPONSIVE === */
 @media (min-width: 640px) {
   .app-wrap { max-width: 580px; }
