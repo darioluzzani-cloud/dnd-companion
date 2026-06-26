@@ -859,7 +859,13 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
       {showAlchemy && <AlchemyPopup s={s} update={update} p={p} updPlayer={updPlayer} campaignId={campaignId} onClose={()=>setShowAlchemy(false)} />}
       <PlayerSelector s={s} update={update} p={p} campaignId={campaignId} />
       <div className="frame">
-        <div className="label" style={{marginBottom:8}}>Inventario</div>
+        <div className="row" style={{justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <div className="label">Inventario</div>
+          <button className="alchemy-box-btn" onClick={()=>setShowAlchemy(true)}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 3h6v3a6 6 0 01-6 6v0a6 6 0 00-6 6v2a1 1 0 001 1h16a1 1 0 001-1v-2a6 6 0 00-6-6v0a6 6 0 01-6-6V3z"/><path d="M8 3h8" strokeLinecap="round"/></svg>
+            <span>Alchimia</span>
+          </button>
+        </div>
         {/* Filtri per tipo */}
         <div className="row" style={{gap:5,flexWrap:'wrap',marginBottom:10}}>
           {['tutti',...ITEM_TYPES].map(t => (
@@ -871,10 +877,6 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
               {t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
-          <button className="pill alchemy-btn" onClick={()=>setShowAlchemy(true)}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 3h6v3a6 6 0 01-6 6v0a6 6 0 00-6 6v2a1 1 0 001 1h16a1 1 0 001-1v-2a6 6 0 00-6-6v0a6 6 0 01-6-6V3z"/><path d="M8 3h8" strokeLinecap="round"/></svg>
-            Alchimia
-          </button>
         </div>
 
         {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun oggetto.</div>}
@@ -1180,11 +1182,18 @@ function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:Camp
 
         {/* Strumento */}
         <div className="label" style={{fontSize:9,marginBottom:4,color:'var(--green)'}}>Strumento</div>
-        <select value={toolId} onChange={e=>setToolId(e.target.value)} disabled={mixing}
-          style={{marginBottom:12,borderColor:'var(--green)',fontSize:13}}>
-          <option value="">— Seleziona strumento —</option>
-          {toolItems.map((it:any) => <option key={it.id} value={it.id}>{it.name}</option>)}
-        </select>
+        <div className="row" style={{gap:8,marginBottom:12,alignItems:'center'}}>
+          {toolId && (() => { const t = allItems.find((i:any) => i.id === toolId); return t ? (
+            <div style={{width:42,height:42,flexShrink:0}}>
+              <ImageSlot slotId={'item-'+t.id} campaignId={campaignId} shape="rounded" width={42} height={42} dmMode={false} placeholder="🔧" alt={t.name} />
+            </div>
+          ) : null; })()}
+          <select value={toolId} onChange={e=>setToolId(e.target.value)} disabled={mixing}
+            style={{borderColor:'var(--green)',fontSize:13,flex:1}}>
+            <option value="">— Seleziona strumento —</option>
+            {toolItems.map((it:any) => <option key={it.id} value={it.id}>{it.name}</option>)}
+          </select>
+        </div>
 
         {/* Ingredienti */}
         <div className="label" style={{fontSize:9,marginBottom:6,color:'var(--green)'}}>Ingredienti</div>
@@ -1210,7 +1219,7 @@ function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:Camp
                     <div className="img-empty" style={{width:48,height:48,borderRadius:8,border:'1px dashed var(--border)',fontSize:18}}>⚗</div>
                   )}
                 </div>
-                {selItem && <div style={{textAlign:'center',fontSize:10,color:'var(--gray-purple)',marginTop:2}}>×{getAvailableQty(selItem.name,idx)+(slotVal===selItem.name?1:0)}</div>}
+                {selItem && <div style={{textAlign:'center',fontSize:10,color:'var(--gray-purple)',marginTop:2}}>×{selItem.qty || 0}</div>}
               </div>
             );
           })}
