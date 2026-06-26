@@ -146,8 +146,8 @@ textarea { resize: vertical; min-height: 60px; }
 .roll-anim { animation: rollpop .45s cubic-bezier(.2,.8,.3,1.2); }
 
 /* === ALCHEMY === */
-.alchemy-btn { color: var(--green) !important; border-color: var(--green) !important; background: rgba(98,185,138,.1); cursor: pointer; font-weight: 600; }
-.alchemy-btn:hover { background: rgba(98,185,138,.2); }
+.alchemy-box-btn { display: flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--green); padding: 7px 14px; border-radius: 8px; border: 1px solid var(--green); background: var(--bg-deep); cursor: pointer; transition: background .15s, box-shadow .15s; }
+.alchemy-box-btn:hover { background: rgba(98,185,138,.12); box-shadow: 0 0 12px rgba(98,185,138,.15); }
 .alchemy-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.88); display: flex; align-items: flex-start; justify-content: center; padding: 24px 12px; overflow-y: auto; }
 .alchemy-popup { background: var(--bg-card); border: 1px solid var(--green); border-radius: 12px; padding: 18px; width: 100%; max-width: 420px; margin-top: 20px; box-shadow: 0 0 40px rgba(98,185,138,.12); }
 .alchemy-slot { background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; align-items: center; }
