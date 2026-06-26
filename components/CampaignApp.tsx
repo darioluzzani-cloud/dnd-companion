@@ -1052,7 +1052,8 @@ function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:Camp
   const [editingId, setEditingId] = useState<string|null>(null);
 
   const recipes: any[] = (s as any).alchemyRecipes || [];
-  const alchemicItems = (p.inventory||[]).filter((i:any) => i.type === 'alchemico' && (i.qty||0) > 0);
+  const alchemicItems = (p.inventory||[]).filter((i:any) => i.type === 'alchemico' && (i.qty||0) > 0 && (s.dmMode || (i as any).revealed !== false));
+  const toolItems = (p.inventory||[]).filter((i:any) => i.type === 'altro' && (s.dmMode || (i as any).revealed !== false));
   const allItems = p.inventory || [];
 
   const setSlot = (idx:number, val:string) => {
@@ -1098,10 +1099,10 @@ function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:Camp
         const res = matched.result;
         const existing = inv.find((i:any) => i.name === res.name);
         if (existing) {
-          inv = inv.map((i:any) => i.id === existing.id ? { ...i, qty: (i.qty||0) + (res.qty||1) } : i);
+          inv = inv.map((i:any) => i.id === existing.id ? { ...i, qty: (i.qty||0) + (res.qty||1), revealed: true } : i);
         } else {
           inv = [...inv, { id:newItemId, name:res.name, type:res.type||'consumabile', qty:res.qty||1,
-            effect:res.effect||'', desc:res.desc||'', equipped:false, expanded:false, pu:0 }];
+            effect:res.effect||'', desc:res.desc||'', equipped:false, expanded:false, pu:0, revealed:true }];
         }
       }
       return { ...pl, inventory: inv };
@@ -1182,7 +1183,7 @@ function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:Camp
         <select value={toolId} onChange={e=>setToolId(e.target.value)} disabled={mixing}
           style={{marginBottom:12,borderColor:'var(--green)',fontSize:13}}>
           <option value="">— Seleziona strumento —</option>
-          {allItems.map((it:any) => <option key={it.id} value={it.id}>{it.name}</option>)}
+          {toolItems.map((it:any) => <option key={it.id} value={it.id}>{it.name}</option>)}
         </select>
 
         {/* Ingredienti */}
