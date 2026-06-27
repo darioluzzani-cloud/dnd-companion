@@ -156,6 +156,7 @@ textarea { resize: vertical; min-height: 60px; }
 .alchemy-mix-bar { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(98,185,138,.25), rgba(98,185,138,.45)); transition: width 50ms linear; border-radius: 7px; }
 .alchemy-mix-label { position: relative; z-index: 1; font-family: var(--font-display); font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--green); font-weight: 600; }
 .alchemy-result { background: var(--bg-deep); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+.alchemy-tool-card { display: flex; flex-direction: column; align-items: center; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
 .alchemy-success { border: 1px solid rgba(98,185,138,.4); }
 .alchemy-fail { border: 1px solid rgba(214,100,122,.4); }
 
