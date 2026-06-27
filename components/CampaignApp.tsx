@@ -805,24 +805,28 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
 
   // Sposta oggetto a un altro PG
   const moveItem = (item:any, targetId:string) => {
+    const newId = uid('i');
     update(prev => ({
       players: prev.players.map(pl => {
         if (pl.id === p.id) return {...pl, inventory: pl.inventory.filter((i:any)=>i.id!==item.id)};
-        if (pl.id === targetId) return {...pl, inventory: [...pl.inventory, {...item, id:uid('i')}]};
+        if (pl.id === targetId) return {...pl, inventory: [...pl.inventory, {...item, id:newId}]};
         return pl;
       })
     }));
+    if (campaignId) copyItemImage(campaignId, item.id, newId);
   };
   // Copia oggetto a un altro PG (duplica nome, effetto, desc, tipo)
   const copyItem = (item:any, targetId:string) => {
+    const newId = uid('i');
     update(prev => ({
       players: prev.players.map(pl => {
         if (pl.id === targetId) return {...pl, inventory: [...pl.inventory, {
-          ...item, id:uid('i'), qty:1, equipped:false, expanded:false, enhUsed:0
+          ...item, id:newId, qty:1, equipped:false, expanded:false, enhUsed:0
         }]};
         return pl;
       })
     }));
+    if (campaignId) copyItemImage(campaignId, item.id, newId);
   };
   // Calcola gradiente per potenziamento
   const getEnhGradient = (it:any) => {
@@ -1036,6 +1040,20 @@ async function copyRecipeImage(campaignId: string, recipeId: string, itemId: str
   } catch (err) { console.warn('Copia immagine fallita:', err); }
 }
 
+async function copyItemImage(campaignId: string, sourceItemId: string, targetItemId: string) {
+  try {
+    const folder = campaignId;
+    const slotId = 'item-' + sourceItemId;
+    const { data } = await supabase.storage.from('campaign-images').list(folder, { search: slotId });
+    const match = (data || []).find(f => f.name.startsWith(slotId + '.'));
+    if (!match) return;
+    const { data: blob } = await supabase.storage.from('campaign-images').download(`${folder}/${match.name}`);
+    if (!blob) return;
+    const ext = match.name.split('.').pop() || 'png';
+    await supabase.storage.from('campaign-images').upload(`${folder}/item-${targetItemId}.${ext}`, blob, { upsert: true, contentType: blob.type });
+  } catch (err) { console.warn('Copia immagine oggetto fallita:', err); }
+}
+
 function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:CampaignState; update:U; p:any; updPlayer:any; campaignId:string|null; onClose:()=>void }) {
   const [toolId, setToolId] = useState('');
   const [slots, setSlots] = useState<string[]>(['', '', '']);
@@ -1170,33 +1188,60 @@ function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:Camp
 
   return (
     <div className="alchemy-overlay" onClick={e=>{if(e.target===e.currentTarget && !mixing) onClose();}}>
-      <div className="alchemy-popup">
+      <div className="alchemy-popup" style={{position:'relative',overflow:'hidden'}}>
+        {/* Sfondo immagine + gradiente */}
+        <div style={{position:'absolute',inset:0,zIndex:0}}>
+          <ImageSlot slotId="alchemy-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="Alchemy bg" />
+        </div>
+        <div style={{position:'absolute',inset:0,zIndex:1,background:'linear-gradient(180deg, rgba(30,22,48,0) 0%, rgba(30,22,48,0.55) 25%, rgba(30,22,48,0.92) 50%, rgba(30,22,48,1) 70%)'}} />
+
+        {/* Contenuto sopra sfondo */}
+        <div style={{position:'relative',zIndex:2}}>
+
         {/* Header */}
         <div className="row" style={{justifyContent:'space-between',marginBottom:14}}>
           <div className="row" style={{gap:8}}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5"><path d="M9 3h6v3a6 6 0 01-6 6v0a6 6 0 00-6 6v2a1 1 0 001 1h16a1 1 0 001-1v-2a6 6 0 00-6-6v0a6 6 0 01-6-6V3z"/><path d="M8 3h8" strokeLinecap="round"/></svg>
             <div className="h2" style={{color:'var(--green)',fontSize:17}}>Alchimia</div>
           </div>
-          {!mixing && <button className="btn btn-ghost" style={{fontSize:16,padding:'2px 8px'}} onClick={onClose}>✕</button>}
+          <div className="row" style={{gap:4}}>
+            {s.dmMode && (
+              <label className="btn btn-ghost" style={{padding:'2px 6px',fontSize:9,cursor:'pointer',color:'var(--green)'}} title="Immagine sfondo">
+                📷
+                <input type="file" accept="image/*" style={{display:'none'}} onChange={async(e)=>{
+                  const file=e.target.files?.[0]; if(!file||!campaignId)return;
+                  const ext=(file.name.split('.').pop()||'png').toLowerCase();
+                  const folder=campaignId;
+                  const {data:ex}=await supabase.storage.from('campaign-images').list(folder,{search:'alchemy-bg'});
+                  const old=(ex||[]).filter(f=>f.name.startsWith('alchemy-bg.')).map(f=>`${folder}/${f.name}`);
+                  if(old.length) await supabase.storage.from('campaign-images').remove(old);
+                  await supabase.storage.from('campaign-images').upload(`${folder}/alchemy-bg.${ext}`,file,{upsert:true,contentType:file.type});
+                  window.location.reload();
+                }} />
+              </label>
+            )}
+            {!mixing && <button className="btn btn-ghost" style={{fontSize:16,padding:'2px 8px'}} onClick={onClose}>✕</button>}
+          </div>
         </div>
 
         {/* Strumento */}
         <div className="label" style={{fontSize:9,marginBottom:4,color:'var(--green)'}}>Strumento</div>
-        <div className="row" style={{gap:8,marginBottom:12,alignItems:'center'}}>
-          {toolId && (() => { const t = allItems.find((i:any) => i.id === toolId); return t ? (
-            <div style={{width:42,height:42,flexShrink:0}}>
-              <ImageSlot slotId={'item-'+t.id} campaignId={campaignId} shape="rounded" width={42} height={42} dmMode={false} placeholder="🔧" alt={t.name} />
+        <select value={toolId} onChange={e=>setToolId(e.target.value)} disabled={mixing}
+          style={{borderColor:'var(--green)',fontSize:13,marginBottom:8}}>
+          <option value="">— Seleziona strumento —</option>
+          {toolItems.map((it:any) => <option key={it.id} value={it.id}>{it.name}</option>)}
+        </select>
+        {toolId && (() => { const t = allItems.find((i:any) => i.id === toolId); return t ? (
+          <div className="alchemy-tool-card">
+            <div style={{width:80,height:80}}>
+              <ImageSlot slotId={'item-'+t.id} campaignId={campaignId} shape="rounded" width={80} height={80} dmMode={false} placeholder="🔧" alt={t.name} />
             </div>
-          ) : null; })()}
-          <select value={toolId} onChange={e=>setToolId(e.target.value)} disabled={mixing}
-            style={{borderColor:'var(--green)',fontSize:13,flex:1}}>
-            <option value="">— Seleziona strumento —</option>
-            {toolItems.map((it:any) => <option key={it.id} value={it.id}>{it.name}</option>)}
-          </select>
-        </div>
+            <div style={{fontFamily:'var(--font-display)',fontSize:12,color:'var(--green)',letterSpacing:'.8px',marginTop:4}}>{t.name}</div>
+          </div>
+        ) : null; })()}
 
         {/* Ingredienti */}
-        <div className="label" style={{fontSize:9,marginBottom:6,color:'var(--green)'}}>Ingredienti</div>
+        <div className="label" style={{fontSize:9,marginBottom:6,marginTop:12,color:'var(--green)'}}>Ingredienti</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
           {slots.map((slotVal,idx) => {
             const selItem = alchemicItems.find((i:any) => i.name === slotVal);
@@ -1237,18 +1282,15 @@ function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:Camp
         {result && (
           <div className={`alchemy-result ${result.success?'alchemy-success':'alchemy-fail'}`}>
             {result.success ? (
-              <>
-                <div className="row" style={{gap:8,alignItems:'center'}}>
-                  <div style={{width:44,height:44,flexShrink:0}}>
-                    <ImageSlot slotId={'recipe-'+result.recipe.id} campaignId={campaignId} shape="rounded" width={44} height={44} dmMode={false} placeholder="✦" alt={result.recipe.result.name} />
-                  </div>
-                  <div>
-                    <div style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:14,color:'var(--green)'}}>✦ {result.recipe.result.name}</div>
-                    {result.recipe.result.effect && <div style={{fontSize:12,color:'var(--gold)',marginTop:2}}>{result.recipe.result.effect}</div>}
-                    <div style={{fontSize:11,color:'var(--gray-purple)',marginTop:1,fontStyle:'italic'}}>Aggiunto all'inventario</div>
-                  </div>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:8}}>
+                <div style={{width:80,height:80}}>
+                  <ImageSlot slotId={'recipe-'+result.recipe.id} campaignId={campaignId} shape="rounded" width={80} height={80} dmMode={false} placeholder="✦" alt={result.recipe.result.name} />
                 </div>
-              </>
+                <div style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:16,color:'var(--green)',textAlign:'center'}}>✦ {result.recipe.result.name}</div>
+                {result.recipe.result.effect && <div style={{fontSize:13,color:'var(--gold)',textAlign:'center'}}>{result.recipe.result.effect}</div>}
+                {result.recipe.result.desc && <div style={{fontSize:11,color:'var(--gray-purple)',textAlign:'center',fontStyle:'italic'}}>{result.recipe.result.desc}</div>}
+                <div style={{fontSize:11,color:'var(--gray-purple-deep)',textAlign:'center'}}>Aggiunto all'inventario</div>
+              </div>
             ) : (
               <div style={{textAlign:'center'}}>
                 <div style={{fontFamily:'var(--font-display)',fontSize:14,color:'var(--red)',fontWeight:600}}>✗ Miscela fallita</div>
@@ -1349,6 +1391,7 @@ function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:Camp
             )}
           </div>
         )}
+        </div>{/* chiude z-index:2 content */}
       </div>
     </div>
   );
@@ -1769,9 +1812,9 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
             <div key={b.id} className="card" style={{borderLeft:`3px solid ${gate.color}`}}>
               <div className="row" style={{cursor:'pointer',alignItems:'flex-start'}} onClick={()=>setBuilding(b.id,{expanded:!b.expanded})}>
                 <div style={{width:64,height:88,flexShrink:0,overflow:'hidden',borderRadius:6,cursor:'pointer'}}
-                  onClick={e=>{e.stopPropagation();const img=document.querySelector(`[data-slot="base-${b.id}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
-                  <div data-slot={'base-'+b.id} style={{width:64,height:88}}>
-                    <ImageSlot slotId={'base-'+b.id} campaignId={campaignId} shape="rect" width={64} height={88} dmMode={s.dmMode} placeholder="🏠" alt={b.name} />
+                  onClick={e=>{e.stopPropagation();const img=document.querySelector(`[data-slot="base-${b.id}-lv${b.level}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
+                  <div data-slot={'base-'+b.id+'-lv'+b.level} style={{width:64,height:88}}>
+                    <ImageSlot slotId={'base-'+b.id+'-lv'+b.level} campaignId={campaignId} shape="rect" width={64} height={88} dmMode={false} placeholder="🏠" alt={b.name} />
                   </div>
                 </div>
                 <div className="grow" style={{marginLeft:12}}>
@@ -1802,9 +1845,16 @@ function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaig
                         const isCurrent = li === b.level;
                         return (
                           <div key={li} style={{background:isCurrent?'var(--bg-active)':'var(--bg-deep)',border:isCurrent?`1px solid ${gate.color}`:'1px solid var(--border)',borderRadius:6,padding:8,marginBottom:4}}>
-                            <div className="label" style={{fontSize:9,marginBottom:4}}>Livello {li} {isCurrent ? '← attuale' : ''}</div>
-                            <textarea value={ld.desc||''} placeholder={`Descrizione livello ${li}…`} onChange={e=>setLevelData(b.id,li,'desc',e.target.value)}
-                              style={{fontSize:12,padding:'4px 8px',minHeight:28,marginBottom:4}} />
+                            <div className="row" style={{gap:8,alignItems:'flex-start',marginBottom:4}}>
+                              <div style={{width:48,height:64,flexShrink:0}}>
+                                <ImageSlot slotId={'base-'+b.id+'-lv'+li} campaignId={campaignId} shape="rect" width={48} height={64} dmMode={true} placeholder={'Lv'+li} alt={b.name+' lv'+li} />
+                              </div>
+                              <div className="grow">
+                                <div className="label" style={{fontSize:9,marginBottom:4}}>Livello {li} {isCurrent ? '← attuale' : ''}</div>
+                                <textarea value={ld.desc||''} placeholder={`Descrizione livello ${li}…`} onChange={e=>setLevelData(b.id,li,'desc',e.target.value)}
+                                  style={{fontSize:12,padding:'4px 8px',minHeight:28}} />
+                              </div>
+                            </div>
                             {li > 0 && (
                               <div className="row" style={{gap:8,flexWrap:'wrap'}}>
                                 <div className="row" style={{gap:3}}><span style={{fontSize:11}}>🪙</span>
