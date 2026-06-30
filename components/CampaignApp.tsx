@@ -241,7 +241,7 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
             ) : (
               <div className="small muted">{p.cls}{(p as any).subclass ? ' — '+(p as any).subclass : ''}</div>
             )}
-            {/* HP — editabile da chiunque */}
+            {/* HP + CA — editabile da chiunque */}
             <div className="row" style={{gap:6,marginTop:6,flexWrap:'wrap',alignItems:'center'}}>
               <div className="pill" style={{padding:'4px 8px',gap:4,flexShrink:0}}>
                 <span style={{color:'var(--red)'}}>♥</span>
@@ -251,6 +251,15 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
                 <input type="number" value={p.maxHp??0} onChange={e=>{const v=parseInt(e.target.value)||0;update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,maxHp:v,hp:Math.min(pl.hp??0,v)}:pl),combatants:prev.combatants.map(c=>c.id==='pc-'+p.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
                   style={{width:30,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
                 <span className="small muted" style={{fontSize:11}}>PF</span>
+              </div>
+              {/* CA — Classe Armatura */}
+              <div className="ac-shield" title="Classe Armatura">
+                <svg viewBox="0 0 24 28" width="28" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 1L2 6v7c0 7.5 4.3 13.2 10 14 5.7-.8 10-6.5 10-14V6L12 1z" fill="var(--bg-deep)" stroke="var(--blue)" strokeWidth="1.2"/>
+                </svg>
+                <input type="number" value={(p as any).ac??10}
+                  onChange={e=>setP('ac' as any, parseInt(e.target.value)||0)}
+                  className="ac-value" />
               </div>
               {p.species && !editing && <div className="pill" style={{padding:'4px 8px',color:'var(--purple-light)',flexShrink:0,fontSize:11}}>◆ {p.species}</div>}
             </div>
@@ -390,10 +399,12 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
       {/* === Lista scenari con CRUD === */}
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Scenari</div>
-        {visibleScenarios.map(sc2 => (
+        {visibleScenarios.map(sc2 => {
+          const isActive = sc2.id === s.activeScenario;
+          return (
           <div key={sc2.id} style={{position:'relative',overflow:'hidden',borderRadius:8,marginBottom:8,
-            border:sc2.id===s.activeScenario?'1px solid var(--gold)':'1px solid var(--border)',
-            cursor:'pointer',minHeight:72}}
+            border:isActive?'1px solid var(--gold)':'1px solid var(--border)',
+            cursor:'pointer',minHeight:72,transition:'all .2s'}}
             onClick={()=>update({activeScenario:sc2.id})}>
             {/* Immagine di sfondo */}
             <div style={{position:'absolute',inset:0,zIndex:0}}>
@@ -401,15 +412,19 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
                 <ImageSlot slotId={'scenario-'+sc2.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={s.dmMode} placeholder="" alt={sc2.name} />
               </div>
             </div>
-            {/* Gradiente scuro per leggibilità */}
-            <div style={{position:'absolute',inset:0,zIndex:1,background:'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.4) 50%, rgba(11,8,20,0) 100%)'}} />
+            {/* Gradiente — oro quando attivo, scuro quando no */}
+            <div style={{position:'absolute',inset:0,zIndex:1,background:isActive
+              ? 'linear-gradient(90deg, rgba(216,180,92,.8) 0%, rgba(216,180,92,.3) 45%, rgba(216,180,92,0) 100%)'
+              : 'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.4) 50%, rgba(11,8,20,0) 100%)',
+              transition:'background .3s'}} />
             {/* Contenuto sopra */}
-            <div style={{position:'relative',zIndex:2,padding:'14px 16px',display:'flex',alignItems:'center',gap:8}}>
+            <div style={{position:'relative',zIndex:2,padding:'14px 16px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
               <div className="grow">
-                <div style={{fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:sc2.id===s.activeScenario?'var(--gold)':'var(--text)',letterSpacing:'.5px'}}>{sc2.name}</div>
+                <div style={{fontFamily:'var(--font-display)',fontSize:14,fontWeight:600,color:isActive?'var(--bg-deep)':'var(--text)',letterSpacing:'.5px',transition:'color .2s'}}>{sc2.name}</div>
                 {s.dmMode && (sc2 as any).revealed===false && <span className="dm-badge" style={{marginTop:4}}>NASCOSTO</span>}
               </div>
-              <div className={'pill scen-'+sc2.status} style={{padding:'3px 8px',fontSize:8,flexShrink:0,background:'rgba(11,8,20,.6)'}}>{sc2.status}</div>
+              <div className={'pill scen-'+sc2.status} style={{padding:'3px 8px',fontSize:8,flexShrink:0,background:isActive?'rgba(11,8,20,.5)':'rgba(11,8,20,.6)'}}>{sc2.status}</div>
               {s.dmMode && (
                 <div className="row" style={{gap:2}} onClick={e=>e.stopPropagation()}>
                   <ReorderBtns onUp={()=>moveScen(sc2.id,-1)} onDown={()=>moveScen(sc2.id,1)} />
@@ -439,8 +454,22 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
                 </div>
               )}
             </div>
+              {/* Descrizione scenario — visibile quando attivo */}
+              {isActive && (
+                <div style={{marginTop:8}} onClick={e=>e.stopPropagation()}>
+                  {s.dmMode ? (
+                    <textarea value={(sc2 as any).scenDesc||''} placeholder="Breve presentazione dello scenario…"
+                      onChange={e=>update(prev=>({scenarios:prev.scenarios.map(s2=>s2.id===sc2.id?{...s2,scenDesc:e.target.value} as any:s2)}))}
+                      style={{fontSize:12,padding:'6px 8px',minHeight:32,background:'rgba(11,8,20,.4)',borderColor:'var(--gold-dim)',color:'var(--text)',width:'100%'}} />
+                  ) : (
+                    (sc2 as any).scenDesc && <div style={{fontSize:12,fontStyle:'italic',color:'var(--text)',lineHeight:1.5,opacity:.9}}>{(sc2 as any).scenDesc}</div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        ))}
+          );
+        })}
         {s.dmMode && (
           <div className="row" style={{gap:6,marginTop:8}}>
             <input className="grow" placeholder="Nuovo scenario…" value={newScenName} onChange={e=>setNewScenName(e.target.value)}
