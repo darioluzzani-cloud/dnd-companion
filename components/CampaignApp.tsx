@@ -288,11 +288,11 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
               {/* CA — Classe Armatura */}
               <div className="ac-shield" title="Classe Armatura">
                 <svg viewBox="0 0 24 28" width="28" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 1L2 6v7c0 7.5 4.3 13.2 10 14 5.7-.8 10-6.5 10-14V6L12 1z" fill="var(--bg-deep)" stroke="var(--blue)" strokeWidth="1.2"/>
+                  <path d="M12 1L2 6v7c0 7.5 4.3 13.2 10 14 5.7-.8 10-6.5 10-14V6L12 1z" fill="var(--bg-deep)" stroke={p.color||'var(--gold)'} strokeWidth="1.2"/>
                 </svg>
                 <input type="number" value={(p as any).ac??10}
                   onChange={e=>setP('ac' as any, parseInt(e.target.value)||0)}
-                  className="ac-value" />
+                  className="ac-value" style={{color:p.color||'var(--gold)'}} />
               </div>
               {p.species && !editing && <div className="pill" style={{padding:'4px 8px',color:'var(--purple-light)',flexShrink:0,fontSize:11}}>◆ {p.species}</div>}
             </div>
