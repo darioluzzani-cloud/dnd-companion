@@ -145,6 +145,13 @@ textarea { resize: vertical; min-height: 60px; }
 @keyframes rollpop { 0% { transform: scale(.5) rotate(-12deg); opacity:0; } 55% { transform: scale(1.18) rotate(3deg); } 100% { transform: scale(1) rotate(0); opacity:1; } }
 .roll-anim { animation: rollpop .45s cubic-bezier(.2,.8,.3,1.2); }
 
+/* === WEATHER === */
+.weather-topbar-btn { padding: 6px 8px !important; color: var(--blue) !important; border-color: var(--blue) !important; }
+.weather-popup { max-width: 520px; border-color: var(--blue); box-shadow: 0 0 40px rgba(102,194,227,.1); }
+.weather-tab { flex: 1; padding: 8px 12px; font-family: var(--font-display); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--gray-purple-deep); border: none; border-bottom: 2px solid transparent; background: transparent; cursor: pointer; transition: color .15s; }
+.weather-tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+.weather-result-box { background: var(--bg-deep); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; min-height: 50px; display: flex; align-items: center; }
+
 /* === ALCHEMY === */
 .alchemy-box-btn { display: flex; align-items: center; gap: 6px; font-family: var(--font-display); font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--green); padding: 7px 14px; border-radius: 8px; border: 1px solid var(--green); background: var(--bg-deep); cursor: pointer; transition: background .15s, box-shadow .15s; }
 .alchemy-box-btn:hover { background: rgba(98,185,138,.12); box-shadow: 0 0 12px rgba(98,185,138,.15); }
@@ -159,6 +166,10 @@ textarea { resize: vertical; min-height: 60px; }
 .alchemy-tool-card { display: flex; flex-direction: column; align-items: center; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
 .alchemy-success { border: 1px solid rgba(98,185,138,.4); }
 .alchemy-fail { border: 1px solid rgba(214,100,122,.4); }
+
+@media (max-width: 480px) {
+  .weather-popup .card div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+}
 
 /* === RESPONSIVE === */
 @media (min-width: 640px) {
