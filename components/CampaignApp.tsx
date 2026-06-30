@@ -67,9 +67,6 @@ function ReorderBtns({ onUp, onDown }: { onUp:()=>void; onDown:()=>void }) {
   );
 }
 
-// Sottoclassi note che cambiano il caster type
-const SUBCLASS_CASTER: Record<string, Record<string, CasterType>> = {
-
 // ── Calcolo automatico CA ──
 function computeAC(p: any): number {
   const abs = (p as any).abilities || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
@@ -102,6 +99,9 @@ function computeAC(p: any): number {
   if (shield) ac += (shield.armorCA || 2);
   return ac;
 }
+
+// Sottoclassi note che cambiano il caster type
+const SUBCLASS_CASTER: Record<string, Record<string, CasterType>> = {
   'Ladro':     { 'Mistificatore Arcano': 'third' },
   'Guerriero': { 'Cavaliere Mistico': 'third' },
   'Rogue':     { 'Arcane Trickster': 'third' },
