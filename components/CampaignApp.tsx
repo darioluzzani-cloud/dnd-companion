@@ -69,6 +69,39 @@ function ReorderBtns({ onUp, onDown }: { onUp:()=>void; onDown:()=>void }) {
 
 // Sottoclassi note che cambiano il caster type
 const SUBCLASS_CASTER: Record<string, Record<string, CasterType>> = {
+
+// ── Calcolo automatico CA ──
+function computeAC(p: any): number {
+  const abs = (p as any).abilities || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
+  const dexMod = Math.floor(((abs.dex || 10) - 10) / 2);
+  const conMod = Math.floor(((abs.con || 10) - 10) / 2);
+  const wisMod = Math.floor(((abs.wis || 10) - 10) / 2);
+
+  const inv = (p.inventory || []) as any[];
+  const equippedArmor = inv.filter((i: any) => i.type === 'armatura' && i.equipped);
+  const bodyArmor = equippedArmor.find((i: any) => i.armorType && i.armorType !== 'scudo');
+  const shield = equippedArmor.find((i: any) => i.armorType === 'scudo');
+
+  let ac: number;
+  if (!bodyArmor || !bodyArmor.armorCA) {
+    const cls = (p.cls || '').toLowerCase();
+    if (cls.includes('barbar')) {
+      ac = 10 + dexMod + conMod;
+    } else if (cls.includes('monac')) {
+      ac = 10 + dexMod + wisMod;
+    } else {
+      ac = 10 + dexMod;
+    }
+  } else {
+    const base = bodyArmor.armorCA;
+    const at = bodyArmor.armorType;
+    if (at === 'leggera') ac = base + dexMod;
+    else if (at === 'media') ac = base + Math.min(dexMod, 2);
+    else ac = base; // pesante
+  }
+  if (shield) ac += (shield.armorCA || 2);
+  return ac;
+}
   'Ladro':     { 'Mistificatore Arcano': 'third' },
   'Guerriero': { 'Cavaliere Mistico': 'third' },
   'Rogue':     { 'Arcane Trickster': 'third' },
@@ -327,7 +360,16 @@ function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:
             {k:'int',l:'INT'},{k:'wis',l:'SAG'},{k:'cha',l:'CAR'}
           ];
           const mod = (v:number) => { const m=Math.floor((v-10)/2); return m>=0?'+'+m:''+m; };
-          const setAb = (k:string,v:number) => setP('abilities' as any, {...abs, [k]:v});
+          const setAb = (k:string,v:number) => {
+            update(prev => ({
+              players: prev.players.map(pl => {
+                if (pl.id !== p.id) return pl;
+                const newAbs = {...((pl as any).abilities || {str:10,dex:10,con:10,int:10,wis:10,cha:10}), [k]:v};
+                const newPl = {...pl, abilities: newAbs} as any;
+                return {...newPl, ac: computeAC(newPl)};
+              })
+            }));
+          };
           return (
             <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:4,marginTop:10}}>
               {stats.map(s => {
@@ -931,7 +973,17 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                         undefined)
           }}>
             <div className="row" style={{alignItems:'flex-start'}}>
-              <button onClick={()=>setItemField(it.id,'equipped',!it.equipped)}
+              <button onClick={()=>{
+                  if (it.type === 'armatura') {
+                    updPlayer((pl:any)=>{
+                      const newInv = pl.inventory.map((i:any) => i.id===it.id ? {...i, equipped:!it.equipped} : i);
+                      const newPl = {...pl, inventory:newInv};
+                      return {...newPl, ac: computeAC(newPl)};
+                    });
+                  } else {
+                    setItemField(it.id,'equipped',!it.equipped);
+                  }
+                }}
                 title={it.equipped?'Rimuovi equipaggiamento':'Equipaggia'}
                 style={{width:28,height:28,borderRadius:4,border:'1px solid '+(it.equipped?p.color||'var(--gold)':'var(--border)'),background:it.equipped?(p.color||'var(--gold)')+'22':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:6,marginRight:6,fontSize:14,color:it.equipped?p.color||'var(--gold)':'var(--gray-purple-deep)'}}>
                 {it.equipped ? '⚔' : '○'}
@@ -977,6 +1029,38 @@ function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState
                     <select value={it.type||'altro'} onChange={e=>setItemField(it.id,'type',e.target.value)} style={{fontSize:12,padding:'3px 6px',marginBottom:4}}>
                       {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
+                    {it.type === 'armatura' && (
+                      <div className="row" style={{gap:6,marginBottom:4}}>
+                        <div className="row" style={{gap:3,flex:1}}>
+                          <span className="label" style={{fontSize:8}}>Tipo</span>
+                          <select value={it.armorType||''} onChange={e=>{
+                            const val=e.target.value;
+                            updPlayer((pl:any)=>{
+                              const newInv=pl.inventory.map((i:any)=>i.id===it.id?{...i,armorType:val}:i);
+                              const newPl={...pl,inventory:newInv};
+                              return it.equipped ? {...newPl,ac:computeAC(newPl)} : newPl;
+                            });
+                          }} style={{fontSize:11,padding:'2px 4px',flex:1}}>
+                            <option value="">—</option>
+                            <option value="leggera">Leggera</option>
+                            <option value="media">Media</option>
+                            <option value="pesante">Pesante</option>
+                            <option value="scudo">Scudo</option>
+                          </select>
+                        </div>
+                        <div className="row" style={{gap:3}}>
+                          <span className="label" style={{fontSize:8}}>CA</span>
+                          <input type="number" value={it.armorCA||0} onChange={e=>{
+                            const v=parseInt(e.target.value)||0;
+                            updPlayer((pl:any)=>{
+                              const newInv=pl.inventory.map((i:any)=>i.id===it.id?{...i,armorCA:v}:i);
+                              const newPl={...pl,inventory:newInv};
+                              return it.equipped ? {...newPl,ac:computeAC(newPl)} : newPl;
+                            });
+                          }} style={{width:44,textAlign:'center',fontSize:12,padding:'2px 4px'}} />
+                        </div>
+                      </div>
+                    )}
                     <textarea value={it.effect||''} placeholder="Effetto (es. +1 ai tiri per colpire)" onChange={e=>setItemField(it.id,'effect',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:36,marginBottom:4}} />
                     <textarea value={it.desc||''} placeholder="Descrizione oggetto…" onChange={e=>setItemField(it.id,'desc',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:36}} />
                   </>
