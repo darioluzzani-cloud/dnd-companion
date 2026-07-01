@@ -410,6 +410,7 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
   const visibleScenarios = s.dmMode ? s.scenarios : s.scenarios.filter((sc2:any)=>sc2.revealed!==false);
   const [draft, setDraft] = useState('');
   const [newScenName, setNewScenName] = useState('');
+  const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
 
   // CRUD scenari
   const addScenario = () => {
@@ -438,6 +439,11 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
 
   return (
     <div>
+      {enlargedImg && (
+        <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
+          <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
+        </div>
+      )}
       {/* === Lista scenari con CRUD === */}
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Scenari</div>
@@ -578,6 +584,16 @@ function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; up
                 {s.dmMode && <textarea value={q.dmNote||''} placeholder="Note DM (non visibili ai giocatori)…"
                   style={{marginTop:3,fontSize:12,padding:'5px 8px',minHeight:30,borderColor:'var(--gold)',borderStyle:'dashed'}}
                   onChange={e=>updScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,dmNote:e.target.value}:qq)}))} />}
+                {/* Immagine quest */}
+                <div style={{marginTop:6,cursor:'pointer',maxWidth:200}} onClick={e=>{
+                  e.stopPropagation();
+                  const img=document.querySelector(`[data-slot="quest-${q.id}"] img`) as HTMLImageElement;
+                  if(img?.src)setEnlargedImg(img.src);
+                }}>
+                  <div data-slot={'quest-'+q.id}>
+                    <ImageSlot slotId={'quest-'+q.id} campaignId={campaignId} shape="rounded" width={200} height={112} dmMode={s.dmMode} placeholder={s.dmMode?'📷 Immagine quest':''} alt={q.title} />
+                  </div>
+                </div>
               </div>
               {s.dmMode && (
                 <div style={{display:'flex',flexDirection:'column',gap:3,alignItems:'center'}}>
@@ -1826,7 +1842,7 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
       <div className="frame">
         <div className="label" style={{marginBottom:6}}>Scenario</div>
         <div className="row" style={{gap:5,flexWrap:'wrap'}}>
-          {s.scenarios.map(sc => (
+          {(s.dmMode ? s.scenarios : s.scenarios.filter((sc:any) => sc.revealed !== false)).map(sc => (
             <button key={sc.id} className={'btn'+(combatScen===sc.id?' btn-primary':'')}
               style={{fontSize:10}} onClick={()=>setCombatScen(sc.id)}>{sc.name}</button>
           ))}
@@ -1951,6 +1967,11 @@ function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U; campa
                       <button className="btn btn-ghost" style={{padding:'2px 6px',fontSize:9}}
                         onClick={()=>update(prev=>({combatants:prev.combatants.map(x=>x.id===k.id?{...x,revealed:(x as any).revealed===false?true:false} as any:x)}))}
                         title={(k as any).revealed===false?'Rivela':'Nascondi'}>{(k as any).revealed===false?'◯':'◉'}</button>
+                      <button className="pill" style={{fontSize:8,padding:'2px 7px',cursor:'pointer',
+                        color:k.side==='ally'?'var(--green)':'var(--red)',
+                        borderColor:k.side==='ally'?'var(--green)':'var(--pink-border)'}}
+                        onClick={()=>update(prev=>({combatants:prev.combatants.map(x=>x.id===k.id?{...x,side:x.side==='ally'?'enemy':'ally'}:x)}))}
+                        title="Cambia fazione">{k.side==='ally'?'Alleato':'Nemico'}</button>
                       <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9,marginLeft:'auto'}}
                         onClick={()=>{if(confirm('Rimuovere?'))update(prev=>({combatants:prev.combatants.filter(x=>x.id!==k.id)}));}}>&times;</button>
                     </div>
