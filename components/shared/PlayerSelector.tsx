@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { CampaignState } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { getLevelInfo } from '@/lib/dnd/xp-table';
+import { sfxDice } from '@/lib/dnd/sounds';
 import { CasterType } from '@/lib/dnd/spell-slots';
 import { U, computeAC } from '@/components/shared/common';
 
@@ -17,6 +18,7 @@ const SUBCLASS_CASTER: Record<string, Record<string, CasterType>> = {
 export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; update:U; p: CampaignState['players'][0]; campaignId:string|null }) {
   const info = getLevelInfo(p.xp||0);
   const [editing, setEditing] = useState(false);
+  const [lastHd, setLastHd] = useState<{pid:string;roll:number;heal:number}|null>(null);
   const setP = (f:string,v:any) => update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,[f]:v}:pl)}));
   return (
     <div className="frame">
@@ -193,6 +195,118 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   </div>
                 );
               })}
+            </div>
+          );
+        })()}
+
+        {/* === RECUPERO: dadi vita, indebolimento, riposo lungo === */}
+        {(() => {
+          const hdDefault = (() => {
+            const c = (p.cls||'').toLowerCase();
+            if (c.includes('barbar')) return 12;
+            if (c.includes('guerrier') || c.includes('paladin') || c.includes('ranger')) return 10;
+            if (c.includes('mago') || c.includes('stregon')) return 6;
+            return 8;
+          })();
+          const hitDie = (p as any).hitDie || hdDefault;
+          const usedHD = (p as any).hitDiceUsed || 0;
+          const availHD = Math.max(0, info.level - usedHD);
+          const conMod = Math.floor((((p as any).abilities?.con ?? 10) - 10) / 2);
+          const exh = (p as any).exhaustion || 0;
+
+          const spendDie = () => {
+            if (availHD <= 0) return;
+            const roll = Math.floor(Math.random() * hitDie) + 1;
+            const heal = Math.max(0, roll + conMod);
+            sfxDice();
+            setLastHd({ pid: p.id, roll, heal });
+            update(prev => ({
+              players: prev.players.map(pl => {
+                if (pl.id !== p.id) return pl;
+                return { ...pl, hp: Math.min(pl.maxHp ?? 0, (pl.hp ?? 0) + heal), hitDiceUsed: ((pl as any).hitDiceUsed || 0) + 1 } as any;
+              }),
+              combatants: prev.combatants.map(c => c.id === 'pc-' + p.id ? { ...c, hp: Math.min(c.maxHp, c.hp + heal) } : c),
+            }));
+          };
+
+          const longRest = () => {
+            if (!confirm('Riposo lungo: PF al massimo, slot incantesimo ripristinati, recupero di metà dei dadi vita, −1 indebolimento. Confermare?')) return;
+            update(prev => ({
+              players: prev.players.map(pl => {
+                if (pl.id !== p.id) return pl;
+                const lvl = getLevelInfo(pl.xp || 0).level;
+                const recovered = Math.max(1, Math.floor(lvl / 2));
+                return { ...pl,
+                  hp: pl.maxHp ?? pl.hp ?? 0,
+                  slotsUsed: {},
+                  hitDiceUsed: Math.max(0, ((pl as any).hitDiceUsed || 0) - recovered),
+                  exhaustion: Math.max(0, ((pl as any).exhaustion || 0) - 1),
+                } as any;
+              }),
+              combatants: prev.combatants.map(c => c.id === 'pc-' + p.id ? { ...c, hp: c.maxHp } : c),
+            }));
+            setLastHd(null);
+          };
+
+          const hdBoxes = [];
+          for (let i = 0; i < info.level; i++) {
+            const isAvail = i < availHD;  // pieno = disponibile; si consumano da destra
+            hdBoxes.push(
+              <button key={i}
+                onClick={()=>setP('hitDiceUsed' as any, isAvail ? usedHD + 1 : Math.max(0, usedHD - 1))}
+                title={isAvail ? 'Segna come speso (senza tirare)' : 'Recupera'}
+                style={{width:20,height:20,borderRadius:'50%',border:'1px solid '+(isAvail?p.color||'var(--gold)':'var(--border)'),
+                  background:isAvail?(p.color||'var(--gold)'):'transparent',cursor:'pointer',transition:'all .15s'}} />
+            );
+          }
+
+          const exhPips = [];
+          for (let i = 0; i < 6; i++) {
+            const on = i < exh;
+            const pipColor = i >= 4 ? 'var(--red)' : i >= 2 ? '#e0a040' : 'var(--gold)';
+            exhPips.push(
+              <button key={i}
+                onClick={()=>setP('exhaustion' as any, exh === i + 1 ? i : i + 1)}
+                title={'Livello ' + (i + 1)}
+                style={{width:16,height:16,borderRadius:3,border:'1px solid '+(on?pipColor:'var(--border)'),
+                  background:on?pipColor:'transparent',cursor:'pointer',transition:'all .15s'}} />
+            );
+          }
+
+          return (
+            <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}}>
+              {/* Dadi vita */}
+              <div className="row" style={{justifyContent:'space-between',marginBottom:6}}>
+                <div className="label" style={{fontSize:9}}>Dadi vita · d{hitDie}</div>
+                {s.dmMode && (
+                  <select value={hitDie} onChange={e=>setP('hitDie' as any, parseInt(e.target.value))} style={{width:60,fontSize:11,padding:'2px 4px'}}>
+                    {[6,8,10,12].map(d => <option key={d} value={d}>d{d}</option>)}
+                  </select>
+                )}
+              </div>
+              <div className="row" style={{gap:6,flexWrap:'wrap',alignItems:'center'}}>
+                <div className="row" style={{gap:4,flexWrap:'wrap'}}>{hdBoxes}</div>
+                <span className="small muted" style={{whiteSpace:'nowrap'}}>{availHD} / {info.level}</span>
+                <button className="btn" disabled={availHD<=0}
+                  style={{fontSize:9,padding:'4px 10px',marginLeft:'auto',opacity:availHD<=0?0.4:1}}
+                  onClick={spendDie}
+                >Tira 1d{hitDie}{conMod !== 0 ? (conMod > 0 ? '+'+conMod : ''+conMod) : ''}</button>
+              </div>
+              {lastHd && lastHd.pid === p.id && (
+                <div className="small" style={{marginTop:4,color:'var(--green)'}}>d{hitDie}: {lastHd.roll}{conMod !== 0 ? (conMod > 0 ? ' + '+conMod : ' − '+Math.abs(conMod)) : ''} → +{lastHd.heal} PF</div>
+              )}
+              {/* Indebolimento */}
+              <div className="row" style={{gap:8,marginTop:10,alignItems:'center',flexWrap:'wrap'}}>
+                <div className="label" style={{fontSize:9}}>Indebolimento</div>
+                <div className="row" style={{gap:4}}>{exhPips}</div>
+                {exh > 0 && (
+                  <span className="small" style={{color: exh >= 5 ? 'var(--red)' : exh >= 3 ? '#e0a040' : 'var(--gray-purple)',fontWeight:500}}>
+                    −{exh} ai d20 e alla CD{exh >= 5 ? ' · velocità 0' : ''}{exh >= 6 ? ' · MORTE' : ''}
+                  </span>
+                )}
+              </div>
+              {/* Riposo lungo completo */}
+              <button className="btn btn-primary" style={{width:'100%',marginTop:10,fontSize:11}} onClick={longRest}>Riposo lungo</button>
             </div>
           );
         })()}
