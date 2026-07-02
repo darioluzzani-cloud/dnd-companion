@@ -196,7 +196,7 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
                   if(img?.src)setEnlargedImg(img.src);
                 }}>
                   <div data-slot={'quest-'+q.id}>
-                    <ImageSlot slotId={'quest-'+q.id} campaignId={campaignId} shape="rounded" width={200} height={112} dmMode={s.dmMode} placeholder={s.dmMode?'📷 Immagine quest':''} alt={q.title} />
+                    <ImageSlot slotId={'quest-'+q.id} campaignId={campaignId} shape="rounded" width={200} height={112} dmMode={s.dmMode} placeholder={s.dmMode?'📷 Immagine quest':''} alt={q.title} hideIfEmpty />
                   </div>
                 </div>
               </div>

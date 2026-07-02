@@ -37,20 +37,20 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
           ) : (
             <div className="label">{slotLabel} · {p.short||p.name}</div>
           )}
-          <button className="btn" style={{fontSize:10}} onClick={()=>updPlayer((pl:any)=>({...pl,slotsUsed:{}}))}>Riposo lungo</button>
         </div>
         {Object.keys(slots).filter(lv=>slots[lv]>0).length===0 && !s.dmMode
           ? <div className="small muted" style={{fontStyle:'italic'}}>Nessuno slot incantesimo.</div>
           : Object.entries(slots).filter(([,max])=>max>0||s.dmMode).map(([lv,max]) => {
               const u = used[lv]||0;
+              const avail = Math.max(0, max - u);
               const lvLabel = customSlots[lv]?.label || ('Liv '+lv);
               const boxes = [];
               for (let i=0; i<max; i++) {
-                const isUsed = i < u;
+                const isAvail = i < avail;  // pieno = disponibile; gli slot si consumano da destra
                 boxes.push(
-                  <button key={i} onClick={()=>updPlayer((pl:any)=>({...pl,slotsUsed:{...pl.slotsUsed,[lv]: isUsed ? Math.max(0,(pl.slotsUsed?.[lv]||0)-1) : (pl.slotsUsed?.[lv]||0)+1 }}))}
-                    style={{width:24,height:24,borderRadius:4,border:'1px solid '+(isUsed?p.color||'var(--gold)':'var(--border)'),
-                      background:isUsed?(p.color||'var(--gold)'):'transparent',cursor:'pointer',transition:'all .15s'}} />
+                  <button key={i} onClick={()=>updPlayer((pl:any)=>({...pl,slotsUsed:{...pl.slotsUsed,[lv]: isAvail ? (pl.slotsUsed?.[lv]||0)+1 : Math.max(0,(pl.slotsUsed?.[lv]||0)-1) }}))}
+                    style={{width:24,height:24,borderRadius:4,border:'1px solid '+(isAvail?p.color||'var(--gold)':'var(--border)'),
+                      background:isAvail?(p.color||'var(--gold)'):'transparent',cursor:'pointer',transition:'all .15s'}} />
                 );
               }
               return (
@@ -62,7 +62,7 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
                     <div className="label" style={{width:40,textAlign:'right',fontSize:10}}>{lvLabel}</div>
                   )}
                   <div className="row" style={{gap:4,flexWrap:'wrap'}}>{boxes}</div>
-                  <div className="small muted" style={{marginLeft:'auto',whiteSpace:'nowrap'}}>{u} / {max}</div>
+                  <div className="small muted" style={{marginLeft:'auto',whiteSpace:'nowrap'}}>{avail} / {max}</div>
                   {s.dmMode && (
                     <div className="row" style={{gap:2}}>
                       <button className="btn btn-ghost" style={{padding:'1px 5px',fontSize:10}} onClick={()=>setCustomSlot(lv,Math.max(0,(customSlots[lv]?.max??max)-1))}>−</button>
@@ -93,7 +93,7 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
         <div className="label" style={{marginBottom:8}}>Repertorio · tocca per i dettagli</div>
         {Object.keys(byLevel).map(n=>parseInt(n)).sort((a,b)=>a-b).map(lv => (
           <div key={lv} style={{marginBottom:10}}>
-            <div className="h3" style={{margin:'4px 0 6px'}}>{lv===0?'Trucchi':'Livello '+lv}</div>
+            <div className="h3" style={{margin:'4px 0 6px'}}>{lv===0?'Trucchetti':'Livello '+lv}</div>
             {byLevel[lv].map((sp:any,spIdx:number) => {
               const allSpells = p.spells||[];
               const globalIdx = allSpells.findIndex((x:any)=>x.id===sp.id);
@@ -109,7 +109,7 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
                     {sp.school && <div className="small muted" style={{fontSize:12}}>{sp.school}</div>}
                   </div>
                   <div className="pill" style={{padding:'3px 8px',fontSize:9,color:lv===0?'var(--purple)':'var(--gold)',borderColor:lv===0?'var(--purple)':'var(--gold)'}}>
-                    {lv===0 ? 'Trucco' : 'Liv '+lv}
+                    {lv===0 ? 'Trucchetto' : 'Liv '+lv}
                   </div>
                   <ReorderBtns
                     onUp={()=>updPlayer((pl:any)=>({...pl,spells:moveInArray(pl.spells,globalIdx,-1)}))}
