@@ -1,9 +1,7 @@
 'use client';
 import { useState, useMemo, useCallback } from 'react';
 import { useCampaignState } from '@/hooks/useCampaignState';
-import { WeatherPopup } from '@/components/popups/WeatherPopup';
 import { CalendarPopup, CalendarBar } from '@/components/popups/CalendarPopup';
-import { DEFAULT_CALENDAR, seasonForMonth } from '@/lib/dnd/calendar';
 import { QuestsTab } from '@/components/tabs/QuestsTab';
 import { CharactersTab } from '@/components/tabs/CharactersTab';
 import { SpellsTab } from '@/components/tabs/SpellsTab';
@@ -36,7 +34,6 @@ export function CampaignApp({ slug }: { slug: string }) {
     update(prev => ({ scenarios: prev.scenarios.map(sc => sc.id === prev.activeScenario ? fn(sc) : sc) }));
   }, [update]);
 
-  const [showWeather, setShowWeather] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
 
   if (loading) return (
@@ -67,11 +64,6 @@ export function CampaignApp({ slug }: { slug: string }) {
           <CalendarBar s={s} onOpen={()=>setShowCalendar(true)} />
         </div>
         <div className="row" style={{gap:6}}>
-          {s.dmMode && (
-            <button className="btn weather-topbar-btn" title="Meteo" onClick={()=>setShowWeather(true)}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 15a4 4 0 004 4h9a5 5 0 10-1.2-9.87A7 7 0 108 15z"/></svg>
-            </button>
-          )}
           <button
             className="btn"
             style={s.dmMode ? {background:'var(--gold)',color:'var(--bg-deep)',borderColor:'var(--gold)'} : undefined}
@@ -80,7 +72,6 @@ export function CampaignApp({ slug }: { slug: string }) {
         </div>
       </div>
 
-      {showWeather && <WeatherPopup onClose={()=>setShowWeather(false)} initialBiome={(s.calendar||DEFAULT_CALENDAR).biome} initialSeason={seasonForMonth((s.calendar||DEFAULT_CALENDAR).date.month)} />}
       {showCalendar && s.dmMode && <CalendarPopup s={s} update={update} onClose={()=>setShowCalendar(false)} />}
 
       {/* === TAB BAR === */}
