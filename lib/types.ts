@@ -63,6 +63,9 @@ export interface Player {
   hp?: number;
   maxHp?: number;
   slotsUsed: Record<string, number>;
+  hitDie?: number;
+  hitDiceUsed?: number;
+  exhaustion?: number;
   spells: Spell[];
   inventory: InventoryItem[];
   resources?: PlayerResource[];
