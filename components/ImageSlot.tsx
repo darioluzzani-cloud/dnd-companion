@@ -13,9 +13,10 @@ interface Props {
   dmMode?: boolean;
   placeholder?: string;
   alt?: string;
+  hideIfEmpty?: boolean;  // se true, il riquadro è invisibile finché non c'è un'immagine (salvo modalità DM)
 }
 
-export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height, dmMode, placeholder, alt }: Props) {
+export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height, dmMode, placeholder, alt, hideIfEmpty }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +60,9 @@ export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height
       if (e.target) e.target.value = '';
     }
   };
+
+  // Nascosto se richiesto, vuoto e non in modalità DM (il DM deve poterlo vedere per caricare)
+  if (hideIfEmpty && !dmMode && !url) return null;
 
   const borderRadius = shape === 'circle' ? '50%' : shape === 'rect' ? '0' : '8px';
   const style: React.CSSProperties = { width: width || '100%', height: height || '100%', borderRadius };
