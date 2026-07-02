@@ -4,9 +4,9 @@ import { sfxDice } from '@/lib/dnd/sounds';
 import { COND, DT, WEATHER_MAP, WEATHER_DETAILS, BIOMES, SEASONS, EFFECT_CATS, INTENSITY_COLORS } from '@/lib/dnd/weather';
 
 // ─── POPUP: METEO ────────────────────────────────────────────
-export function WeatherPopup({ onClose }: { onClose:()=>void }) {
-  const [biome, setBiome] = useState('temperato');
-  const [season, setSeason] = useState('primavera');
+export function WeatherPopup({ onClose, initialBiome, initialSeason }: { onClose:()=>void; initialBiome?:string; initialSeason?:string }) {
+  const [biome, setBiome] = useState(initialBiome || 'temperato');
+  const [season, setSeason] = useState(initialSeason || 'primavera');
   const [roll, setRoll] = useState<number|null>(null);
   const [hitId, setHitId] = useState<string|null>(null);
   const [expanded, setExpanded] = useState(false);

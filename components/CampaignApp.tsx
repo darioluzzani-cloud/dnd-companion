@@ -2,6 +2,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useCampaignState } from '@/hooks/useCampaignState';
 import { WeatherPopup } from '@/components/popups/WeatherPopup';
+import { CalendarPopup, CalendarBar } from '@/components/popups/CalendarPopup';
+import { DEFAULT_CALENDAR, seasonForMonth } from '@/lib/dnd/calendar';
 import { QuestsTab } from '@/components/tabs/QuestsTab';
 import { CharactersTab } from '@/components/tabs/CharactersTab';
 import { SpellsTab } from '@/components/tabs/SpellsTab';
@@ -35,6 +37,7 @@ export function CampaignApp({ slug }: { slug: string }) {
   }, [update]);
 
   const [showWeather, setShowWeather] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   if (loading) return (
     <div className="loading-screen">
@@ -61,6 +64,7 @@ export function CampaignApp({ slug }: { slug: string }) {
             <div className="campaign-title">{s.campaign}</div>
           )}
           <div className="campaign-sub">Compagno di Sessione</div>
+          <CalendarBar s={s} onOpen={()=>setShowCalendar(true)} />
         </div>
         <div className="row" style={{gap:6}}>
           {s.dmMode && (
@@ -76,7 +80,8 @@ export function CampaignApp({ slug }: { slug: string }) {
         </div>
       </div>
 
-      {showWeather && <WeatherPopup onClose={()=>setShowWeather(false)} />}
+      {showWeather && <WeatherPopup onClose={()=>setShowWeather(false)} initialBiome={(s.calendar||DEFAULT_CALENDAR).biome} initialSeason={seasonForMonth((s.calendar||DEFAULT_CALENDAR).date.month)} />}
+      {showCalendar && s.dmMode && <CalendarPopup s={s} update={update} onClose={()=>setShowCalendar(false)} />}
 
       {/* === TAB BAR === */}
       <div className="tab-bar">

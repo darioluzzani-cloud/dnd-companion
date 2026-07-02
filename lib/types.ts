@@ -1,3 +1,5 @@
+import { CalendarState } from '@/lib/dnd/calendar';
+
 export interface Quest {
   id: string;
   type: 'main' | 'side';
@@ -123,6 +125,7 @@ export interface CampaignState {
   lore: LoreEntry[];
   loreCatFilter: string;
   alchemyRecipes?: AlchemyRecipe[];
+  calendar?: CalendarState;
   lastRoll: DiceRoll | null;
   rollSeq: number;
   history: DiceRoll[];

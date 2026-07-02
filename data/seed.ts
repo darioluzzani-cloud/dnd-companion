@@ -1,4 +1,5 @@
 import { CampaignState } from '@/lib/types';
+import { DEFAULT_CALENDAR } from '@/lib/dnd/calendar';
 
 export const SEED: CampaignState = {
   tab: 'quests',
@@ -101,6 +102,7 @@ export const SEED: CampaignState = {
     {id:'lo1',name:'Marca di Velmora',subtitle:'Regione',category:'luoghi',text:'Provincia di confine di colline basse e boschi radi. A est gravita su Castelferro, sede della Gilda Mercantile delle Bilance.',revealed:true,expanded:false},
   ],
   loreCatFilter: 'tutti',
+  calendar: DEFAULT_CALENDAR,
   lastRoll: null,
   rollSeq: 0,
   history: [],
