@@ -57,12 +57,6 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                     <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
                   </svg>
                 </button>
-                <button className="btn btn-ghost" style={{padding:'4px 6px'}} onClick={()=>setShowSheet(true)} title="Tiri salvezza e abilità">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gray-purple)" strokeWidth="1.5"><path d="M9 12h6m-6 4h6M9 8h6M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z"/></svg>
-                </button>
-                <button className="btn btn-ghost" style={{padding:'4px 6px'}} onClick={()=>setShowFeats(true)} title="Talenti e padronanze">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gray-purple)" strokeWidth="1.5"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.5L7 22l5-2.5L17 22l-1.5-7.5"/></svg>
-                </button>
                 <button className="btn btn-ghost" style={{padding:'4px 6px',fontSize:12}} onClick={()=>setEditing(!editing)} title="Modifica">✎</button>
                 <div className="pill" style={{padding:'4px 10px',color:p.color,borderColor:p.color,fontWeight:600}}>Lv {info.level}</div>
               </div>
@@ -321,6 +315,17 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
 
           return (
             <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}}>
+              {/* Strumenti del personaggio: scheda e talenti */}
+              <div className="row" style={{gap:8,marginBottom:12}}>
+                <button className="tool-box-btn" style={{flex:1,color:'var(--purple)'}} onClick={()=>setShowSheet(true)} title="Bonus di competenza, tiri salvezza e abilità">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 12h6m-6 4h6M9 8h6M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z"/></svg>
+                  <span>Scheda</span>
+                </button>
+                <button className="tool-box-btn" style={{flex:1,color:'var(--gold)'}} onClick={()=>setShowFeats(true)} title="Talenti e padronanze">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.5L7 22l5-2.5L17 22l-1.5-7.5"/></svg>
+                  <span>Talenti</span>
+                </button>
+              </div>
               {/* Dadi vita */}
               <div className="row" style={{justifyContent:'space-between',marginBottom:6}}>
                 <div className="label" style={{fontSize:9}}>Dadi vita · d{hitDie}</div>

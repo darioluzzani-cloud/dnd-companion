@@ -224,3 +224,11 @@ textarea { resize: vertical; min-height: 60px; }
 
 /* === SHEET POPUP === */
 .sheet-popup { border-color: var(--border-sec); box-shadow: 0 0 40px rgba(164,137,221,.10); max-width: 460px; }
+
+/* === TOOL BOX BUTTONS (scheda, talenti — geometria del pulsante alchemico) === */
+.tool-box-btn { display: flex; align-items: center; justify-content: center; gap: 6px; font-family: var(--font-display); font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; padding: 8px 14px; border-radius: 8px; border: 1px solid currentColor; background: var(--bg-deep); cursor: pointer; transition: background .15s, box-shadow .15s; }
+.tool-box-btn:hover { background: var(--bg-active); box-shadow: 0 0 12px rgba(164,137,221,.15); }
+
+/* === MOBILE SAFE AREA (iOS PWA: la tab bar non collide con la barra di sistema) === */
+.tab-bar { padding-bottom: env(safe-area-inset-bottom); }
+.app-wrap { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }

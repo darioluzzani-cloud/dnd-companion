@@ -45,12 +45,13 @@ export function FeatsPopup({ s, update, p, campaignId, onClose }: { s: CampaignS
   return (
     <div className="alchemy-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="alchemy-popup sheet-popup" style={{ position: 'relative', overflow: 'hidden' }}>
-        {/* Sfondo in filigrana */}
-        <div key={bgTick} style={{ position: 'absolute', inset: 0, opacity: .12, pointerEvents: 'none' }}>
-          <ImageSlot slotId={'feats-bg-' + p.id} campaignId={campaignId} shape="rect" width="100%" height="100%" hideIfEmpty alt="" />
+        {/* Sfondo — immagine piena in alto che sfuma nel colore del pannello (condivisa tra i PG) */}
+        <div key={bgTick} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          <ImageSlot slotId="feats-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" hideIfEmpty alt="" />
         </div>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(30,22,48,0) 0%, rgba(30,22,48,0.55) 25%, rgba(30,22,48,0.92) 50%, rgba(30,22,48,1) 70%)' }} />
 
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', zIndex: 2 }}>
           {/* Header */}
           <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
             <div className="row" style={{ gap: 8 }}>
@@ -103,9 +104,9 @@ export function FeatsPopup({ s, update, p, campaignId, onClose }: { s: CampaignS
             <div className="row" style={{ gap: 8, alignItems: 'center' }}>
               <div className="label" style={{ fontSize: 9 }}>Sfondo</div>
               <div style={{ width: 72, height: 44 }}>
-                <ImageSlot slotId={'feats-bg-' + p.id} campaignId={campaignId} shape="rounded" width="100%" height="100%" dmMode placeholder="Sfondo" alt="" onUploaded={() => setBgTick(t => t + 1)} />
+                <ImageSlot slotId="feats-bg" campaignId={campaignId} shape="rounded" width="100%" height="100%" dmMode placeholder="Sfondo" alt="" onUploaded={() => setBgTick(t => t + 1)} />
               </div>
-              <span className="small muted">In filigrana dietro il pannello.</span>
+              <span className="small muted">Unica per tutti i personaggi; sfuma nel pannello come nell'alchimia.</span>
             </div>
           )}
         </div>
