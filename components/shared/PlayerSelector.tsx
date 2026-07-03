@@ -85,6 +85,10 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   <span className="small muted" style={{fontSize:10}}>iniz.</span>
                   <input type="color" value={p.color||'#a489dd'} onChange={e=>setP('color',e.target.value)} style={{width:28,height:28,padding:0,border:'none',cursor:'pointer'}} />
                 </div>
+                <label className="row" style={{gap:6,marginTop:6,cursor:'pointer',fontSize:12,color:'var(--gray-purple)'}}>
+                  <input type="checkbox" checked={!!(p as any).pactSlots} onChange={e=>setP('pactSlots' as any, e.target.checked)} style={{width:'auto'}} />
+                  Slot da patto — recupero a riposo breve (Warlock)
+                </label>
               </div>
             ) : (
               <div className="small muted">{p.cls}{(p as any).subclass ? ' — '+(p as any).subclass : ''}</div>
@@ -356,8 +360,17 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   </span>
                 )}
               </div>
-              {/* Riposo lungo completo */}
-              <button className="btn btn-primary" style={{width:'100%',marginTop:10,fontSize:11}} onClick={longRest}>Riposo lungo</button>
+              {/* Riposi */}
+              <div className="row" style={{gap:6,marginTop:10}}>
+                {(p as any).pactSlots && (
+                  <button className="btn" style={{flex:1,fontSize:11,color:'var(--purple-light)',borderColor:'var(--purple)'}}
+                    onClick={()=>{
+                      if(!confirm('Riposo breve: gli slot da patto tornano disponibili. Confermare?')) return;
+                      update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,slotsUsed:{}}:pl)}));
+                    }}>Riposo breve</button>
+                )}
+                <button className="btn btn-primary" style={{flex:(p as any).pactSlots?1.4:1,fontSize:11}} onClick={longRest}>Riposo lungo</button>
+              </div>
             </div>
           );
         })()}

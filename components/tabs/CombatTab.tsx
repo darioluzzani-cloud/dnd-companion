@@ -5,6 +5,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { CONDITIONS } from '@/lib/dnd/conditions';
 import { sfxDice } from '@/lib/dnd/sounds';
 import { U } from '@/components/shared/common';
+import { BestiaryPopup } from '@/components/popups/BestiaryPopup';
 
 
 // ─── TAB: COMBATTIMENTO ──────────────────────────────────────
@@ -62,6 +63,8 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
   const prevTurn=()=>{let n=idx-1,r=s.round;if(n<0){n=turnList.length-1;r=Math.max(1,r-1);}update({turnIndex:n,round:r});};
 
   // Importa i PG come combattenti (companion mostrato dentro la card del padrone)
+  const [showBestiary, setShowBestiary] = useState(false);
+
   const addPlayers = () => {
     const existing = new Set((s.combatants||[]).map(c=>c.id));
     const newCombatants: any[] = [];
@@ -113,6 +116,12 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
         <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
           <div className="label">Ordine di Iniziativa</div>
           {s.dmMode && <button className="btn" style={{fontSize:10}} onClick={addPlayers}>+ PG</button>}
+          {s.dmMode && (
+            <button className="tool-box-btn" style={{color:'var(--red)',fontSize:9,padding:'6px 12px'}} onClick={()=>setShowBestiary(true)} title="Registro dei nemici">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2c-1.5 3-4 4-7 4 0 7 3 12 7 16 4-4 7-9 7-16-3 0-5.5-1-7-4z"/><path d="M9 10h.01M15 10h.01M9.5 14c.8.7 1.6 1 2.5 1s1.7-.3 2.5-1"/></svg>
+              <span>Bestiario</span>
+            </button>
+          )}
         </div>
         {visibleCombatants.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun combattente.</div>}
         {visibleCombatants.map((k,i) => {
@@ -123,9 +132,9 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
               <div className="row">
                 {/* Ritratto rettangolare verticale — per tutti i combattenti */}
                 <div style={{width:44,height:60,flexShrink:0,marginRight:4,overflow:'hidden',borderRadius:6,cursor:'pointer'}}
-                  onClick={e=>{e.stopPropagation();const slotId=k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):k.id.startsWith('comp-')?'companion-'+k.id.replace('comp-',''):'combat-'+k.id;const img=document.querySelector(`[data-slot="${slotId}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
+                  onClick={e=>{e.stopPropagation();const slotId=(k as any).imgSlot||(k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):k.id.startsWith('comp-')?'companion-'+k.id.replace('comp-',''):'combat-'+k.id);const img=document.querySelector(`[data-slot="${slotId}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
                   {(() => {
-                    const slotId=k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):k.id.startsWith('comp-')?'companion-'+k.id.replace('comp-',''):'combat-'+k.id;
+                    const slotId=(k as any).imgSlot||(k.id.startsWith('pc-')?'portrait-'+k.id.replace('pc-',''):k.id.startsWith('comp-')?'companion-'+k.id.replace('comp-',''):'combat-'+k.id);
                     return <div data-slot={slotId} style={{width:44,height:60}}><ImageSlot slotId={slotId} campaignId={campaignId} shape="rect" width={44} height={60} dmMode={s.dmMode} placeholder={k.name.slice(0,2).toUpperCase()} alt={k.name} /></div>;
                   })()}
                 </div>
@@ -305,6 +314,7 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
           </div>
         )}
       </div>
+      {showBestiary && <BestiaryPopup s={s} update={update} campaignId={campaignId} combatScen={combatScen} onClose={()=>setShowBestiary(false)} />}
     </div>
   );
 }

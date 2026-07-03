@@ -70,6 +70,7 @@ export interface Player {
   speed?: number;
   initBonus?: number;
   feats?: { id: string; name: string; kind: string; desc: string }[];
+  pactSlots?: boolean;  // Warlock: gli slot tornano disponibili con il riposo breve
   saveProf?: Record<string, boolean>;
   skillProf?: Record<string, number>;
   profNotes?: string;
@@ -89,6 +90,7 @@ export interface Combatant {
   conditions?: string[];
   icon?: string;
   ds?: { s: number; f: number };
+  imgSlot?: string;  // slot immagine esplicito (es. ritratto del bestiario)
 }
 
 export interface LoreEntry {
@@ -114,6 +116,13 @@ export interface AlchemyRecipe {
   };
 }
 
+export interface BestiaryEntry {
+  id: string;
+  name: string;
+  maxHp: number;
+  initMod: number;
+}
+
 export interface DiceRoll {
   die: number;
   value: number;
@@ -136,6 +145,7 @@ export interface CampaignState {
   lore: LoreEntry[];
   loreCatFilter: string;
   alchemyRecipes?: AlchemyRecipe[];
+  bestiary?: BestiaryEntry[];
   calendar?: CalendarState;
   lastRoll: DiceRoll | null;
   rollSeq: number;
