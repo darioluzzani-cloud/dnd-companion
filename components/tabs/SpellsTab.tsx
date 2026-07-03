@@ -30,13 +30,55 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
     <div>
       <PlayerSelector s={s} update={update} p={p} campaignId={campaignId} />
       <div className="frame">
-        <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
+        <div className="row" style={{justifyContent:'space-between',marginBottom:8,flexWrap:'wrap',gap:6}}>
           {s.dmMode ? (
             <input value={slotLabel} onChange={e=>updPlayer((pl:any)=>({...pl,slotLabel:e.target.value}))}
               style={{fontFamily:'var(--font-display)',fontSize:11,letterSpacing:'2px',textTransform:'uppercase',color:'var(--gray-purple)',background:'transparent',border:'1px solid var(--border)',padding:'2px 8px',width:160}} />
           ) : (
             <div className="label">{slotLabel} · {p.short||p.name}</div>
           )}
+          {/* CD incantatore e attacco con incantesimi — derivati, con malus indebolimento (5e 2024) */}
+          {(() => {
+            const abs2 = (p as any).abilities || {};
+            const modOf = (k:string) => Math.floor((((abs2[k] ?? 10)) - 10) / 2);
+            const guess = (() => {
+              const c = (p.cls||'').toLowerCase();
+              if (c.includes('warlock') || c.includes('stregon') || c.includes('bard') || c.includes('paladin')) return 'cha';
+              if (c.includes('chieric') || c.includes('druid') || c.includes('ranger')) return 'wis';
+              if (c.includes('mago') || c.includes('artefic')) return 'int';
+              // ripiego: la migliore delle tre caratteristiche mentali
+              return (['int','wis','cha'] as const).reduce((a,b)=>modOf(b)>modOf(a)?b:a, 'int' as string);
+            })();
+            const spellAb: string = (p as any).spellAbility || guess;
+            const pb = 2 + Math.floor((info.level - 1) / 4);
+            const exh = (p as any).exhaustion || 0;
+            const cd = 8 + pb + modOf(spellAb) - exh;
+            const atk = pb + modOf(spellAb) - exh;
+            const abLabel: Record<string,string> = { int:'INT', wis:'SAG', cha:'CAR' };
+            const penalized = exh > 0;
+            return (
+              <div className="row" style={{gap:6,flexShrink:0}}>
+                <div className="pill" style={{padding:'4px 10px',gap:6,
+                    color: penalized ? '#e0a040' : 'var(--gold)',
+                    borderColor: penalized ? '#e0a040' : 'var(--gold-dim)'}}
+                  title={penalized
+                    ? `CD ${8+pb+modOf(spellAb)} base − ${exh} da indebolimento · caratteristica: ${abLabel[spellAb]||spellAb}`
+                    : `8 + competenza (${pb}) + mod. ${abLabel[spellAb]||spellAb} (${modOf(spellAb)>=0?'+':''}${modOf(spellAb)})`}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M12 2l2.4 5.6L20 9l-4.4 3.9L17 19l-5-3-5 3 1.4-6.1L4 9l5.6-1.4z"/></svg>
+                  <span style={{fontFamily:'var(--font-display)',fontWeight:700,fontSize:12}}>CD {cd}</span>
+                  <span style={{fontSize:10,opacity:.85}}>· Att {atk>=0?'+':''}{atk}</span>
+                </div>
+                {s.dmMode && (
+                  <select value={spellAb} onChange={e=>updPlayer((pl:any)=>({...pl,spellAbility:e.target.value}))}
+                    title="Caratteristica da incantatore" style={{width:62,fontSize:11,padding:'2px 4px'}}>
+                    <option value="int">INT</option>
+                    <option value="wis">SAG</option>
+                    <option value="cha">CAR</option>
+                  </select>
+                )}
+              </div>
+            );
+          })()}
         </div>
         {Object.keys(slots).filter(lv=>slots[lv]>0).length===0 && !s.dmMode
           ? <div className="small muted" style={{fontStyle:'italic'}}>Nessuno slot incantesimo.</div>

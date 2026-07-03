@@ -71,6 +71,7 @@ export interface Player {
   initBonus?: number;
   feats?: { id: string; name: string; kind: string; desc: string }[];
   pactSlots?: boolean;  // Warlock: gli slot tornano disponibili con il riposo breve
+  spellAbility?: string; // caratteristica da incantatore ('int' | 'wis' | 'cha'); se assente, dedotta dalla classe
   saveProf?: Record<string, boolean>;
   skillProf?: Record<string, number>;
   profNotes?: string;
