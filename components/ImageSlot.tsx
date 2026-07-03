@@ -14,9 +14,10 @@ interface Props {
   placeholder?: string;
   alt?: string;
   hideIfEmpty?: boolean;  // se true, il riquadro è invisibile finché non c'è un'immagine (salvo modalità DM)
+  onUploaded?: () => void; // notifica il genitore a upload completato
 }
 
-export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height, dmMode, placeholder, alt, hideIfEmpty }: Props) {
+export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height, dmMode, placeholder, alt, hideIfEmpty, onUploaded }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +54,7 @@ export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height
       const ext = (file.name.split('.').pop() || 'png').toLowerCase();
       await supabase.storage.from(BUCKET).upload(`${prefix}.${ext}`, file, { upsert: true, contentType: file.type });
       await refresh();
+      onUploaded?.();
     } catch (err: unknown) {
       alert('Errore upload: ' + (err instanceof Error ? err.message : err));
     } finally {

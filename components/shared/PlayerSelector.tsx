@@ -4,6 +4,8 @@ import { CampaignState } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { getLevelInfo } from '@/lib/dnd/xp-table';
 import { sfxDice } from '@/lib/dnd/sounds';
+import { SheetPopup } from '@/components/popups/SheetPopup';
+import { FeatsPopup } from '@/components/popups/FeatsPopup';
 import { CasterType } from '@/lib/dnd/spell-slots';
 import { U, computeAC } from '@/components/shared/common';
 
@@ -19,6 +21,8 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
   const info = getLevelInfo(p.xp||0);
   const [editing, setEditing] = useState(false);
   const [lastHd, setLastHd] = useState<{pid:string;roll:number;heal:number}|null>(null);
+  const [showSheet, setShowSheet] = useState(false);
+  const [showFeats, setShowFeats] = useState(false);
   const setP = (f:string,v:any) => update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,[f]:v}:pl)}));
   return (
     <div className="frame">
@@ -47,6 +51,18 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                 <div className="h2" style={{color:p.color,fontSize:16}}>{p.name}</div>
               )}
               <div className="row" style={{gap:6}}>
+                <button className="btn btn-ghost" style={{padding:'4px 6px'}} title={(p as any).inspiration ? 'Ispirazione Eroica: attiva' : 'Ispirazione Eroica: assente'}
+                  onClick={()=>setP('inspiration' as any, !(p as any).inspiration)}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill={(p as any).inspiration ? 'var(--gold)' : 'none'} stroke={(p as any).inspiration ? 'var(--gold)' : 'var(--gray-purple-deep)'} strokeWidth="1.5">
+                    <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+                  </svg>
+                </button>
+                <button className="btn btn-ghost" style={{padding:'4px 6px'}} onClick={()=>setShowSheet(true)} title="Tiri salvezza e abilità">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gray-purple)" strokeWidth="1.5"><path d="M9 12h6m-6 4h6M9 8h6M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z"/></svg>
+                </button>
+                <button className="btn btn-ghost" style={{padding:'4px 6px'}} onClick={()=>setShowFeats(true)} title="Talenti e padronanze">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gray-purple)" strokeWidth="1.5"><circle cx="12" cy="9" r="6"/><path d="M8.5 14.5L7 22l5-2.5L17 22l-1.5-7.5"/></svg>
+                </button>
                 <button className="btn btn-ghost" style={{padding:'4px 6px',fontSize:12}} onClick={()=>setEditing(!editing)} title="Modifica">✎</button>
                 <div className="pill" style={{padding:'4px 10px',color:p.color,borderColor:p.color,fontWeight:600}}>Lv {info.level}</div>
               </div>
@@ -70,6 +86,9 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   style={{fontSize:13,padding:'3px 8px',marginBottom:4}} />
                 <div className="row" style={{gap:4}}>
                   <input value={p.species||''} placeholder="Specie" onChange={e=>setP('species',e.target.value)} style={{fontSize:13,padding:'3px 8px',flex:1}} />
+                  <input type="number" value={(p as any).initBonus||0} title="Bonus extra all'iniziativa (es. talento Allerta)"
+                    onChange={e=>setP('initBonus' as any, parseInt(e.target.value)||0)} style={{width:52,fontSize:13,padding:'3px 6px',textAlign:'center'}} />
+                  <span className="small muted" style={{fontSize:10}}>iniz.</span>
                   <input type="color" value={p.color||'#a489dd'} onChange={e=>setP('color',e.target.value)} style={{width:28,height:28,padding:0,border:'none',cursor:'pointer'}} />
                 </div>
               </div>
@@ -95,6 +114,24 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                 <input type="number" value={(p as any).ac??10}
                   onChange={e=>setP('ac' as any, parseInt(e.target.value)||0)}
                   className="ac-value" style={{color:p.color||'var(--gold)'}} />
+              </div>
+              {/* Iniziativa — derivata: mod. Des + bonus extra */}
+              {(() => {
+                const dexMod = Math.floor((((p as any).abilities?.dex ?? 10) - 10) / 2);
+                const ib = dexMod + ((p as any).initBonus || 0);
+                return (
+                  <div className="pill" style={{padding:'4px 8px',gap:4,flexShrink:0,fontSize:11}} title="Bonus di iniziativa (mod. Des + extra)">
+                    <span style={{color:'var(--blue)'}}>⚡</span>
+                    <span style={{fontFamily:'var(--font-display)',fontWeight:600,color:'var(--text)'}}>{ib >= 0 ? '+'+ib : ib}</span>
+                  </div>
+                );
+              })()}
+              {/* Velocità — editabile */}
+              <div className="pill" style={{padding:'4px 8px',gap:3,flexShrink:0,fontSize:11}} title="Velocità">
+                <span style={{color:'var(--green)'}}>»</span>
+                <input type="number" value={(p as any).speed ?? 9} onChange={e=>setP('speed' as any, parseInt(e.target.value)||0)}
+                  style={{width:24,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:12,fontWeight:600,color:'var(--text)',padding:0}} />
+                <span className="small muted" style={{fontSize:10}}>m</span>
               </div>
               {p.species && !editing && <div className="pill" style={{padding:'4px 8px',color:'var(--purple-light)',flexShrink:0,fontSize:11}}>◆ {p.species}</div>}
             </div>
@@ -255,8 +292,17 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
               <button key={i}
                 onClick={()=>setP('hitDiceUsed' as any, isAvail ? usedHD + 1 : Math.max(0, usedHD - 1))}
                 title={isAvail ? 'Segna come speso (senza tirare)' : 'Recupera'}
-                style={{width:20,height:20,borderRadius:'50%',border:'1px solid '+(isAvail?p.color||'var(--gold)':'var(--border)'),
-                  background:isAvail?(p.color||'var(--gold)'):'transparent',cursor:'pointer',transition:'all .15s'}} />
+                style={{width:22,height:22,padding:0,background:'transparent',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <svg width="22" height="22" viewBox="0 0 24 24" style={{transition:'all .15s'}}>
+                  <polygon points="12,1.5 21.1,6.75 21.1,17.25 12,22.5 2.9,17.25 2.9,6.75"
+                    fill={isAvail ? (p.color||'var(--gold)') : 'transparent'}
+                    stroke={isAvail ? (p.color||'var(--gold)') : 'var(--border)'} strokeWidth="1.4" />
+                  <polygon points="12,6.2 17.2,15.2 6.8,15.2" fill="none"
+                    stroke={isAvail ? 'var(--bg-deep)' : 'var(--border)'} strokeWidth="1.2" strokeLinejoin="round" />
+                  <path d="M12 1.5v4.7M21.1 17.25l-3.9-2.05M2.9 17.25l3.9-2.05"
+                    stroke={isAvail ? 'var(--bg-deep)' : 'var(--border)'} strokeWidth="1" opacity=".7" />
+                </svg>
+              </button>
             );
           }
 
@@ -311,6 +357,8 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
           );
         })()}
       </div>
+      {showSheet && <SheetPopup s={s} update={update} p={p} campaignId={campaignId} onClose={()=>setShowSheet(false)} />}
+      {showFeats && <FeatsPopup s={s} update={update} p={p} campaignId={campaignId} onClose={()=>setShowFeats(false)} />}
     </div>
   );
 }

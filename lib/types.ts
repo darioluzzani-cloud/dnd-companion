@@ -66,6 +66,13 @@ export interface Player {
   hitDie?: number;
   hitDiceUsed?: number;
   exhaustion?: number;
+  inspiration?: boolean;
+  speed?: number;
+  initBonus?: number;
+  feats?: { id: string; name: string; kind: string; desc: string }[];
+  saveProf?: Record<string, boolean>;
+  skillProf?: Record<string, number>;
+  profNotes?: string;
   spells: Spell[];
   inventory: InventoryItem[];
   resources?: PlayerResource[];
@@ -81,6 +88,7 @@ export interface Combatant {
   revealed?: boolean;
   conditions?: string[];
   icon?: string;
+  ds?: { s: number; f: number };
 }
 
 export interface LoreEntry {

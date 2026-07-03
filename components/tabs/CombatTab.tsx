@@ -28,9 +28,13 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
   // HP change con sync bidirezionale combattente ↔ giocatore/companion
   const changeHp = (kId:string, delta:number) => {
     update(prev => {
-      const newCombatants = prev.combatants.map(c =>
-        c.id===kId ? {...c, hp: Math.max(0, Math.min(c.maxHp, c.hp + delta))} : c
-      );
+      const newCombatants = prev.combatants.map(c => {
+        if (c.id !== kId) return c;
+        const hp = Math.max(0, Math.min(c.maxHp, c.hp + delta));
+        const next: any = {...c, hp};
+        if (hp > 0 && next.ds) delete next.ds; // sopra lo zero i TS contro morte si azzerano
+        return next;
+      });
       let newPlayers = prev.players;
       // Sync verso player se è un PG
       if (kId.startsWith('pc-')) {
@@ -63,12 +67,14 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
     const newCombatants: any[] = [];
     s.players.forEach(p => {
       if (!existing.has('pc-'+p.id)) {
+        const dexMod = Math.floor((((p as any).abilities?.dex ?? 10) - 10) / 2);
+        const initRoll = Math.floor(Math.random()*20) + 1 + dexMod + ((p as any).initBonus || 0);
         newCombatants.push({
-          id:'pc-'+p.id, name:p.name, init:p.init||10, hp:p.hp??p.maxHp??30, maxHp:p.maxHp??30, side:'ally' as const, conditions:[], scenarioId:combatScen
+          id:'pc-'+p.id, name:p.name, init:initRoll, hp:p.hp??p.maxHp??30, maxHp:p.maxHp??30, side:'ally' as const, conditions:[], scenarioId:combatScen
         });
       }
     });
-    if(newCombatants.length) update(prev=>({combatants:[...prev.combatants,...newCombatants]}));
+    if(newCombatants.length) { sfxDice(); update(prev=>({combatants:[...prev.combatants,...newCombatants]})); }
   };
 
   return (
@@ -123,6 +129,19 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
                     return <div data-slot={slotId} style={{width:44,height:60}}><ImageSlot slotId={slotId} campaignId={campaignId} shape="rect" width={44} height={60} dmMode={s.dmMode} placeholder={k.name.slice(0,2).toUpperCase()} alt={k.name} /></div>;
                   })()}
                 </div>
+                {s.dmMode && k.id.startsWith('pc-') && (() => {
+                  const owner = s.players.find(pl => pl.id === k.id.replace('pc-',''));
+                  if (!owner) return null;
+                  return (
+                    <button className="btn btn-ghost" style={{padding:'2px 4px',fontSize:11}} title="Ritira iniziativa (d20 + mod.)"
+                      onClick={()=>{
+                        const dexMod = Math.floor((((owner as any).abilities?.dex ?? 10) - 10) / 2);
+                        const r = Math.floor(Math.random()*20) + 1 + dexMod + ((owner as any).initBonus || 0);
+                        sfxDice();
+                        update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,init:r}:c)}));
+                      }}>⟳</button>
+                  );
+                })()}
                 <div className="init-circle" title="Iniziativa">
                   {s.dmMode ? (
                     <input type="number" value={k.init||0} onChange={e=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,init:parseInt(e.target.value)||0}:c)}))}
@@ -159,6 +178,44 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
                     <button className="hp-btn hp-btn-pos" onClick={()=>changeHp(k.id,1)}>+1</button>
                     <button className="hp-btn hp-btn-pos" onClick={()=>changeHp(k.id,5)}>+5</button>
                   </div>
+                  {k.id.startsWith('pc-') && (k.hp||0) === 0 && (() => {
+                    const ds = (k as any).ds || { s: 0, f: 0 };
+                    const setDs = (ns:number, nf:number) => update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?({...c, ds:{s:ns,f:nf}} as any):c)}));
+                    const dead = ds.f >= 3, stable = ds.s >= 3;
+                    return (
+                      <div style={{marginTop:8,padding:'8px 10px',borderRadius:6,background:'var(--bg-deep)',
+                        border:'1px solid '+(dead?'var(--red)':stable?'var(--green)':'var(--border)')}}>
+                        <div className="row" style={{justifyContent:'space-between',flexWrap:'wrap',gap:6}}>
+                          <div className="label" style={{fontSize:8}}>TS contro morte</div>
+                          {dead
+                            ? <span style={{color:'var(--red)',fontFamily:'var(--font-display)',fontSize:11,fontWeight:700,letterSpacing:'1px'}}>MORTO</span>
+                            : stable
+                              ? <span style={{color:'var(--green)',fontSize:11,fontWeight:600}}>Stabilizzato</span>
+                              : null}
+                        </div>
+                        <div className="row" style={{gap:16,marginTop:6}}>
+                          <div className="row" style={{gap:4}}>
+                            <span className="small" style={{color:'var(--green)',fontWeight:600}}>✓</span>
+                            {[0,1,2].map(i => (
+                              <button key={i} onClick={()=>setDs(ds.s===i+1?i:i+1, ds.f)}
+                                style={{width:16,height:16,borderRadius:'50%',cursor:'pointer',transition:'all .15s',
+                                  border:'1px solid '+(i<ds.s?'var(--green)':'var(--border)'),
+                                  background:i<ds.s?'var(--green)':'transparent'}} />
+                            ))}
+                          </div>
+                          <div className="row" style={{gap:4}}>
+                            <span className="small" style={{color:'var(--red)',fontWeight:600}}>✗</span>
+                            {[0,1,2].map(i => (
+                              <button key={i} onClick={()=>setDs(ds.s, ds.f===i+1?i:i+1)}
+                                style={{width:16,height:16,borderRadius:'50%',cursor:'pointer',transition:'all .15s',
+                                  border:'1px solid '+(i<ds.f?'var(--red)':'var(--border)'),
+                                  background:i<ds.f?'var(--red)':'transparent'}} />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   </>}
                   {/* Companion inline — nel turno del padrone */}
                   {k.id.startsWith('pc-') && (() => {

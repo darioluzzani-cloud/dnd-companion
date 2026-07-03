@@ -221,3 +221,6 @@ textarea { resize: vertical; min-height: 60px; }
 .calendar-popup { border-color: var(--gold-dim); box-shadow: 0 0 40px rgba(216,180,92,.10); }
 .cal-date-big { font-family: var(--font-display); font-size: 17px; font-weight: 600; letter-spacing: .5px; color: var(--gold); }
 .cal-adv { flex: 1; }
+
+/* === SHEET POPUP === */
+.sheet-popup { border-color: var(--border-sec); box-shadow: 0 0 40px rgba(164,137,221,.10); max-width: 460px; }
