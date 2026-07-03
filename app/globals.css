@@ -232,3 +232,14 @@ textarea { resize: vertical; min-height: 60px; }
 /* === MOBILE SAFE AREA (iOS PWA: la tab bar non collide con la barra di sistema) === */
 .tab-bar { padding-bottom: env(safe-area-inset-bottom); }
 .app-wrap { padding-bottom: calc(90px + env(safe-area-inset-bottom)); }
+
+/* === PULSE — respiro luminoso per turno attivo e scenario attivo === */
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 10px rgba(216,180,92,.18); }
+  50%      { box-shadow: 0 0 24px rgba(216,180,92,.5); }
+}
+.turn-indicator { animation: pulse-gold 3s ease-in-out infinite; }
+.pulse-gold { animation: pulse-gold 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .turn-indicator, .pulse-gold { animation: none; }
+}

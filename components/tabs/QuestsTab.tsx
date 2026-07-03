@@ -55,7 +55,7 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
         {visibleScenarios.map(sc2 => {
           const isActive = sc2.id === s.activeScenario;
           return (
-          <div key={sc2.id} style={{position:'relative',overflow:'hidden',borderRadius:8,marginBottom:8,
+          <div key={sc2.id} className={isActive ? 'pulse-gold' : undefined} style={{position:'relative',overflow:'hidden',borderRadius:8,marginBottom:8,
             border:isActive?'1px solid var(--gold)':'1px solid var(--border)',
             cursor:'pointer',minHeight:72,transition:'all .2s'}}
             onClick={()=>update({activeScenario:sc2.id})}>
