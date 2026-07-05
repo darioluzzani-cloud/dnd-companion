@@ -1,4 +1,4 @@
-const CACHE_NAME = 'velmora-v5.1';
+const CACHE_NAME = 'velmora-v5.2';
 const SHELL = [
   '/velmora',
   '/manifest.json',
