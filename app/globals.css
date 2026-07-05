@@ -267,3 +267,43 @@ html[data-theme='light'] .enemy-dead::after { text-shadow: 0 0 8px rgba(255,255,
 @keyframes strike-through { to { transform: scaleX(1); } }
 @keyframes fade-in-late { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .enemy-dead::before { animation: none; transform: scaleX(1); } .enemy-dead::after { animation: none; } }
+
+/* === RIFINITURE POST-SESSIONE 2 === */
+:root { --stat-grad: #1a1230; }
+
+/* Pergamena ammorbidita: luminanza e saturazione ridotte, inchiostri più scuri */
+html[data-theme='light'] {
+  --bg-main: #e8e0cf; --bg-deep: #dbd1b8; --bg-card: #efe8d8; --bg-input: #f3ede0;
+  --bg-nav: #e0d6bf; --bg-header: linear-gradient(180deg, #e2d7bc, #ece5d3); --bg-active: #e4dac1;
+  --border: #c6b795; --border-sec: #b3a179;
+  --gold: #75591a; --gold-light: #8a691d; --gold-dim: #7e6830;
+  --purple: #5c4399; --purple-light: #6d54ab; --purple-text: #5f4d85;
+  --gray-purple: #635878; --gray-purple-dark: #786d90; --gray-purple-deep: #8d84a3;
+  --text: #261e31; --text-card: #3d3350;
+  --green: #2a6e49; --green-light: #37805a;
+  --red: #a33049; --pink: #a24c6d; --pink-border: #c795aa; --blue: #1a6f8f;
+  --stat-grad: #d3c7a8;
+}
+html[data-theme='light'] body { background: radial-gradient(ellipse at top, #ece4d1 0%, #ddd2b9 60%) fixed; }
+html[data-theme='light'] .campaign-title, html[data-theme='light'] .h1 { text-shadow: none; }
+
+/* Tab bar: bersagli più grandi ed evidenti su telefono */
+.tab { font-size: 10px; padding: 10px 4px 12px; gap: 4px; }
+.tab svg { width: 24px; height: 24px; }
+.tab.active { background: linear-gradient(180deg, var(--bg-active), transparent); border-top-width: 3px; }
+@media (min-width: 640px) { .tab { font-size: 10px; padding: 11px 8px 13px; } .tab svg { width: 24px; height: 24px; } }
+.app-wrap { padding-bottom: calc(102px + env(safe-area-inset-bottom)); }
+
+/* "Nemico abbattuto": in basso, in targa leggibile, fuori dal nome */
+.enemy-dead::after {
+  inset: auto; top: auto; left: 50%; bottom: 8px; transform: translateX(-50%);
+  width: max-content; max-width: 90%;
+  padding: 3px 14px; border: 1px solid var(--red); border-radius: 6px;
+  background: rgba(11, 8, 20, .85);
+  font-size: 12px; letter-spacing: 1.5px; text-shadow: none;
+}
+html[data-theme='light'] .enemy-dead::after { background: rgba(243, 237, 224, .92); }
+
+/* Pulsante Diario in topbar */
+.journal-topbar-btn { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; margin: 0 10px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--gold-dim); background: var(--bg-deep); color: var(--gold); cursor: pointer; transition: background .15s, box-shadow .15s; }
+.journal-topbar-btn:hover { background: var(--bg-active); box-shadow: 0 0 12px rgba(216,180,92,.2); }

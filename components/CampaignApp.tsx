@@ -2,6 +2,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useCampaignState } from '@/hooks/useCampaignState';
 import { CalendarPopup, CalendarBar } from '@/components/popups/CalendarPopup';
+import { JournalPopup } from '@/components/popups/JournalPopup';
 import { QuestsTab } from '@/components/tabs/QuestsTab';
 import { CharactersTab } from '@/components/tabs/CharactersTab';
 import { SpellsTab } from '@/components/tabs/SpellsTab';
@@ -35,6 +36,7 @@ export function CampaignApp({ slug }: { slug: string }) {
   }, [update]);
 
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showJournal, setShowJournal] = useState(false);
   const [theme, setTheme] = useState<'dark'|'light'>('dark');
   useEffect(() => {
     const saved = (typeof window !== 'undefined' && window.localStorage.getItem('velmora-theme')) as 'dark'|'light'|null;
@@ -74,6 +76,9 @@ export function CampaignApp({ slug }: { slug: string }) {
           <div className="campaign-sub">Compagno di Sessione</div>
           <CalendarBar s={s} onOpen={()=>setShowCalendar(true)} />
         </div>
+        <button className="journal-topbar-btn" onClick={()=>setShowJournal(true)} title="Diario di gioco">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z"/><path d="M9 7h7M9 11h7"/></svg>
+        </button>
         <div className="row" style={{gap:6}}>
           <button className="btn btn-ghost" style={{padding:'4px 6px'}} onClick={toggleTheme} title={theme==='dark'?'Tema chiaro':'Tema scuro'}>
             {theme === 'dark'
@@ -88,6 +93,7 @@ export function CampaignApp({ slug }: { slug: string }) {
         </div>
       </div>
 
+      {showJournal && <JournalPopup s={s} update={update} campaignId={campaignId} onClose={()=>setShowJournal(false)} />}
       {showCalendar && s.dmMode && <CalendarPopup s={s} update={update} onClose={()=>setShowCalendar(false)} />}
 
       {/* === TAB BAR === */}

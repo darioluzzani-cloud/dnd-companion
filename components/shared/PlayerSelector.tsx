@@ -23,6 +23,9 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
   const [lastHd, setLastHd] = useState<{pid:string;roll:number;heal:number}|null>(null);
   const [showSheet, setShowSheet] = useState(false);
   const [showFeats, setShowFeats] = useState(false);
+  const [showDice, setShowDice] = useState(false);
+  const [die, setDie] = useState(20);
+  const [lastRoll, setLastRoll] = useState<{die:number;value:number;t:number}|null>(null);
   const setP = (f:string,v:any) => update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,[f]:v}:pl)}));
   return (
     <div className="frame">
@@ -216,7 +219,7 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                 return (
                   <div key={s.k} style={{
                     textAlign:'center',
-                    background:'linear-gradient(180deg, #1a1230 0%, var(--bg-deep) 100%)',
+                    background:'linear-gradient(180deg, var(--stat-grad) 0%, var(--bg-deep) 100%)',
                     border:'1px solid var(--border)',
                     borderTop:`2px solid ${p.color||'var(--gold)'}44`,
                     borderRadius:6,
@@ -419,6 +422,34 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                     }}>Riposo breve</button>
                 )}
                 <button className="btn btn-primary" style={{flex:(p as any).pactSlots?1.4:1,fontSize:11}} onClick={longRest}>Riposo lungo</button>
+              </div>
+
+              {/* Tiradadi — come nel menù battaglia */}
+              <div style={{marginTop:10,textAlign:'center'}}>
+                <button className="btn btn-ghost" style={{padding:'4px 10px'}} onClick={()=>setShowDice(!showDice)} title="Tira un dado">
+                  <svg width="22" height="22" viewBox="0 0 24 24">
+                    <polygon points="12,1.5 21.1,6.75 21.1,17.25 12,22.5 2.9,17.25 2.9,6.75" fill="none" stroke={p.color||'var(--gold)'} strokeWidth="1.4" />
+                    <polygon points="12,6.2 17.2,15.2 6.8,15.2" fill="none" stroke={p.color||'var(--gold)'} strokeWidth="1.2" strokeLinejoin="round" />
+                    <path d="M12 1.5v4.7M21.1 17.25l-3.9-2.05M2.9 17.25l3.9-2.05" stroke={p.color||'var(--gold)'} strokeWidth="1" opacity=".6" />
+                  </svg>
+                </button>
+                {showDice && (
+                  <div style={{marginTop:6}}>
+                    <div className="row" style={{gap:5,flexWrap:'wrap',justifyContent:'center',marginBottom:8}}>
+                      {[4,6,8,10,12,20,100].map(n=>(
+                        <button key={n} className={'btn'+(die===n?' btn-primary':'')} style={{fontSize:10,padding:'5px 9px'}} onClick={()=>setDie(n)}>d{n}</button>
+                      ))}
+                    </div>
+                    <button className="btn btn-primary" style={{width:'100%',fontSize:11}}
+                      onClick={()=>{sfxDice();setLastRoll({die,value:Math.floor(Math.random()*die)+1,t:Date.now()});}}>Tira d{die}</button>
+                    {lastRoll && (
+                      <div className="dice-display roll-anim" key={lastRoll.t} style={{marginTop:8}}>
+                        <div className="small muted" style={{fontFamily:'var(--font-body)',fontSize:10}}>d{lastRoll.die}</div>
+                        <div>{lastRoll.value}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           );
