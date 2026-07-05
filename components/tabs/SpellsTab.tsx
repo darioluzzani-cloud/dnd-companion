@@ -202,9 +202,13 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
                     {s.dmMode && (
                       <div className="row" style={{gap:6,marginTop:6}}>
                         <select style={{flex:1,fontSize:11,padding:'4px 6px'}} defaultValue="" onChange={e=>{
-                          if(e.target.value){
+                          // Catturo l'id PRIMA di accodare l'aggiornamento: l'azzeramento del
+                          // menù avviene subito, l'updater gira dopo — leggere e.target.value
+                          // al suo interno troverebbe la stringa vuota (era il bug della copia).
+                          const targetId = e.target.value;
+                          if(targetId){
                             update(prev=>({players:prev.players.map(pl=>
-                              pl.id===e.target.value ? {...pl, spells:[...pl.spells, {id:uid('s'),name:sp.name,level:sp.level,school:sp.school||'',desc:sp.desc||'',prepared:false,expanded:false,revealed:true}]} : pl
+                              pl.id===targetId ? {...pl, spells:[...pl.spells, {id:uid('s'),name:sp.name,level:sp.level,school:sp.school||'',desc:sp.desc||'',prepared:false,expanded:false,revealed:true}]} : pl
                             )}));
                           }
                           e.target.value='';

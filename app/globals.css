@@ -307,3 +307,12 @@ html[data-theme='light'] .enemy-dead::after { background: rgba(243, 237, 224, .9
 /* Pulsante Diario in topbar */
 .journal-topbar-btn { display: flex; align-items: center; justify-content: center; width: 42px; height: 42px; margin: 0 10px; flex-shrink: 0; border-radius: 10px; border: 1px solid var(--gold-dim); background: var(--bg-deep); color: var(--gold); cursor: pointer; transition: background .15s, box-shadow .15s; }
 .journal-topbar-btn:hover { background: var(--bg-active); box-shadow: 0 0 12px rgba(216,180,92,.2); }
+
+/* === SCENARIO CONCLUSO — verde, in evidenza === */
+.scen-concluso { color: var(--green) !important; border-color: #3a6a4d !important; }
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 0 10px rgba(98,185,138,.18); }
+  50%      { box-shadow: 0 0 24px rgba(98,185,138,.5); }
+}
+.pulse-green { animation: pulse-green 3s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .pulse-green { animation: none; } }

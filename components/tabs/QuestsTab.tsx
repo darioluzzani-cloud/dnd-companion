@@ -56,8 +56,8 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
         {visibleScenarios.map(sc2 => {
           const isActive = sc2.id === s.activeScenario;
           return (
-          <div key={sc2.id} className={isActive ? 'pulse-gold' : undefined} style={{position:'relative',overflow:'hidden',borderRadius:8,marginBottom:8,
-            border:isActive?'1px solid var(--gold)':'1px solid var(--border)',
+          <div key={sc2.id} className={isActive ? (sc2.status==='concluso' ? 'pulse-green' : 'pulse-gold') : undefined} style={{position:'relative',overflow:'hidden',borderRadius:8,marginBottom:8,
+            border:isActive?(sc2.status==='concluso'?'1px solid var(--green)':'1px solid var(--gold)'):'1px solid var(--border)',
             cursor:'pointer',minHeight:72,transition:'all .2s'}}
             onClick={()=>update({activeScenario:sc2.id})}>
             {/* Immagine di sfondo */}
@@ -66,9 +66,11 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
                 <ImageSlot slotId={'scenario-'+sc2.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={s.dmMode} placeholder="" alt={sc2.name} />
               </div>
             </div>
-            {/* Gradiente — oro quando attivo, scuro quando no */}
+            {/* Gradiente — verde se concluso e attivo, oro se attivo, scuro quando no */}
             <div style={{position:'absolute',inset:0,zIndex:1,background:isActive
-              ? 'linear-gradient(90deg, rgba(216,180,92,.8) 0%, rgba(216,180,92,.3) 45%, rgba(216,180,92,0) 100%)'
+              ? (sc2.status==='concluso'
+                ? 'linear-gradient(90deg, rgba(98,185,138,.8) 0%, rgba(98,185,138,.3) 45%, rgba(98,185,138,0) 100%)'
+                : 'linear-gradient(90deg, rgba(216,180,92,.8) 0%, rgba(216,180,92,.3) 45%, rgba(216,180,92,0) 100%)')
               : 'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.4) 50%, rgba(11,8,20,0) 100%)',
               transition:'background .3s'}} />
             {/* Contenuto sopra */}
