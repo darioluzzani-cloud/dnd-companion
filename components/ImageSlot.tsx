@@ -4,6 +4,51 @@ import { supabase } from '@/lib/supabase';
 
 const BUCKET = 'campaign-images';
 
+/* ─────────────────────────────────────────────────────────────
+   Indice di cartella condiviso: UN solo list() per sessione.
+   Tutte le istanze di ImageSlot consultano la stessa mappa
+   slotId → nome file, costruita al primo bisogno e paginata
+   (il list() di Supabase restituisce al massimo 100 voci per
+   pagina: senza paginazione, i file oltre il centesimo
+   sparirebbero silenziosamente).
+   ───────────────────────────────────────────────────────────── */
+const folderIndexCache = new Map<string, Promise<Map<string, string>>>();
+
+function slotKeyOf(filename: string): string {
+  const dot = filename.indexOf('.');
+  return dot > 0 ? filename.slice(0, dot) : filename;
+}
+
+function getFolderIndex(folder: string): Promise<Map<string, string>> {
+  let cached = folderIndexCache.get(folder);
+  if (!cached) {
+    cached = (async () => {
+      const index = new Map<string, string>();
+      const PAGE = 1000;
+      let offset = 0;
+      for (;;) {
+        const { data, error } = await supabase.storage.from(BUCKET)
+          .list(folder, { limit: PAGE, offset, sortBy: { column: 'created_at', order: 'asc' } });
+        if (error || !data) break;
+        for (const f of data) index.set(slotKeyOf(f.name), f.name); // in caso di doppioni vince il più recente
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+      return index;
+    })();
+    folderIndexCache.set(folder, cached);
+  }
+  return cached;
+}
+
+/** Registra nell'indice condiviso un file caricato da flussi esterni a ImageSlot,
+    così le istanze già montate lo trovano senza ricaricare la pagina. */
+export async function registerStorageFile(campaignId: string | null, filename: string) {
+  const folder = campaignId || '_default';
+  const index = await getFolderIndex(folder);
+  index.set(slotKeyOf(filename), filename);
+}
+
 interface Props {
   slotId: string;
   campaignId: string | null;
@@ -23,16 +68,17 @@ export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height
   const inputRef = useRef<HTMLInputElement>(null);
 
   const folder = campaignId || '_default';
-  const prefix = `${folder}/${slotId}`;
 
   const refresh = useCallback(async () => {
     if (!slotId || !campaignId) return;
     try {
-      const { data } = await supabase.storage.from(BUCKET).list(folder, { search: slotId });
-      const match = (data || []).find(f => f.name.startsWith(slotId + '.'));
-      if (match) {
-        const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(`${folder}/${match.name}`);
-        setUrl(pub.publicUrl + '?t=' + Date.now());
+      const index = await getFolderIndex(folder);
+      const filename = index.get(slotId);
+      if (filename) {
+        // getPublicUrl è pura costruzione di stringa: nessuna chiamata di rete.
+        // URL stabile e immutabile: il browser può cachearlo a lungo termine.
+        const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(`${folder}/${filename}`);
+        setUrl(pub.publicUrl);
       } else {
         setUrl(null);
       }
@@ -46,13 +92,18 @@ export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height
     if (!file || !campaignId) return;
     setUploading(true);
     try {
-      // Rimuovi file precedenti
-      const { data: existing } = await supabase.storage.from(BUCKET).list(folder, { search: slotId });
-      const toRemove = (existing || []).filter(f => f.name.startsWith(slotId + '.')).map(f => `${folder}/${f.name}`);
-      if (toRemove.length) await supabase.storage.from(BUCKET).remove(toRemove);
-      // Upload nuovo
+      const index = await getFolderIndex(folder);
+      // Rimuovo il file precedente noto all'indice (niente list() aggiuntivo)
+      const previous = index.get(slotId);
+      if (previous) await supabase.storage.from(BUCKET).remove([`${folder}/${previous}`]);
+      // Nome versionato: URL nuovo a ogni sostituzione → cache del browser
+      // aggressiva senza alcun rischio di immagini stantie.
       const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-      await supabase.storage.from(BUCKET).upload(`${prefix}.${ext}`, file, { upsert: true, contentType: file.type });
+      const versioned = `${slotId}.${Date.now().toString(36)}.${ext}`;
+      await supabase.storage.from(BUCKET).upload(`${folder}/${versioned}`, file, {
+        upsert: true, contentType: file.type, cacheControl: '31536000',
+      });
+      index.set(slotId, versioned);
       await refresh();
       onUploaded?.();
     } catch (err: unknown) {
@@ -72,7 +123,7 @@ export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height
   return (
     <div className="img-frame" style={style}>
       {url
-        ? <img src={url} alt={alt || ''} className="img-slot" style={{ borderRadius }} />
+        ? <img src={url} alt={alt || ''} className="img-slot" style={{ borderRadius }} loading="lazy" />
         : <div className="img-empty" style={{ borderRadius }}>{placeholder || alt?.slice(0, 2).toUpperCase() || 'IMG'}</div>
       }
       {dmMode && (

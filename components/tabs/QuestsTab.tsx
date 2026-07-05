@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
-import { ImageSlot } from '@/components/ImageSlot';
+import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { sfxReveal, sfxComplete } from '@/lib/dnd/sounds';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 import { DEFAULT_CALENDAR, formatDateShort } from '@/lib/dnd/calendar';
@@ -93,7 +93,9 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
                         const{data:ex}=await supabase.storage.from('campaign-images').list(folder,{search:slotId});
                         const rm=(ex||[]).filter((f:any)=>f.name.startsWith(slotId+'.')).map((f:any)=>`${folder}/${f.name}`);
                         if(rm.length) await supabase.storage.from('campaign-images').remove(rm);
-                        await supabase.storage.from('campaign-images').upload(`${folder}/${slotId}.${ext}`,file,{upsert:true,contentType:file.type});
+                        const vName=`${slotId}.${Date.now().toString(36)}.${ext}`;
+                        await supabase.storage.from('campaign-images').upload(`${folder}/${vName}`,file,{upsert:true,cacheControl:'31536000',contentType:file.type});
+                        await registerStorageFile(campaignId, vName);
                         window.location.reload();
                       }catch(err:any){alert('Errore: '+(err.message||err));}
                       e.target.value='';

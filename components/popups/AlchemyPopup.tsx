@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CampaignState, uid } from '@/lib/types';
-import { ImageSlot } from '@/components/ImageSlot';
+import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { sfxComplete } from '@/lib/dnd/sounds';
 import { U, ITEM_TYPES } from '@/components/shared/common';
 import { copyRecipeImage } from '@/components/shared/imageCopy';
@@ -169,7 +169,9 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
                   const {data:ex}=await supabase.storage.from('campaign-images').list(folder,{search:'alchemy-bg'});
                   const old=(ex||[]).filter(f=>f.name.startsWith('alchemy-bg.')).map(f=>`${folder}/${f.name}`);
                   if(old.length) await supabase.storage.from('campaign-images').remove(old);
-                  await supabase.storage.from('campaign-images').upload(`${folder}/alchemy-bg.${ext}`,file,{upsert:true,contentType:file.type});
+                  const vName=`alchemy-bg.${Date.now().toString(36)}.${ext}`;
+                  await supabase.storage.from('campaign-images').upload(`${folder}/${vName}`,file,{upsert:true,cacheControl:'31536000',contentType:file.type});
+                  await registerStorageFile(campaignId, vName);
                   window.location.reload();
                 }} />
               </label>

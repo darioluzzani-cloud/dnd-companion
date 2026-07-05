@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { registerStorageFile } from '@/components/ImageSlot';
 
 export async function copyRecipeImage(campaignId: string, recipeId: string, itemId: string) {
   try {
@@ -10,7 +11,9 @@ export async function copyRecipeImage(campaignId: string, recipeId: string, item
     const { data: blob } = await supabase.storage.from('campaign-images').download(`${folder}/${match.name}`);
     if (!blob) return;
     const ext = match.name.split('.').pop() || 'png';
-    await supabase.storage.from('campaign-images').upload(`${folder}/item-${itemId}.${ext}`, blob, { upsert: true, contentType: blob.type });
+    const vName = `item-${itemId}.${Date.now().toString(36)}.${ext}`;
+    await supabase.storage.from('campaign-images').upload(`${folder}/${vName}`, blob, { upsert: true, cacheControl: '31536000', contentType: blob.type });
+    await registerStorageFile(campaignId, vName);
   } catch (err) { console.warn('Copia immagine fallita:', err); }
 }
 
@@ -24,6 +27,8 @@ export async function copyItemImage(campaignId: string, sourceItemId: string, ta
     const { data: blob } = await supabase.storage.from('campaign-images').download(`${folder}/${match.name}`);
     if (!blob) return;
     const ext = match.name.split('.').pop() || 'png';
-    await supabase.storage.from('campaign-images').upload(`${folder}/item-${targetItemId}.${ext}`, blob, { upsert: true, contentType: blob.type });
+    const vName2 = `item-${targetItemId}.${Date.now().toString(36)}.${ext}`;
+    await supabase.storage.from('campaign-images').upload(`${folder}/${vName2}`, blob, { upsert: true, cacheControl: '31536000', contentType: blob.type });
+    await registerStorageFile(campaignId, vName2);
   } catch (err) { console.warn('Copia immagine oggetto fallita:', err); }
 }
