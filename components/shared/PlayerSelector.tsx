@@ -354,16 +354,6 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
               {lastHd && lastHd.pid === p.id && (
                 <div className="small" style={{marginTop:4,color:'var(--green)'}}>d{hitDie}: {lastHd.roll}{conMod !== 0 ? (conMod > 0 ? ' + '+conMod : ' − '+Math.abs(conMod)) : ''} → +{lastHd.heal} PF</div>
               )}
-              {/* Indebolimento */}
-              <div className="row" style={{gap:8,marginTop:10,alignItems:'center',flexWrap:'wrap'}}>
-                <div className="label" style={{fontSize:9}}>Indebolimento</div>
-                <div className="row" style={{gap:4}}>{exhPips}</div>
-                {exh > 0 && (
-                  <span className="small" style={{color: exh >= 5 ? 'var(--red)' : exh >= 3 ? '#e0a040' : 'var(--gray-purple)',fontWeight:500}}>
-                    −{exh} ai d20 e alla CD{exh >= 5 ? ' · velocità 0' : ''}{exh >= 6 ? ' · MORTE' : ''}
-                  </span>
-                )}
-              </div>
               {/* Riserve personali — slot dedicati (es. Salto Leporino, Ira) */}
               {(() => {
                 const resources = (p.resources || []) as {id:string;name:string;current:number;max:number;recovery?:string}[];
@@ -372,19 +362,30 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   <div style={{marginTop:10}}>
                     {resources.map(r => {
                       const boxes = [];
+                      const color = p.color || 'var(--gold)';
                       for (let i = 0; i < r.max; i++) {
                         const isAvail = i < r.current;
                         boxes.push(
                           <button key={i}
                             onClick={()=>setRes(resources.map(x=>x.id===r.id?{...x,current: isAvail?Math.max(0,x.current-1):Math.min(x.max,x.current+1)}:x))}
                             title={isAvail?'Spendi':'Recupera'}
-                            style={{width:18,height:18,borderRadius:4,border:'1px solid '+(isAvail?p.color||'var(--gold)':'var(--border)'),
-                              background:isAvail?(p.color||'var(--gold)'):'transparent',cursor:'pointer',transition:'all .15s'}} />
+                            style={{width:20,height:20,padding:0,background:'transparent',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            <ResourceShape shape={(r as any).icon || 'quadrato'} filled={isAvail} color={color} />
+                          </button>
                         );
                       }
                       return (
                         <div key={r.id} className="row" style={{gap:6,flexWrap:'wrap',alignItems:'center',marginBottom:6}}>
                           <div className="label" style={{fontSize:9,flexBasis:'100%'}}>{r.name}
+                            {s.dmMode && (
+                              <button className="btn btn-ghost" style={{padding:'0 5px',fontSize:9,marginLeft:6}} title="Cambia forma dell'indicatore"
+                                onClick={()=>{
+                                  const order = ['quadrato','d20','goccia','fiamma','stella','scudo'];
+                                  const cur = (r as any).icon || 'quadrato';
+                                  const next = order[(order.indexOf(cur)+1) % order.length];
+                                  setRes(resources.map(x=>x.id===r.id?({...x,icon:next} as any):x));
+                                }}>◈</button>
+                            )}
                             {s.dmMode && (
                               <button className="btn btn-danger btn-ghost" style={{padding:'0 5px',fontSize:9,marginLeft:6}}
                                 onClick={()=>{if(confirm('Rimuovere la riserva "'+r.name+'"?'))setRes(resources.filter(x=>x.id!==r.id));}}>&times;</button>
@@ -399,13 +400,23 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                     })}
                     {s.dmMode && (() => {
                       return (
-                        <ResourceAddForm onAdd={(name,max,recovery)=>setRes([...resources,{id:'res'+Date.now().toString(36),name,current:max,max,recovery}])} />
+                        <ResourceAddForm onAdd={(name,max,recovery,icon)=>setRes([...resources,{id:'res'+Date.now().toString(36),name,current:max,max,recovery,icon} as any])} />
                       );
                     })()}
                   </div>
                 );
               })()}
 
+              {/* Indebolimento */}
+              <div className="row" style={{gap:8,marginTop:10,alignItems:'center',flexWrap:'wrap'}}>
+                <div className="label" style={{fontSize:9}}>Indebolimento</div>
+                <div className="row" style={{gap:4}}>{exhPips}</div>
+                {exh > 0 && (
+                  <span className="small" style={{color: exh >= 5 ? 'var(--red)' : exh >= 3 ? '#e0a040' : 'var(--gray-purple)',fontWeight:500}}>
+                    −{exh} ai d20 e alla CD{exh >= 5 ? ' · velocità 0' : ''}{exh >= 6 ? ' · MORTE' : ''}
+                  </span>
+                )}
+              </div>
               {/* Riposi */}
               <div className="row" style={{gap:6,marginTop:10}}>
                 {((p as any).pactSlots || (p.resources||[]).some((r:any)=>r.recovery==='short')) && (
@@ -463,21 +474,65 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
 
 
 // ─── Form di aggiunta riserva (solo DM) ──────────────────────
-function ResourceAddForm({ onAdd }: { onAdd: (name: string, max: number, recovery: 'long'|'short'|'none') => void }) {
+function ResourceAddForm({ onAdd }: { onAdd: (name: string, max: number, recovery: 'long'|'short'|'none', icon: string) => void }) {
   const [name, setName] = useState('');
   const [max, setMax] = useState('');
   const [recovery, setRecovery] = useState<'long'|'short'|'none'>('long');
+  const [icon, setIcon] = useState('quadrato');
   return (
     <div className="row" style={{gap:4,flexWrap:'wrap',marginTop:4}}>
       <input value={name} placeholder="Nuova riserva (es. Salto Leporino)" onChange={e=>setName(e.target.value)} style={{fontSize:12,padding:'4px 8px',flex:'1 1 150px'}} />
       <input type="number" value={max} placeholder="N" onChange={e=>setMax(e.target.value)} style={{width:44,fontSize:12,padding:'4px 4px',textAlign:'center'}} />
-      <select value={recovery} onChange={e=>setRecovery(e.target.value as any)} style={{width:110,fontSize:11,padding:'4px 4px'}}>
+      <select value={recovery} onChange={e=>setRecovery(e.target.value as any)} style={{width:100,fontSize:11,padding:'4px 4px'}}>
         <option value="long">Rip. lungo</option>
         <option value="short">Rip. breve</option>
         <option value="none">Manuale</option>
       </select>
+      <select value={icon} onChange={e=>setIcon(e.target.value)} style={{width:92,fontSize:11,padding:'4px 4px'}} title="Forma dell'indicatore">
+        <option value="quadrato">Quadrato</option>
+        <option value="d20">D20</option>
+        <option value="goccia">Goccia</option>
+        <option value="fiamma">Fiamma</option>
+        <option value="stella">Stella</option>
+        <option value="scudo">Scudo</option>
+      </select>
       <button className="btn" style={{fontSize:9,padding:'5px 10px'}}
-        onClick={()=>{ if(!name.trim()||!(parseInt(max)>0)) return; onAdd(name.trim(), parseInt(max), recovery); setName(''); setMax(''); }}>+</button>
+        onClick={()=>{ if(!name.trim()||!(parseInt(max)>0)) return; onAdd(name.trim(), parseInt(max), recovery, icon); setName(''); setMax(''); }}>+</button>
     </div>
   );
+}
+
+
+// ─── Forme degli indicatori di riserva ───────────────────────
+function ResourceShape({ shape, filled, color }: { shape: string; filled: boolean; color: string }) {
+  const fill = filled ? color : 'transparent';
+  const stroke = filled ? color : 'var(--border)';
+  const inner = filled ? 'var(--bg-deep)' : 'var(--border)';
+  switch (shape) {
+    case 'd20': return (
+      <svg width="20" height="20" viewBox="0 0 24 24">
+        <polygon points="12,1.5 21.1,6.75 21.1,17.25 12,22.5 2.9,17.25 2.9,6.75" fill={fill} stroke={stroke} strokeWidth="1.4" />
+        <polygon points="12,6.2 17.2,15.2 6.8,15.2" fill="none" stroke={inner} strokeWidth="1.2" strokeLinejoin="round" />
+      </svg>);
+    case 'goccia': return (
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path d="M12 2.5c4 5.5 7 8.8 7 12.5a7 7 0 11-14 0c0-3.7 3-7 7-12.5z" fill={fill} stroke={stroke} strokeWidth="1.5" />
+      </svg>);
+    case 'fiamma': return (
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path d="M12 2c1 4-4 5.5-4 10a4 4 0 008 0c0-2-1-3-1-3s3 1.4 3 5a6 6 0 11-12 0c0-6 5-8 6-12z" fill={fill} stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>);
+    case 'stella': return (
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path d="M12 2.6l2.6 5.8 6.3.6-4.8 4.2 1.4 6.2L12 16.2 6.5 19.4l1.4-6.2L3.1 9l6.3-.6z" fill={fill} stroke={stroke} strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>);
+    case 'scudo': return (
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path d="M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z" fill={fill} stroke={stroke} strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>);
+    default: return (
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="18" height="18" rx="4" fill={fill} stroke={stroke} strokeWidth="1.5" />
+      </svg>);
+  }
 }

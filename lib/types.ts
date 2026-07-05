@@ -41,6 +41,7 @@ export interface InventoryItem {
   qty: number;
   type: string;
   icon?: string;
+  upgrades?: { name: string; desc: string }[];  // lavori di fucina applicati
 }
 
 export interface PlayerResource {
@@ -49,6 +50,7 @@ export interface PlayerResource {
   current: number;
   max: number;
   recovery?: 'long' | 'short' | 'none';  // ricarica: riposo lungo (default), breve, o solo manuale
+  icon?: string;  // forma dell'indicatore: quadrato | d20 | goccia | fiamma | stella | scudo
 }
 
 export interface Player {
@@ -159,6 +161,7 @@ export interface CampaignState {
   bestiary?: BestiaryEntry[];
   journal?: JournalEntry[];
   baseRations?: number;  // razioni giornaliere nel magazzino del villaggio
+  smithUpgrades?: { id: string; name: string; desc: string; material?: string }[];  // catalogo della fucina
   calendar?: CalendarState;
   lastRoll: DiceRoll | null;
   rollSeq: number;

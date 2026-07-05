@@ -316,3 +316,7 @@ html[data-theme='light'] .enemy-dead::after { background: rgba(243, 237, 224, .9
 }
 .pulse-green { animation: pulse-green 3s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .pulse-green { animation: none; } }
+
+/* === FUCINA — colore brace, tematizzato === */
+:root { --ember: #e0a040; }
+html[data-theme='light'] { --ember: #9a6a12; }

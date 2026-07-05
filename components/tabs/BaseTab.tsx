@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
+import { ForgePopup } from '@/components/popups/ForgePopup';
 
 
 // ─── TAB: BASE (Olmobianco) ──────────────────────────────────
@@ -13,6 +14,7 @@ const GATE_TYPES = [
 ];
 
 export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaignId:string|null }) {
+  const [showForge, setShowForge] = useState(false);
   const buildings: any[] = (s as any).buildings || [];
   const visible = s.dmMode ? buildings : buildings.filter((b:any)=>b.revealed!==false);
   const [draftName, setDraftName] = useState('');
@@ -58,7 +60,13 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
       )}
       {/* Magazzino del villaggio — razioni giornaliere condivise */}
       <div className="frame">
-        <div className="label" style={{marginBottom:8}}>Magazzino di Olmobianco</div>
+        <div className="row" style={{justifyContent:'space-between',marginBottom:8}}>
+          <div className="label">Magazzino di Olmobianco</div>
+          <button className="tool-box-btn" style={{color:'var(--ember)',fontSize:9,padding:'6px 12px'}} onClick={()=>setShowForge(true)} title="La fucina di Durna Ashfell">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M14 4l6 6-2 2-2-1-6.5 6.5a2.1 2.1 0 11-3-3L13 8l-1-2 2-2zM3 21l3-3"/></svg>
+            <span>Fucina</span>
+          </button>
+        </div>
         {(() => {
           const rations = (s as any).baseRations || 0;
           const setRations = (n:number) => update({ baseRations: Math.max(0, n) } as any);
@@ -257,6 +265,7 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
           </div>
         )}
       </div>
+      {showForge && <ForgePopup s={s} update={update} campaignId={campaignId} onClose={()=>setShowForge(false)} />}
     </div>
   );
 }

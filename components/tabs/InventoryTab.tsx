@@ -159,7 +159,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                   <input value={it.name} onClick={e=>e.stopPropagation()} onChange={e=>setItemField(it.id,'name',e.target.value)}
                     style={{fontWeight:500,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3,fontSize:14}} />
                 ) : (
-                  <div style={{fontWeight:500}}>{it.name}</div>
+                  <div style={{fontWeight:500}}>{it.name}{((it as any).upgrades||[]).length>0 && <span title="Potenziato in fucina" style={{color:'var(--ember)',marginLeft:4,fontSize:12}}>⚒</span>}</div>
                 )}
                 <div className="small muted">{it.type}</div>
               </div>
@@ -228,6 +228,18 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                   <>
                     {it.effect && <div style={{fontSize:14,lineHeight:1.5,color:'var(--gold)',marginBottom:4}}>✦ {it.effect}</div>}
                     <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{it.desc||<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
+                    {/* Potenziamenti di fucina — si aggiornano da soli al termine del lavoro */}
+                    {((it as any).upgrades||[]).length>0 && (
+                      <div style={{marginTop:8,padding:'8px 10px',borderRadius:6,background:'var(--bg-deep)',border:'1px solid var(--ember)'}}>
+                        <div className="label" style={{fontSize:8,color:'var(--ember)',marginBottom:4}}>⚒ Potenziamenti</div>
+                        {((it as any).upgrades||[]).map((u:any,i:number)=>(
+                          <div key={i} className="small" style={{lineHeight:1.5,marginBottom:2}}>
+                            <span style={{color:'var(--ember)',fontWeight:600}}>{u.name}</span>
+                            {u.desc && <span style={{color:'var(--text-card)'}}> — {u.desc}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
                 {/* Punti Usura — solo per arma e equipaggiamento */}
