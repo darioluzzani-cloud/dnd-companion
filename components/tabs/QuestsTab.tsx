@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { ImageSlot } from '@/components/ImageSlot';
 import { sfxReveal, sfxComplete } from '@/lib/dnd/sounds';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
+import { DEFAULT_CALENDAR, formatDateShort } from '@/lib/dnd/calendar';
 
 // ─── TAB: QUEST ──────────────────────────────────────────────
 export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignState; update:U; updScen:(fn:(sc:any)=>any)=>void; sc:any; campaignId:string|null }) {
@@ -160,7 +161,14 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
         <div className="row" style={{gap:6,marginBottom:10}}>
           <button className={'btn'+(sub==='main'?' btn-primary':'')} onClick={()=>update({questSubTab:'main'})}>Principali</button>
           <button className={'btn'+(sub==='side'?' btn-primary':'')} onClick={()=>update({questSubTab:'side'})}>Secondarie</button>
+          <button className={'btn'+(sub==='diario'?' btn-primary':'')} onClick={()=>update({questSubTab:'diario'})}>Diario</button>
         </div>
+        {sub === 'diario' && (() => {
+          const journal = (s as any).journal || [];
+          const author = s.players.find(pl=>pl.id===s.activePlayer)?.short || (s.dmMode ? 'DM' : 'Anonimo');
+          const velDate = formatDateShort(((s as any).calendar || DEFAULT_CALENDAR).date);
+          return <JournalSection journal={journal} author={author} velDate={velDate} update={update} dmMode={s.dmMode} />;
+        })()}
         {visible.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessuna quest.</div>}
         {visible.map((q:any) => (
           <div key={q.id} className="card">
@@ -218,7 +226,7 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
             </div>
           </div>
         ))}
-        {s.dmMode && (
+        {s.dmMode && sub!=='diario' && (
           <div className="row" style={{gap:6,marginTop:10}}>
             <input className="grow" placeholder="Nuova quest…" value={draft} onChange={e=>setDraft(e.target.value)}
               onKeyDown={e=>{if(e.key==='Enter'&&draft.trim()){updScen(x=>({...x,quests:[...x.quests,{id:uid('q'),type:sub,title:draft.trim(),desc:'',dmNote:'',done:false,revealed:false,longTerm:false}]}));setDraft('');}}} />
@@ -227,6 +235,51 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
         )}
       </div>
       )}
+    </div>
+  );
+}
+
+
+// ─── Diario di gioco — note libere del tavolo ────────────────
+function JournalSection({ journal, author, velDate, update, dmMode }: { journal: any[]; author: string; velDate: string; update: U; dmMode: boolean }) {
+  const [draft, setDraft] = useState('');
+  const [editingId, setEditingId] = useState<string|null>(null);
+  const [editText, setEditText] = useState('');
+  const setJournal = (list: any[]) => update({ journal: list } as any);
+  const add = () => {
+    if (!draft.trim()) return;
+    setJournal([{ id: uid('jr'), author, date: velDate, ts: Date.now(), text: draft.trim() }, ...journal]);
+    setDraft('');
+  };
+  return (
+    <div style={{marginTop:10}}>
+      <div className="card">
+        <div className="label" style={{marginBottom:6}}>Nuova nota · {author} · {velDate}</div>
+        <textarea value={draft} placeholder="Cosa è successo, cosa non va dimenticato…" onChange={e=>setDraft(e.target.value)} style={{minHeight:56,fontSize:13,marginBottom:6}} />
+        <button className="btn btn-primary" style={{width:'100%',fontSize:11}} onClick={add}>Annota</button>
+      </div>
+      {journal.length===0 && <div className="card small muted" style={{textAlign:'center',fontStyle:'italic'}}>Il diario è ancora bianco.</div>}
+      {journal.map((e:any) => (
+        <div key={e.id} className="card" style={{padding:'10px 12px'}}>
+          <div className="row" style={{justifyContent:'space-between',marginBottom:4}}>
+            <span className="small" style={{fontFamily:'var(--font-display)',color:'var(--gold)',letterSpacing:'.5px'}}>{e.author} · {e.date}</span>
+            <div className="row" style={{gap:2}}>
+              <button className="btn btn-ghost" style={{padding:'1px 6px',fontSize:10}} title="Modifica"
+                onClick={()=>{setEditingId(editingId===e.id?null:e.id);setEditText(e.text);}}>✎</button>
+              <button className="btn btn-danger btn-ghost" style={{padding:'1px 6px',fontSize:10}} title="Elimina"
+                onClick={()=>{if(confirm('Eliminare questa nota?'))setJournal(journal.filter((x:any)=>x.id!==e.id));}}>&times;</button>
+            </div>
+          </div>
+          {editingId===e.id ? (
+            <div>
+              <textarea value={editText} onChange={ev=>setEditText(ev.target.value)} style={{minHeight:56,fontSize:13,marginBottom:6}} />
+              <button className="btn" style={{fontSize:10}} onClick={()=>{setJournal(journal.map((x:any)=>x.id===e.id?{...x,text:editText}:x));setEditingId(null);}}>Salva</button>
+            </div>
+          ) : (
+            <div className="small" style={{color:'var(--text-card)',lineHeight:1.55,whiteSpace:'pre-wrap'}}>{e.text}</div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

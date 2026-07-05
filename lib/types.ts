@@ -48,6 +48,7 @@ export interface PlayerResource {
   name: string;
   current: number;
   max: number;
+  recovery?: 'long' | 'short' | 'none';  // ricarica: riposo lungo (default), breve, o solo manuale
 }
 
 export interface Player {
@@ -108,6 +109,7 @@ export interface AlchemyRecipe {
   id: string;
   tool: string;
   ingredients: string[];
+  unlocked?: boolean;  // ricetta scoperta dai giocatori: visibile nel ricettario
   result: {
     name: string;
     type: string;
@@ -115,6 +117,14 @@ export interface AlchemyRecipe {
     desc: string;
     qty: number;
   };
+}
+
+export interface JournalEntry {
+  id: string;
+  author: string;      // nome del PG o 'DM'
+  date: string;        // data velmorana al momento della nota
+  ts: number;          // timestamp reale, per l'ordinamento
+  text: string;
 }
 
 export interface BestiaryEntry {
@@ -147,6 +157,8 @@ export interface CampaignState {
   loreCatFilter: string;
   alchemyRecipes?: AlchemyRecipe[];
   bestiary?: BestiaryEntry[];
+  journal?: JournalEntry[];
+  baseRations?: number;  // razioni giornaliere nel magazzino del villaggio
   calendar?: CalendarState;
   lastRoll: DiceRoll | null;
   rollSeq: number;

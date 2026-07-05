@@ -126,9 +126,22 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
         {visibleCombatants.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun combattente.</div>}
         {visibleCombatants.map((k,i) => {
           const isCurrent = turnList.indexOf(k)===(idx%turnList.length);
+          // Nascosto: per il DM una riga compatta, fuori dal rumore ma sotto controllo
+          if (s.dmMode && (k as any).revealed === false) {
+            return (
+              <div key={k.id} className="row" style={{padding:'5px 12px',marginBottom:4,borderRadius:6,border:'1px dashed var(--border)',opacity:.55,gap:8}}>
+                <span className="small" style={{fontStyle:'italic',flex:1}}>{k.name}</span>
+                <span className="small muted">{k.hp}/{k.maxHp} PF</span>
+                <button className="btn btn-ghost" style={{padding:'1px 6px',fontSize:10}} title="Rivela in battaglia"
+                  onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,revealed:true}:c)}))}>◯</button>
+                <button className="btn btn-danger btn-ghost" style={{padding:'1px 6px',fontSize:10}} title="Rimuovi"
+                  onClick={()=>{if(confirm('Rimuovere '+k.name+'?'))update(prev=>({combatants:prev.combatants.filter(c=>c.id!==k.id)}));}}>&times;</button>
+              </div>
+            );
+          }
           const pct = Math.round(((k.hp||0)/(k.maxHp||1))*100);
           return (
-            <div key={k.id} className={'card'+(isCurrent?' turn-indicator':'')}>
+            <div key={k.id} className={(k.side==='enemy' && k.hp===0 ? 'enemy-dead ' : k.side==='enemy' && k.hp>0 && k.hp<=Math.max(1,Math.ceil(k.maxHp*0.05)) ? 'enemy-critical ' : '') + ('card'+(isCurrent?' turn-indicator':''))}>
               <div className="row">
                 {/* Ritratto rettangolare verticale — per tutti i combattenti */}
                 <div style={{width:44,height:60,flexShrink:0,marginRight:4,overflow:'hidden',borderRadius:6,cursor:'pointer'}}

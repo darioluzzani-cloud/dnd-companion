@@ -243,3 +243,27 @@ textarea { resize: vertical; min-height: 60px; }
 @media (prefers-reduced-motion: reduce) {
   .turn-indicator, .pulse-gold { animation: none; }
 }
+
+/* === TEMA CHIARO — pergamena diurna === */
+html[data-theme='light'] {
+  --bg-main: #f3ecdd; --bg-deep: #eae0ca; --bg-card: #faf5ea; --bg-input: #fffdf6;
+  --bg-nav: #efe6d2; --bg-header: linear-gradient(180deg, #efe3c8, #f7f0e0); --bg-active: #eee2c9;
+  --border: #d9cbae; --border-sec: #c8b78d;
+  --gold: #8a6a1f; --gold-light: #a37f24; --gold-dim: #9c7f33;
+  --purple: #6a4fae; --purple-light: #7d63bd; --purple-text: #6d5a94;
+  --gray-purple: #6f6486; --gray-purple-dark: #857a9b; --gray-purple-deep: #988fae;
+  --text: #2c2338; --text-card: #463a58;
+  --green: #2f7d52; --green-light: #3f8f63;
+  --red: #b23a52; --pink: #b25577; --pink-border: #d3a0b4; --blue: #1f7fa3;
+}
+html[data-theme='light'] body { background: radial-gradient(ellipse at top, #f8f1e2 0%, #ece2cc 60%) fixed; }
+html[data-theme='light'] .enemy-dead::after { text-shadow: 0 0 8px rgba(255,255,255,.7); }
+
+/* === NEMICI: soglia critica e abbattimento === */
+.enemy-critical { background: linear-gradient(180deg, var(--bg-input) 20%, rgba(214,100,122,.22)) !important; border-color: rgba(214,100,122,.55) !important; }
+.enemy-dead { position: relative; opacity: .45; }
+.enemy-dead::before { content: ''; position: absolute; left: 4%; right: 4%; top: 50%; height: 2px; background: var(--red); transform: scaleX(0); transform-origin: left; animation: strike-through .5s ease-out forwards; z-index: 2; pointer-events: none; }
+.enemy-dead::after { content: 'NEMICO ABBATTUTO!'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-size: 14px; font-weight: 700; letter-spacing: 2px; color: var(--red); text-shadow: 0 0 8px rgba(0,0,0,.6); animation: fade-in-late .5s .35s both; z-index: 3; pointer-events: none; }
+@keyframes strike-through { to { transform: scaleX(1); } }
+@keyframes fade-in-late { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .enemy-dead::before { animation: none; transform: scaleX(1); } .enemy-dead::after { animation: none; } }

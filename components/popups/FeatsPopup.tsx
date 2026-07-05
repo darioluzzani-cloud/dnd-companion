@@ -27,6 +27,7 @@ export function FeatsPopup({ s, update, p, campaignId, onClose }: { s: CampaignS
   const [draftName, setDraftName] = useState('');
   const [draftKind, setDraftKind] = useState('talento');
   const [draftDesc, setDraftDesc] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const feats: FeatEntry[] = (p as any).feats || [];
   const setFeats = (list: FeatEntry[]) => update(prev => ({ players: prev.players.map(pl => pl.id === p.id ? ({ ...pl, feats: list } as any) : pl) }));
@@ -36,6 +37,8 @@ export function FeatsPopup({ s, update, p, campaignId, onClose }: { s: CampaignS
     setFeats([...feats, { id: uid('ft'), name: draftName.trim(), kind: draftKind, desc: draftDesc.trim() }]);
     setDraftName(''); setDraftDesc('');
   };
+
+  const patchFeat = (id: string, patch: Partial<FeatEntry>) => setFeats(feats.map(f => f.id === id ? { ...f, ...patch } : f));
 
   const toggle = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -74,12 +77,25 @@ export function FeatsPopup({ s, update, p, campaignId, onClose }: { s: CampaignS
                   <span style={{ fontSize: 12, color: 'var(--gray-purple)', transition: 'transform .15s', transform: open ? 'rotate(180deg)' : '' }}>▾</span>
                   <span style={{ fontWeight: 500, fontSize: 13, flex: 1 }}>{f.name}</span>
                   <span className="pill" style={{ padding: '2px 8px', fontSize: 8, color: k.color, borderColor: k.color, flexShrink: 0 }}>{k.label}</span>
+                  <button className="btn btn-ghost" style={{ padding: '1px 6px', fontSize: 10, flexShrink: 0 }} title="Correggi testo"
+                    onClick={e => { e.stopPropagation(); setEditingId(editingId === f.id ? null : f.id); if (!expanded.has(f.id)) toggle(f.id); }}>✎</button>
                   <button className="btn btn-danger btn-ghost" style={{ padding: '1px 6px', fontSize: 10, flexShrink: 0 }}
                     onClick={e => { e.stopPropagation(); if (confirm('Rimuovere "' + f.name + '"?')) setFeats(feats.filter(x => x.id !== f.id)); }}>&times;</button>
                 </div>
                 {open && (
                   <div className="small" style={{ marginTop: 6, color: 'var(--text-card)', lineHeight: 1.5, whiteSpace: 'pre-wrap' }} onClick={e => e.stopPropagation()}>
-                    {f.desc || <span className="muted" style={{ fontStyle: 'italic' }}>Nessuna descrizione.</span>}
+                    {editingId === f.id ? (
+                      <div>
+                        <input value={f.name} onChange={e => patchFeat(f.id, { name: e.target.value })} style={{ fontSize: 13, marginBottom: 4 }} />
+                        <select value={f.kind} onChange={e => patchFeat(f.id, { kind: e.target.value })} style={{ fontSize: 12, marginBottom: 4 }}>
+                          {KINDS.map(k => <option key={k.id} value={k.id}>{k.label}</option>)}
+                        </select>
+                        <textarea value={f.desc} onChange={e => patchFeat(f.id, { desc: e.target.value })} style={{ minHeight: 56, fontSize: 13, marginBottom: 4 }} />
+                        <button className="btn" style={{ fontSize: 10 }} onClick={() => setEditingId(null)}>Fine</button>
+                      </div>
+                    ) : (
+                      f.desc || <span className="muted" style={{ fontStyle: 'italic' }}>Nessuna descrizione.</span>
+                    )}
                   </div>
                 )}
               </div>

@@ -21,6 +21,7 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
   const visibleSpells = s.dmMode ? (p.spells||[]) : (p.spells||[]).filter((sp:any) => sp.revealed !== false);
   visibleSpells.forEach((sp:any) => { (byLevel[sp.level]=byLevel[sp.level]||[]).push(sp); });
   const [draftName, setDraftName] = useState('');
+  const [editingSpell, setEditingSpell] = useState<string|null>(null);
   const [draftLv, setDraftLv] = useState('1');
   const slotLabel = (p as any).slotLabel || 'Slot';
   const setCustomSlot = (lv:string, max:number) => updPlayer((pl:any)=>({...pl, customSlots:{...(pl.customSlots||{}), [lv]:{...(pl.customSlots?.[lv]||{}), max}}}));
@@ -166,6 +167,19 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
                 {s.dmMode && sp.revealed===false && <div className="dm-badge" style={{marginTop:4}}>SEGRETA</div>}
                 {sp.expanded && (
                   <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+                    {/* Modifica testi — aperta a tutti i giocatori */}
+                    {editingSpell === sp.id ? (
+                      <div style={{marginBottom:8}}>
+                        <input value={sp.name} onChange={e=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,name:e.target.value}:ss)}))}
+                          style={{fontSize:13,marginBottom:4}} placeholder="Nome" />
+                        <textarea value={sp.desc} onChange={e=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,desc:e.target.value}:ss)}))}
+                          style={{minHeight:56,fontSize:13,marginBottom:4}} placeholder="Descrizione" />
+                        <button className="btn" style={{fontSize:10}} onClick={()=>setEditingSpell(null)}>Fine</button>
+                      </div>
+                    ) : (
+                      <button className="btn btn-ghost" style={{padding:'1px 6px',fontSize:10,float:'right'}} title="Correggi testo"
+                        onClick={()=>setEditingSpell(sp.id)}>✎</button>
+                    )}
                     <div className="row" style={{gap:6,marginBottom:6}}>
                       <button className={'pill'} style={{cursor:'pointer',padding:'4px 10px',
                         background:sp.prepared?(p.color||'var(--gold)'):'transparent',

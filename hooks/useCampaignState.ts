@@ -47,6 +47,10 @@ export function useCampaignState(slug: string) {
   const skipNextBroadcast = useRef(false);
   // true finché la tabella player_state non è disponibile: comportamento legacy (blocco unico)
   const legacyPlayers = useRef(true);
+  // Chiavi condivise modificate da questo dispositivo dall'ultimo salvataggio
+  const dirtyKeys = useRef<Set<string>>(new Set());
+  // true se la RPC patch_campaign_state non esiste: si ricade sul salvataggio integrale
+  const rpcMissing = useRef(false);
 
   // --- Caricamento iniziale ---
   useEffect(() => {
@@ -118,10 +122,24 @@ export function useCampaignState(slug: string) {
   const saveToSupabase = useCallback(async (newState: CampaignState) => {
     if (!campaignId) return;
     skipNextBroadcast.current = true;
+    // Salvataggio per chiave: spedisco solo ciò che questo dispositivo ha toccato,
+    // così una fotografia stantia non può sovrascrivere il lavoro altrui.
+    if (!rpcMissing.current) {
+      const full = stripLocal(newState, !legacyPlayers.current) as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      for (const k of dirtyKeys.current) {
+        if (k in full) patch[k] = full[k];
+      }
+      if (Object.keys(patch).length === 0) return;
+      const { error: rpcErr } = await supabase.rpc('patch_campaign_state', { cid: campaignId, patch });
+      if (!rpcErr) { dirtyKeys.current.clear(); return; }
+      rpcMissing.current = true; // funzione assente: da qui in poi, salvataggio integrale
+    }
     try {
       await supabase.from('campaign_state')
         .update({ state: stripLocal(newState, !legacyPlayers.current) as unknown as Record<string, unknown> })
         .eq('campaign_id', campaignId);
+      dirtyKeys.current.clear();
     } catch (e) { console.warn('Save failed:', e); }
   }, [campaignId]);
 
@@ -169,10 +187,11 @@ export function useCampaignState(slug: string) {
       }
 
       // Il blocco condiviso si salva solo se è cambiato qualcosa che gli appartiene
-      const hasSharedChanges = Object.keys(changes).some(k =>
+      const sharedKeys = Object.keys(changes).filter(k =>
         !LOCAL_KEYS.has(k) && (legacyPlayers.current || k !== 'players')
       );
-      if (hasSharedChanges) {
+      sharedKeys.forEach(k => dirtyKeys.current.add(k));
+      if (sharedKeys.length > 0) {
         if (saveTimer.current) clearTimeout(saveTimer.current);
         saveTimer.current = setTimeout(() => saveToSupabase(next), SAVE_DEBOUNCE);
       }

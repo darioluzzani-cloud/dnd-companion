@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useCampaignState } from '@/hooks/useCampaignState';
 import { CalendarPopup, CalendarBar } from '@/components/popups/CalendarPopup';
 import { QuestsTab } from '@/components/tabs/QuestsTab';
@@ -35,6 +35,17 @@ export function CampaignApp({ slug }: { slug: string }) {
   }, [update]);
 
   const [showCalendar, setShowCalendar] = useState(false);
+  const [theme, setTheme] = useState<'dark'|'light'>('dark');
+  useEffect(() => {
+    const saved = (typeof window !== 'undefined' && window.localStorage.getItem('velmora-theme')) as 'dark'|'light'|null;
+    if (saved === 'light' || saved === 'dark') { setTheme(saved); document.documentElement.dataset.theme = saved; }
+  }, []);
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    document.documentElement.dataset.theme = next;
+    try { window.localStorage.setItem('velmora-theme', next); } catch {}
+  };
 
   if (loading) return (
     <div className="loading-screen">
@@ -64,6 +75,11 @@ export function CampaignApp({ slug }: { slug: string }) {
           <CalendarBar s={s} onOpen={()=>setShowCalendar(true)} />
         </div>
         <div className="row" style={{gap:6}}>
+          <button className="btn btn-ghost" style={{padding:'4px 6px'}} onClick={toggleTheme} title={theme==='dark'?'Tema chiaro':'Tema scuro'}>
+            {theme === 'dark'
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.5"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4l1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" strokeWidth="1.5"><path d="M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8z"/></svg>}
+          </button>
           <button
             className="btn"
             style={s.dmMode ? {background:'var(--gold)',color:'var(--bg-deep)',borderColor:'var(--gold)'} : undefined}

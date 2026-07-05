@@ -56,6 +56,63 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
           <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
         </div>
       )}
+      {/* Magazzino del villaggio — razioni giornaliere condivise */}
+      <div className="frame">
+        <div className="label" style={{marginBottom:8}}>Magazzino di Olmobianco</div>
+        {(() => {
+          const rations = (s as any).baseRations || 0;
+          const setRations = (n:number) => update({ baseRations: Math.max(0, n) } as any);
+          const p = s.players.find(pl=>pl.id===s.activePlayer);
+          const RATION_NAME = 'Razione giornaliera';
+          const invQty = p?.inventory.find(it=>it.name===RATION_NAME)?.qty || 0;
+          const moveRation = (dir: 1|-1) => {
+            // dir 1 = preleva dal magazzino verso l'inventario del PG attivo; -1 = deposita
+            if (!p) return;
+            if (dir === 1 && rations <= 0) return;
+            if (dir === -1 && invQty <= 0) return;
+            update(prev => {
+              const players = prev.players.map(pl => {
+                if (pl.id !== p.id) return pl;
+                const has = pl.inventory.find(it=>it.name===RATION_NAME);
+                let inventory;
+                if (has) {
+                  inventory = pl.inventory
+                    .map(it=>it.name===RATION_NAME?{...it,qty:it.qty+dir}:it)
+                    .filter(it=>!(it.name===RATION_NAME && it.qty<=0));
+                } else {
+                  inventory = dir===1 ? [...pl.inventory, {id:uid('i'),name:RATION_NAME,qty:1,type:'consumabile'}] : pl.inventory;
+                }
+                return {...pl, inventory};
+              });
+              return { players, baseRations: Math.max(0,((prev as any).baseRations||0) - dir) } as any;
+            });
+          };
+          return (
+            <div className="card" style={{marginBottom:0}}>
+              <div className="row" style={{justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
+                <div>
+                  <div style={{fontFamily:'var(--font-display)',fontSize:15,fontWeight:600,color:'var(--gold)'}}>Razioni giornaliere</div>
+                  <div className="small muted">Scorte comuni del villaggio</div>
+                </div>
+                <div className="row" style={{gap:6}}>
+                  {s.dmMode && <button className="hp-btn hp-btn-neg" style={{flex:'none',padding:'4px 10px'}} onClick={()=>setRations(rations-5)}>-5</button>}
+                  {s.dmMode && <button className="hp-btn hp-btn-neg" style={{flex:'none',padding:'4px 10px'}} onClick={()=>setRations(rations-1)}>-1</button>}
+                  <span style={{fontFamily:'var(--font-display)',fontSize:22,fontWeight:700,color:'var(--gold)',minWidth:44,textAlign:'center'}}>{rations}</span>
+                  {s.dmMode && <button className="hp-btn hp-btn-pos" style={{flex:'none',padding:'4px 10px'}} onClick={()=>setRations(rations+1)}>+1</button>}
+                  {s.dmMode && <button className="hp-btn hp-btn-pos" style={{flex:'none',padding:'4px 10px'}} onClick={()=>setRations(rations+5)}>+5</button>}
+                </div>
+              </div>
+              {p && (
+                <div className="row" style={{gap:6,marginTop:10,flexWrap:'wrap',alignItems:'center'}}>
+                  <span className="small muted">{p.short||p.name} ne porta {invQty}</span>
+                  <button className="btn" style={{fontSize:9,padding:'4px 10px',marginLeft:'auto',opacity:rations<=0?0.4:1}} disabled={rations<=0} onClick={()=>moveRation(1)}>Preleva 1</button>
+                  <button className="btn" style={{fontSize:9,padding:'4px 10px',opacity:invQty<=0?0.4:1}} disabled={invQty<=0} onClick={()=>moveRation(-1)}>Deposita 1</button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
       <div className="frame">
         <div className="row" style={{justifyContent:'space-between',marginBottom:10}}>
           <div className="h1" style={{fontSize:18}}>Olmobianco</div>

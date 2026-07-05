@@ -194,8 +194,45 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
           </div>
         ) : null; })()}
 
+        {/* Ricettario — le ricette scoperte restano ai giocatori */}
+        {(() => {
+          const unlocked = recipes.filter((r:any) => r.unlocked);
+          if (unlocked.length === 0) return null;
+          const fill = (r:any) => {
+            const wanted: string[] = (r.ingredients||[]).filter(Boolean).slice(0,3);
+            const next = ['','',''];
+            wanted.forEach((ing:string, i:number) => {
+              const item = (p.inventory||[]).find((it:any)=>it.name===ing && (it.qty||0)>0);
+              const alreadyPlaced = next.filter(x=>x===ing).length;
+              if (item && (item.qty||0) > alreadyPlaced) next[i] = ing;
+            });
+            setSlots(next);
+          };
+          return (
+            <div className="card" style={{marginBottom:10}}>
+              <div className="label" style={{marginBottom:6}}>Ricettario di {p.short||p.name}</div>
+              {unlocked.map((r:any) => {
+                const missing = (r.ingredients||[]).filter((ing:string)=>ing && !(p.inventory||[]).some((it:any)=>it.name===ing && (it.qty||0)>0));
+                return (
+                  <div key={r.id} className="row" style={{gap:8,padding:'5px 0',borderBottom:'1px solid var(--border)',flexWrap:'wrap'}}>
+                    <div className="grow" style={{minWidth:140}}>
+                      <div style={{fontSize:13,fontWeight:500,color:'var(--green-light)'}}>{r.result?.name}</div>
+                      <div className="small muted" style={{fontSize:11}}>
+                        {(r.ingredients||[]).filter(Boolean).join(' + ')} · {r.tool}
+                        {missing.length>0 && <span style={{color:'var(--red)'}}> — manca: {missing.join(', ')}</span>}
+                      </div>
+                    </div>
+                    <button className="btn" style={{fontSize:9,padding:'4px 10px',color:'var(--green)',borderColor:'var(--green)',flexShrink:0}}
+                      onClick={()=>fill(r)} title="Porta gli ingredienti disponibili nei box di creazione">Prepara</button>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
         {/* Ingredienti */}
         <div className="label" style={{fontSize:9,marginBottom:6,marginTop:12,color:'var(--green)'}}>Ingredienti</div>
+
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
           {slots.map((slotVal,idx) => {
             const selItem = alchemicItems.find((i:any) => i.name === slotVal);
@@ -282,6 +319,11 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
                     <div style={{fontSize:10,color:'var(--gray-purple-deep)',marginTop:2}}>Tipo: {r.result.type} · Qtà: {r.result.qty||1}</div>
                   </div>
                   <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                    <label className="row" style={{gap:3,fontSize:9,color:(r as any).unlocked?'var(--green)':'var(--gray-purple-deep)',cursor:'pointer',marginRight:2}} title="Ricetta scoperta dai giocatori">
+                      <input type="checkbox" checked={!!(r as any).unlocked} style={{width:'auto'}}
+                        onChange={e=>update(prev=>({alchemyRecipes:((prev as any).alchemyRecipes||[]).map((x:any)=>x.id===r.id?{...x,unlocked:e.target.checked}:x)} as any))} />
+                      sbloccata
+                    </label>
                     <button className="btn btn-ghost" style={{padding:'2px 6px',fontSize:9}} onClick={()=>editRecipe(r)}>✎</button>
                     <button className="btn btn-danger btn-ghost" style={{padding:'2px 6px',fontSize:9}} onClick={()=>delRecipe(r.id)}>✕</button>
                   </div>

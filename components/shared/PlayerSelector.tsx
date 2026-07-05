@@ -276,6 +276,7 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   slotsUsed: {},
                   hitDiceUsed: Math.max(0, ((pl as any).hitDiceUsed || 0) - recovered),
                   exhaustion: Math.max(0, ((pl as any).exhaustion || 0) - 1),
+                  resources: (pl.resources || []).map((r:any) => r.recovery === 'none' ? r : { ...r, current: r.max }),
                 } as any;
               }),
               combatants: prev.combatants.map(c => c.id === 'pc-' + p.id ? { ...c, hp: c.maxHp } : c),
@@ -360,13 +361,61 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   </span>
                 )}
               </div>
+              {/* Riserve personali — slot dedicati (es. Salto Leporino, Ira) */}
+              {(() => {
+                const resources = (p.resources || []) as {id:string;name:string;current:number;max:number;recovery?:string}[];
+                const setRes = (list: typeof resources) => setP('resources' as any, list);
+                return (
+                  <div style={{marginTop:10}}>
+                    {resources.map(r => {
+                      const boxes = [];
+                      for (let i = 0; i < r.max; i++) {
+                        const isAvail = i < r.current;
+                        boxes.push(
+                          <button key={i}
+                            onClick={()=>setRes(resources.map(x=>x.id===r.id?{...x,current: isAvail?Math.max(0,x.current-1):Math.min(x.max,x.current+1)}:x))}
+                            title={isAvail?'Spendi':'Recupera'}
+                            style={{width:18,height:18,borderRadius:4,border:'1px solid '+(isAvail?p.color||'var(--gold)':'var(--border)'),
+                              background:isAvail?(p.color||'var(--gold)'):'transparent',cursor:'pointer',transition:'all .15s'}} />
+                        );
+                      }
+                      return (
+                        <div key={r.id} className="row" style={{gap:6,flexWrap:'wrap',alignItems:'center',marginBottom:6}}>
+                          <div className="label" style={{fontSize:9,flexBasis:'100%'}}>{r.name}
+                            {s.dmMode && (
+                              <button className="btn btn-danger btn-ghost" style={{padding:'0 5px',fontSize:9,marginLeft:6}}
+                                onClick={()=>{if(confirm('Rimuovere la riserva "'+r.name+'"?'))setRes(resources.filter(x=>x.id!==r.id));}}>&times;</button>
+                            )}
+                          </div>
+                          <div className="row" style={{gap:4,flexWrap:'wrap'}}>{boxes}</div>
+                          <span className="small muted">{r.current} / {r.max}</span>
+                          {r.recovery==='short' && <span className="small" style={{color:'var(--purple-light)',fontSize:10}}>rip. breve</span>}
+                          {r.recovery==='none' && <span className="small muted" style={{fontSize:10}}>manuale</span>}
+                        </div>
+                      );
+                    })}
+                    {s.dmMode && (() => {
+                      return (
+                        <ResourceAddForm onAdd={(name,max,recovery)=>setRes([...resources,{id:'res'+Date.now().toString(36),name,current:max,max,recovery}])} />
+                      );
+                    })()}
+                  </div>
+                );
+              })()}
+
               {/* Riposi */}
               <div className="row" style={{gap:6,marginTop:10}}>
-                {(p as any).pactSlots && (
+                {((p as any).pactSlots || (p.resources||[]).some((r:any)=>r.recovery==='short')) && (
                   <button className="btn" style={{flex:1,fontSize:11,color:'var(--purple-light)',borderColor:'var(--purple)'}}
                     onClick={()=>{
-                      if(!confirm('Riposo breve: gli slot da patto tornano disponibili. Confermare?')) return;
-                      update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,slotsUsed:{}}:pl)}));
+                      if(!confirm('Riposo breve: slot da patto e riserve a ricarica breve tornano disponibili. Confermare?')) return;
+                      update(prev=>({players:prev.players.map(pl=>{
+                        if(pl.id!==p.id) return pl;
+                        return {...pl,
+                          ...((pl as any).pactSlots ? {slotsUsed:{}} : {}),
+                          resources:(pl.resources||[]).map((r:any)=>r.recovery==='short'?{...r,current:r.max}:r),
+                        } as any;
+                      })}));
                     }}>Riposo breve</button>
                 )}
                 <button className="btn btn-primary" style={{flex:(p as any).pactSlots?1.4:1,fontSize:11}} onClick={longRest}>Riposo lungo</button>
@@ -377,6 +426,27 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
       </div>
       {showSheet && <SheetPopup s={s} update={update} p={p} campaignId={campaignId} onClose={()=>setShowSheet(false)} />}
       {showFeats && <FeatsPopup s={s} update={update} p={p} campaignId={campaignId} onClose={()=>setShowFeats(false)} />}
+    </div>
+  );
+}
+
+
+// ─── Form di aggiunta riserva (solo DM) ──────────────────────
+function ResourceAddForm({ onAdd }: { onAdd: (name: string, max: number, recovery: 'long'|'short'|'none') => void }) {
+  const [name, setName] = useState('');
+  const [max, setMax] = useState('');
+  const [recovery, setRecovery] = useState<'long'|'short'|'none'>('long');
+  return (
+    <div className="row" style={{gap:4,flexWrap:'wrap',marginTop:4}}>
+      <input value={name} placeholder="Nuova riserva (es. Salto Leporino)" onChange={e=>setName(e.target.value)} style={{fontSize:12,padding:'4px 8px',flex:'1 1 150px'}} />
+      <input type="number" value={max} placeholder="N" onChange={e=>setMax(e.target.value)} style={{width:44,fontSize:12,padding:'4px 4px',textAlign:'center'}} />
+      <select value={recovery} onChange={e=>setRecovery(e.target.value as any)} style={{width:110,fontSize:11,padding:'4px 4px'}}>
+        <option value="long">Rip. lungo</option>
+        <option value="short">Rip. breve</option>
+        <option value="none">Manuale</option>
+      </select>
+      <button className="btn" style={{fontSize:9,padding:'5px 10px'}}
+        onClick={()=>{ if(!name.trim()||!(parseInt(max)>0)) return; onAdd(name.trim(), parseInt(max), recovery); setName(''); setMax(''); }}>+</button>
     </div>
   );
 }
