@@ -70,15 +70,15 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
 
   return (
     <div className="frame" style={{ position: 'relative', overflow: 'hidden', borderColor: 'var(--ember)' }}>
-        {/* Sfondo — immagine piena in alto che sfuma nel riquadro */}
-        {open && <div key={bgTick} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+        {/* Sfondo — visibile sempre, anche a riquadro chiuso (come le card missione) */}
+        <div key={bgTick} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           <ImageSlot slotId="forge-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" hideIfEmpty alt="" />
-        </div>}
-        {open && <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(30,22,48,0) 0%, rgba(30,22,48,0.55) 25%, rgba(30,22,48,0.92) 50%, rgba(30,22,48,1) 70%)' }} />}
+        </div>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(30,22,48,0) 0%, rgba(30,22,48,0.55) 25%, rgba(30,22,48,0.92) 50%, rgba(30,22,48,1) 70%)' }} />
 
         <div style={{ position: 'relative', zIndex: 2 }}>
-          {/* Testata ripiegabile */}
-          <div className="row" style={{ justifyContent: 'space-between', marginBottom: open ? 10 : 0, cursor: 'pointer' }} onClick={() => setOpen(!open)}>
+          {/* Testata ripiegabile — velatura locale per la leggibilità del nome sopra l'immagine */}
+          <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer', margin: open ? '-16px -16px 10px' : '-16px -16px 0', padding: open ? '16px 16px 0' : 16, borderRadius: open ? '10px 10px 0 0' : 10, background: 'radial-gradient(ellipse at left, rgba(11,8,20,.72) 0%, rgba(11,8,20,.32) 70%, transparent 100%)' }} onClick={() => setOpen(!open)}>
             <div className="row" style={{ gap: 8 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" strokeWidth="1.5"><path d="M14 4l6 6-2 2-2-1-6.5 6.5a2.1 2.1 0 11-3-3L13 8l-1-2 2-2zM3 21l3-3"/></svg>
               <div className="h2" style={{ color: 'var(--ember)' }}>Fucina di Durna</div>
