@@ -72,7 +72,7 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
     <div className="frame" style={{ position: 'relative', overflow: 'hidden', borderColor: 'var(--ember)', minHeight: open ? undefined : 76 }}>
         {/* Sfondo — visibile sempre, anche a riquadro chiuso (come le card missione) */}
         <div key={bgTick} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <ImageSlot slotId="forge-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" hideIfEmpty alt="" />
+          <ImageSlot slotId="forge-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="" />
         </div>
         <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: open
           ? 'linear-gradient(180deg, rgba(30,22,48,0) 0%, rgba(30,22,48,0.55) 25%, rgba(30,22,48,0.92) 50%, rgba(30,22,48,1) 70%)'
