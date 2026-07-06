@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
-import { ImageSlot } from '@/components/ImageSlot';
+import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
+import { supabase } from '@/lib/supabase';
 import { sfxComplete } from '@/lib/dnd/sounds';
 
 const FORGEABLE_TYPES = ['arma', 'armatura', 'equipaggiamento', 'unico', 'magico'];
@@ -69,16 +70,19 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   };
 
   return (
-    <div className="frame" style={{ position: 'relative', overflow: 'hidden', borderColor: 'var(--ember)', minHeight: open ? undefined : 76 }}>
-        {/* Sfondo — visibile sempre, anche a riquadro chiuso (come le card missione) */}
-        <div key={bgTick} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          <ImageSlot slotId="forge-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="" />
+    <div className="frame" style={{ position: 'relative', overflow: 'hidden', borderColor: 'var(--ember)', padding: 0, minHeight: open ? undefined : 76 }}>
+        {/* Immagine di sfondo — slot distinto per stato: chiuso ↔ aperto (replica card scenario) */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+          <div data-slot={open ? 'forge-bg' : 'forge-closed'} style={{ width: '100%', height: '100%' }}>
+            <ImageSlot key={(open ? 'o' : 'c') + bgTick} slotId={open ? 'forge-bg' : 'forge-closed'} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="Fucina di Durna" />
+          </div>
         </div>
+        {/* Gradiente — verticale disteso da aperto, orizzontale scuro da chiuso */}
         <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: open
           ? 'linear-gradient(180deg, rgba(30,22,48,0) 0%, rgba(30,22,48,0.55) 25%, rgba(30,22,48,0.92) 50%, rgba(30,22,48,1) 70%)'
-          : 'linear-gradient(90deg, rgba(11,8,20,.72) 0%, rgba(11,8,20,.32) 50%, rgba(11,8,20,0) 100%)' }} />
+          : 'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.4) 50%, rgba(11,8,20,0) 100%)' }} />
 
-        <div style={{ position: 'relative', zIndex: 2 }}>
+        <div style={{ position: 'relative', zIndex: 2, padding: 16 }}>
           {/* Testata ripiegabile — trasparente: la leggibilità è affidata al gradiente di fondo */}
           <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer', marginBottom: open ? 10 : 0 }} onClick={() => setOpen(!open)}>
             <div className="row" style={{ gap: 8 }}>
@@ -198,14 +202,33 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
             </div>
           )}
 
-          {/* Sfondo — solo DM */}
+          {/* Sfondo — solo DM. Un'unica immagine veste entrambi gli stati (chiuso e aperto). */}
           {s.dmMode && (
             <div className="row" style={{ gap: 8, alignItems: 'center' }}>
               <div className="label" style={{ fontSize: 9 }}>Sfondo</div>
-              <div style={{ width: 72, height: 44 }}>
-                <ImageSlot slotId="forge-bg" campaignId={campaignId} shape="rounded" width="100%" height="100%" dmMode placeholder="Sfondo" alt="" onUploaded={() => setBgTick(t => t + 1)} />
-              </div>
-              <span className="small muted">Unico per la fucina; sfuma nel pannello.</span>
+              <label className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 10, cursor: 'pointer', color: 'var(--ember)', borderColor: 'var(--ember)' }} title="Immagine della fucina (chiuso e aperto)">
+                📷 Carica sfondo
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
+                  const file = e.target.files?.[0]; if (!file || !campaignId) return;
+                  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+                  const folder = campaignId;
+                  try {
+                    // Deposito lo stesso file su entrambi gli slot, così un solo gesto veste
+                    // sia il box chiuso (forge-closed) sia il box aperto (forge-bg).
+                    for (const slotId of ['forge-closed', 'forge-bg']) {
+                      const { data: ex } = await supabase.storage.from('campaign-images').list(folder, { search: slotId });
+                      const rm = (ex || []).filter((f: any) => f.name.startsWith(slotId + '.')).map((f: any) => `${folder}/${f.name}`);
+                      if (rm.length) await supabase.storage.from('campaign-images').remove(rm);
+                      const vName = `${slotId}.${Date.now().toString(36)}.${ext}`;
+                      await supabase.storage.from('campaign-images').upload(`${folder}/${vName}`, file, { upsert: true, cacheControl: '31536000', contentType: file.type });
+                      await registerStorageFile(campaignId, vName);
+                    }
+                    window.location.reload();
+                  } catch (err: any) { alert('Errore: ' + (err.message || err)); }
+                  e.target.value = '';
+                }} />
+              </label>
+              <span className="small muted">Un'unica immagine per il box chiuso e aperto.</span>
             </div>
           )}
           </>}
