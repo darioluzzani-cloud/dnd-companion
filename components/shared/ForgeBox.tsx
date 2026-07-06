@@ -71,10 +71,10 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
 
   return (
     <div className="frame" style={{ position: 'relative', overflow: 'hidden', borderColor: 'var(--ember)', padding: 0, minHeight: open ? undefined : 76 }}>
-        {/* Immagine di sfondo — slot distinto per stato: chiuso ↔ aperto (replica card scenario) */}
+        {/* Immagine di sfondo — slot unico 'forge-bg', letto sia da chiuso sia da aperto */}
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <div data-slot={open ? 'forge-bg' : 'forge-closed'} style={{ width: '100%', height: '100%' }}>
-            <ImageSlot key={(open ? 'o' : 'c') + bgTick} slotId={open ? 'forge-bg' : 'forge-closed'} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="Fucina di Durna" />
+          <div data-slot="forge-bg" style={{ width: '100%', height: '100%' }}>
+            <ImageSlot key={(open ? 'o' : 'c') + bgTick} slotId="forge-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="Fucina di Durna" />
           </div>
         </div>
         {/* Gradiente — verticale disteso da aperto, orizzontale scuro da chiuso */}
@@ -212,17 +212,14 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
                   const file = e.target.files?.[0]; if (!file || !campaignId) return;
                   const ext = (file.name.split('.').pop() || 'png').toLowerCase();
                   const folder = campaignId;
+                  const slotId = 'forge-bg';
                   try {
-                    // Deposito lo stesso file su entrambi gli slot, così un solo gesto veste
-                    // sia il box chiuso (forge-closed) sia il box aperto (forge-bg).
-                    for (const slotId of ['forge-closed', 'forge-bg']) {
-                      const { data: ex } = await supabase.storage.from('campaign-images').list(folder, { search: slotId });
-                      const rm = (ex || []).filter((f: any) => f.name.startsWith(slotId + '.')).map((f: any) => `${folder}/${f.name}`);
-                      if (rm.length) await supabase.storage.from('campaign-images').remove(rm);
-                      const vName = `${slotId}.${Date.now().toString(36)}.${ext}`;
-                      await supabase.storage.from('campaign-images').upload(`${folder}/${vName}`, file, { upsert: true, cacheControl: '31536000', contentType: file.type });
-                      await registerStorageFile(campaignId, vName);
-                    }
+                    const { data: ex } = await supabase.storage.from('campaign-images').list(folder, { search: slotId });
+                    const rm = (ex || []).filter((f: any) => f.name.startsWith(slotId + '.')).map((f: any) => `${folder}/${f.name}`);
+                    if (rm.length) await supabase.storage.from('campaign-images').remove(rm);
+                    const vName = `${slotId}.${Date.now().toString(36)}.${ext}`;
+                    await supabase.storage.from('campaign-images').upload(`${folder}/${vName}`, file, { upsert: true, cacheControl: '31536000', contentType: file.type });
+                    await registerStorageFile(campaignId, vName);
                     window.location.reload();
                   } catch (err: any) { alert('Errore: ' + (err.message || err)); }
                   e.target.value = '';
