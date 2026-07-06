@@ -76,11 +76,11 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
         </div>
         <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: open
           ? 'linear-gradient(180deg, rgba(30,22,48,0) 0%, rgba(30,22,48,0.55) 25%, rgba(30,22,48,0.92) 50%, rgba(30,22,48,1) 70%)'
-          : 'linear-gradient(90deg, rgba(11,8,20,.82) 0%, rgba(11,8,20,.4) 55%, rgba(11,8,20,.05) 100%)' }} />
+          : 'linear-gradient(90deg, rgba(11,8,20,.72) 0%, rgba(11,8,20,.32) 50%, rgba(11,8,20,0) 100%)' }} />
 
         <div style={{ position: 'relative', zIndex: 2 }}>
-          {/* Testata ripiegabile — velatura locale per la leggibilità del nome sopra l'immagine */}
-          <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer', margin: open ? '-16px -16px 10px' : '-16px -16px 0', padding: open ? '16px 16px 0' : 16, borderRadius: open ? '10px 10px 0 0' : 10, background: 'radial-gradient(ellipse at left, rgba(11,8,20,.72) 0%, rgba(11,8,20,.32) 70%, transparent 100%)' }} onClick={() => setOpen(!open)}>
+          {/* Testata ripiegabile — trasparente: la leggibilità è affidata al gradiente di fondo */}
+          <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer', marginBottom: open ? 10 : 0 }} onClick={() => setOpen(!open)}>
             <div className="row" style={{ gap: 8 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" strokeWidth="1.5"><path d="M14 4l6 6-2 2-2-1-6.5 6.5a2.1 2.1 0 11-3-3L13 8l-1-2 2-2zM3 21l3-3"/></svg>
               <div className="h2" style={{ color: 'var(--ember)' }}>Fucina di Durna</div>
