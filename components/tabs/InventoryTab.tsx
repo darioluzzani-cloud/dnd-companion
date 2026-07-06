@@ -262,8 +262,14 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                       const isFilled = i < used;
                       return i < maxSlots ? (
                         <button key={i} onClick={()=>setItemField(it.id,'enhUsed',isFilled ? Math.max(0,used-1) : Math.min(maxSlots,used+1))}
-                          style={{width:22,height:22,borderRadius:'50%',border:'1px solid '+(isFilled?p.color||'var(--gold)':'var(--border)'),
-                            background:isFilled?(p.color||'var(--gold)'):'transparent',cursor:'pointer',transition:'all .15s'}} />
+                          title={isFilled?'Potenziamento attivo':'Slot libero'}
+                          style={{width:24,height:24,padding:0,background:'transparent',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" style={{transition:'all .15s'}}
+                            fill={isFilled?'var(--ember)':'none'} stroke={isFilled?'var(--ember)':'var(--border)'} strokeWidth="1.6" strokeLinejoin="round">
+                            <path d="M14 4l6 6-2 2-2-1-6.5 6.5a2.1 2.1 0 11-3-3L13 8l-1-2 2-2z"/>
+                            <path d="M3 21l3-3" fill="none"/>
+                          </svg>
+                        </button>
                       ) : null;
                     })}
                     {s.dmMode && (
