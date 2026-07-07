@@ -6,7 +6,7 @@ import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { supabase } from '@/lib/supabase';
 import { sfxComplete } from '@/lib/dnd/sounds';
 
-const FORGEABLE_TYPES = ['arma', 'armatura', 'equipaggiamento', 'unico', 'magico'];
+const FORGEABLE_TYPES = ['arma', 'armatura', 'unico', 'magico'];
 
 export interface SmithUpgrade {
   id: string;
