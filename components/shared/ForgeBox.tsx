@@ -122,7 +122,7 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
               </div>
               <select value={itemId} onChange={e => { setItemId(e.target.value); setDone(null); }} className="grow" style={{ fontSize: 13 }}>
                 <option value="">— scegli dall'inventario di {player?.short || '…'} —</option>
-                {(player?.inventory || []).filter(it => FORGEABLE_TYPES.includes(it.type)).map(it => (
+                {(player?.inventory || []).filter(it => FORGEABLE_TYPES.includes(it.type) && (s.dmMode || (it as any).revealed !== false)).map(it => (
                   <option key={it.id} value={it.id}>{it.name}{((it as any).upgrades || []).length > 0 ? ' ⚒' : ''}</option>
                 ))}
               </select>
