@@ -242,7 +242,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                     )}
                   </>
                 )}
-                {/* Punti Usura — solo per arma e equipaggiamento */}
+                {/* Punti Usura — solo per arma, armatura, magico e unico */}
                 {(it.type==='arma'||it.type==='armatura'||it.type==='magico'||it.type==='unico') && (
                   <div className="row" style={{gap:6,marginTop:6}}>
                     <span className="label" style={{fontSize:9}}>PU</span>
