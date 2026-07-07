@@ -19,7 +19,7 @@ function slotKeyOf(filename: string): string {
   return dot > 0 ? filename.slice(0, dot) : filename;
 }
 
-function getFolderIndex(folder: string): Promise<Map<string, string>> {
+export function getFolderIndex(folder: string): Promise<Map<string, string>> {
   let cached = folderIndexCache.get(folder);
   if (!cached) {
     cached = (async () => {
