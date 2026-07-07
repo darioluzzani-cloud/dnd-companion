@@ -1,8 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
-import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
+import { ImageSlot, registerStorageFile, getFolderIndex } from '@/components/ImageSlot';
 import { sfxReveal, sfxComplete } from '@/lib/dnd/sounds';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 
@@ -21,6 +21,20 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
   const [draft, setDraft] = useState('');
   const [newScenName, setNewScenName] = useState('');
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
+  // Censimento degli slot immagine presenti nel bucket: consente di sapere,
+  // per ogni scenario, se esiste la variante 'aperto' oltre a quella 'chiuso',
+  // e quindi di scegliere il fallback quando una delle due manca. Sfrutta lo
+  // stesso indice condiviso di ImageSlot: nessuna chiamata di rete aggiuntiva.
+  const imgFolder = campaignId || '_default';
+  const [existingSlots, setExistingSlots] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try { const idx = await getFolderIndex(imgFolder); if (!cancelled) setExistingSlots(new Set(idx.keys())); }
+      catch { /* indice non disponibile: si ricade sui default naturali */ }
+    })();
+    return () => { cancelled = true; };
+  }, [imgFolder]);
 
   // Aprire un box: accordion locale (chiude gli altri) + promozione a
   // scenario attivo sul canale condiviso. Ri-cliccare la testata di un box
@@ -77,6 +91,18 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
           // scenario attivo: robusto anche se un altro dispositivo cambia
           // activeScenario mentre il box resta aperto localmente.
           const updThisScen = (fn:(x:any)=>any) => update(prev => ({scenarios: prev.scenarios.map(x=>x.id===sc2.id?fn(x):x)}));
+          // Due varianti d'immagine: 'chiuso' (orizzontale) e 'aperto'
+          // (verticale). Si mostra quella dello stato corrente; se assente,
+          // si ripiega sull'altra. Finché l'indice non è caricato, si usa lo
+          // slot naturale dello stato, per non produrre un lampo di fallback.
+          const closedSlot = 'scenario-'+sc2.id;
+          const openSlot = 'scenario-'+sc2.id+'-open';
+          const hasClosed = existingSlots.has(closedSlot);
+          const hasOpen = existingSlots.has(openSlot);
+          const shownSlot = isOpen
+            ? (hasOpen ? openSlot : (hasClosed ? closedSlot : openSlot))
+            : (hasClosed ? closedSlot : (hasOpen ? openSlot : closedSlot));
+          const uploadSlot = isOpen ? openSlot : closedSlot;
           const scQuests = (sc2 as any).quests || [];
           const subQuests = scQuests.filter((q:any)=>q.type===sub);
           const visibleQuests = s.dmMode ? subQuests : subQuests.filter((q:any)=>q.revealed);
@@ -89,8 +115,8 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
 
             {/* Immagine di sfondo — slot unico, letto sia da chiuso sia da aperto */}
             <div style={{position:'absolute',inset:0,zIndex:0}}>
-              <div data-slot={'scenario-'+sc2.id} style={{width:'100%',height:'100%'}}>
-                <ImageSlot key={(isOpen?'o':'c')} slotId={'scenario-'+sc2.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt={sc2.name} />
+              <div data-slot={shownSlot} style={{width:'100%',height:'100%'}}>
+                <ImageSlot key={shownSlot+(isOpen?'-o':'-c')} slotId={shownSlot} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt={sc2.name} />
               </div>
             </div>
 
@@ -123,12 +149,12 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
                 {s.dmMode && (
                   <div className="row" style={{gap:2}} onClick={e=>e.stopPropagation()}>
                     <ReorderBtns onUp={()=>moveScen(sc2.id,-1)} onDown={()=>moveScen(sc2.id,1)} />
-                    <label className="btn btn-ghost" style={{padding:'2px 5px',fontSize:9,cursor:'pointer'}} title="Immagine sfondo">
-                      📷
+                    <label className="btn btn-ghost" style={{padding:'2px 5px',fontSize:9,cursor:'pointer'}} title={isOpen?'Immagine box aperto (verticale)':'Immagine box chiuso (orizzontale)'}>
+                      {isOpen?'📷▯':'📷▭'}
                       <input type="file" accept="image/*" style={{display:'none'}} onChange={async(e)=>{
                         const file=e.target.files?.[0]; if(!file||!campaignId)return;
                         const ext=(file.name.split('.').pop()||'png').toLowerCase();
-                        const slotId='scenario-'+sc2.id;
+                        const slotId=uploadSlot;
                         const folder=campaignId;
                         try{
                           const{data:ex}=await supabase.storage.from('campaign-images').list(folder,{search:slotId});
