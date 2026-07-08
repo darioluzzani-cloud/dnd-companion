@@ -4,6 +4,7 @@ import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 import { ForgeBox } from '@/components/shared/ForgeBox';
+import { MarketBox } from '@/components/shared/MarketBox';
 
 
 // ─── TAB: BASE (Olmobianco) ──────────────────────────────────
@@ -115,6 +116,7 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
         })()}
       </div>
       <ForgeBox s={s} update={update} campaignId={campaignId} />
+      <MarketBox s={s} update={update} campaignId={campaignId} />
       <div className="frame">
         <div className="row" style={{justifyContent:'space-between',marginBottom:10}}>
           <div className="h1" style={{fontSize:18}}>Olmobianco</div>
