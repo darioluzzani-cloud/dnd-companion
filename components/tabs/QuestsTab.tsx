@@ -127,9 +127,9 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
             <div style={{position:'absolute',inset:0,zIndex:1,pointerEvents:'none',transition:'background .3s',background:isOpen
               ? (isActive
                 ? (concluso
-                  ? 'linear-gradient(180deg, rgba(18,30,24,0) 0%, rgba(18,30,24,.55) 22%, rgba(18,30,24,.92) 42%, rgba(18,30,24,.97) 60%, rgba(18,30,24,.99) 100%)'
-                  : 'linear-gradient(180deg, rgba(28,24,14,0) 0%, rgba(28,24,14,.55) 22%, rgba(28,24,14,.92) 42%, rgba(28,24,14,.97) 60%, rgba(28,24,14,.99) 100%)')
-                : 'linear-gradient(180deg, rgba(11,8,20,0) 0%, rgba(11,8,20,.55) 22%, rgba(11,8,20,.92) 42%, rgba(11,8,20,.97) 60%, rgba(11,8,20,.99) 100%)')
+                  ? 'linear-gradient(180deg, rgba(18,30,24,0) 0%, rgba(18,30,24,.3) 35%, rgba(18,30,24,.6) 60%, rgba(18,30,24,.9) 85%, rgba(18,30,24,.97) 100%)'
+                  : 'linear-gradient(180deg, rgba(28,24,14,0) 0%, rgba(28,24,14,.3) 35%, rgba(28,24,14,.6) 60%, rgba(28,24,14,.9) 85%, rgba(28,24,14,.97) 100%)')
+                : 'linear-gradient(180deg, rgba(11,8,20,0) 0%, rgba(11,8,20,.3) 35%, rgba(11,8,20,.6) 60%, rgba(11,8,20,.9) 85%, rgba(11,8,20,.97) 100%)')
               : (isActive
                 ? (concluso
                   ? 'linear-gradient(90deg, rgba(98,185,138,.8) 0%, rgba(98,185,138,.3) 45%, rgba(98,185,138,0) 100%)'
