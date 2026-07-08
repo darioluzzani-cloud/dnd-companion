@@ -82,15 +82,15 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
         <ImageSlot key={(open ? 'o' : 'c') + bgTick} slotId="market-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="Mercato di Olmobianco" />
       </div>
       <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: open
-        ? 'linear-gradient(180deg, rgba(24,20,10,0) 0%, rgba(24,20,10,.55) 20%, rgba(24,20,10,.93) 40%, rgba(24,20,10,.98) 58%, rgba(24,20,10,.99) 100%)'
-        : 'linear-gradient(90deg, rgba(24,20,10,.92) 0%, rgba(24,20,10,.45) 50%, rgba(24,20,10,0) 100%)' }} />
+        ? 'linear-gradient(180deg, rgba(11,8,20,0) 0%, rgba(11,8,20,.3) 35%, rgba(11,8,20,.6) 60%, rgba(11,8,20,.9) 85%, rgba(11,8,20,.97) 100%)'
+        : 'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.45) 50%, rgba(11,8,20,0) 100%)' }} />
 
       <div style={{ position: 'relative', zIndex: 2, padding: 16 }}>
         {/* Testata */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
-          <div className="grow">
+          <div className="grow" style={{ textShadow: '0 1px 3px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.65)' }}>
             <div className="label" style={{ color: 'var(--gold)' }}>Mercato di Olmobianco</div>
-            <div className="small muted" style={{ marginTop: 2 }}>
+            <div className="small" style={{ marginTop: 2, color: 'var(--text)' }}>
               {mktLevel > 0 ? cfg!.label : 'Piazza non ancora costruita — nessun mercato'}
               {d && <> · {formatDateShort(d)}{marketToday ? ' · giorno di mercato' : ''}</>}
             </div>
