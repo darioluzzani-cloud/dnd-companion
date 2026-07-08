@@ -91,7 +91,7 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
           <div className="grow">
             <div className="label" style={{ color: 'var(--gold)' }}>Mercato di Olmobianco</div>
             <div className="small muted" style={{ marginTop: 2 }}>
-              {mktLevel > 0 ? cfg!.label : 'Piazza sotto il Livello 2 — nessun mercato'}
+              {mktLevel > 0 ? cfg!.label : 'Piazza non ancora costruita — nessun mercato'}
               {d && <> · {formatDateShort(d)}{marketToday ? ' · giorno di mercato' : ''}</>}
             </div>
           </div>

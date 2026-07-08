@@ -3,9 +3,9 @@
  * Fonte: scheda DM "Mercato Settimanale e Dicerie della Marca".
  *
  * I tre livelli del mercato si àncorano al livello dell'edificio Piazza:
- * Piazza L2 → Mercato 1 (d6, 1 fisso + 1d4)
- * Piazza L3 → Mercato 2 (d12, 2 fissi + 1d4)
- * Piazza L4 → Mercato 3 (d20, 3 fissi + 1d4)
+ * Piazza L1 → Mercato 1 (d6, 1 fisso + 1d4)
+ * Piazza L2 → Mercato 2 (d12, 2 fissi + 1d4)
+ * Piazza L3 → Mercato 3 (d20, 3 fissi + 1d4)
  *
  * I default vivono qui; se lo stato Supabase contiene marketStalls /
  * marketRumors personalizzati, quelli prevalgono (copy-on-write dal DM).
@@ -37,16 +37,16 @@ export interface MarketDay {
 }
 
 export const MARKET_LEVELS: Record<number, { die: number; fixed: number; label: string }> = {
-  1: { die: 6,  fixed: 1, label: 'Mercato 1 · Piazza L2 · d6'  },
-  2: { die: 12, fixed: 2, label: 'Mercato 2 · Piazza L3 · d12' },
-  3: { die: 20, fixed: 3, label: 'Mercato 3 · Piazza L4 · d20' },
+  1: { die: 6,  fixed: 1, label: 'Mercato 1 · Piazza L1 · d6'  },
+  2: { die: 12, fixed: 2, label: 'Mercato 2 · Piazza L2 · d12' },
+  3: { die: 20, fixed: 3, label: 'Mercato 3 · Piazza L3 · d20' },
 };
 
 /** Livello mercato derivato dal livello dell'edificio Piazza (0 = nessun mercato). */
 export function marketLevelFromBuilding(buildingLevel: number): 0 | 1 | 2 | 3 {
-  if (buildingLevel >= 4) return 3;
-  if (buildingLevel === 3) return 2;
-  if (buildingLevel === 2) return 1;
+  if (buildingLevel >= 3) return 3;
+  if (buildingLevel === 2) return 2;
+  if (buildingLevel === 1) return 1;
   return 0;
 }
 
