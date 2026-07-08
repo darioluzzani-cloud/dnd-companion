@@ -162,6 +162,10 @@ export interface CampaignState {
   journal?: JournalEntry[];
   baseRations?: number;  // razioni giornaliere nel magazzino del villaggio
   smithUpgrades?: { id: string; name: string; desc: string; material?: string }[];  // catalogo della fucina
+  marketBuildingId?: string;      // edificio (di norma la Piazza) che governa il livello del mercato
+  marketStalls?: import('./dnd/market').MarketStall[];   // catalogo bancarelle (copy-on-write dai default)
+  marketRumors?: import('./dnd/market').MarketRumor[];   // tabella dicerie d100 (copy-on-write dai default)
+  market?: import('./dnd/market').MarketDay | null;      // il mercato tirato per il giorno corrente
   calendar?: CalendarState;
   lastRoll: DiceRoll | null;
   rollSeq: number;
