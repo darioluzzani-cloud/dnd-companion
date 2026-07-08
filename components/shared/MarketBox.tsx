@@ -138,8 +138,8 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                   const isTales = st.kind === 'tales';
                   return (
                     <div key={ms.stallId} className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ position: 'relative', height: 90 }}>
-                        <ImageSlot slotId={'stall-' + st.id} campaignId={campaignId} shape="rect" width="100%" height={90} dmMode={false} placeholder="🏪" alt={st.name} />
+                      <div style={{ position: 'relative', aspectRatio: '1 / 1' }}>
+                        <ImageSlot slotId={'stall-' + st.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="🏪" alt={st.name} />
                         {s.dmMode && (
                           <label className="btn btn-ghost" style={{ position: 'absolute', top: 4, right: 4, padding: '1px 5px', fontSize: 9, cursor: 'pointer', background: 'rgba(11,8,20,.7)' }} title="Immagine bancarella">
                             📷
