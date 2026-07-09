@@ -4,14 +4,17 @@ import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 
-const LORE_CATS = ['oggetti','luoghi','culti','fazioni','tutti'] as const;
-
+const LORE_CATS = ['oggetti','luoghi','culti','fazioni'] as const;
 
 // ─── TAB: LORE ───────────────────────────────────────────────
+// Griglia di card verticali sul modello del mercato: immagine quadrata
+// in alto (clic per ingrandire), nome e sottotitolo, testo espandibile.
+// Filtro alle sole quattro categorie, senza il calderone "tutti".
 export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; campaignId:string|null }) {
-  const filter = s.loreCatFilter || 'tutti';
+  const stored = s.loreCatFilter;
+  const filter = (LORE_CATS as readonly string[]).includes(stored) ? stored : 'oggetti';
   const all = s.lore || [];
-  const visible = filter==='tutti' ? all : all.filter(l=>l.category===filter);
+  const visible = all.filter(l=>l.category===filter);
   const filtered = s.dmMode ? visible : visible.filter(l=>l.revealed);
   const [draftName,setDraftName]=useState('');
   const [draftSub,setDraftSub]=useState('');
@@ -20,7 +23,6 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
 
   return (
     <div>
-      {/* Overlay immagine ingrandita */}
       {enlargedImg && (
         <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
           <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
@@ -30,75 +32,72 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
         <div className="label" style={{marginBottom:8}}>Categoria</div>
         <div className="row" style={{gap:6,flexWrap:'wrap'}}>
           {LORE_CATS.map(c=>(
-            <button key={c} className={'pill lore-'+c} style={{cursor:'pointer',padding:'5px 11px',background:filter===c?'var(--bg-active)':'transparent',boxShadow:filter===c?'0 0 0 1px':'none'}} onClick={()=>update({loreCatFilter:c})}>{c==='tutti'?'Tutti':c.charAt(0).toUpperCase()+c.slice(1)}</button>
+            <button key={c} className={'pill lore-'+c} style={{cursor:'pointer',padding:'5px 11px',background:filter===c?'var(--bg-active)':'transparent',boxShadow:filter===c?'0 0 0 1px':'none'}} onClick={()=>update({loreCatFilter:c})}>{c.charAt(0).toUpperCase()+c.slice(1)}</button>
           ))}
         </div>
       </div>
       <div className="frame">
-        {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessuna voce.</div>}
-        {filtered.map(l=>{
-          const isCulti = l.category === 'culti';
-          const imgW = isCulti ? 56 : 46;
-          const imgH = isCulti ? 80 : 46;
-          return (
-          <div key={l.id} className="card">
-            <div className="row" style={{alignItems:'flex-start'}}>
-              <div style={{width:imgW,height:imgH,flexShrink:0,cursor:'pointer',overflow:'hidden',borderRadius:isCulti?6:24}}
-                onClick={()=>{
-                  const imgEl = document.querySelector(`[data-slot="lore-${l.id}"] img`) as HTMLImageElement;
-                  if(imgEl?.src) setEnlargedImg(imgEl.src);
-                }}>
-                <div data-slot={'lore-'+l.id} style={{width:imgW,height:imgH}}>
-                  <ImageSlot slotId={'lore-'+l.id} campaignId={campaignId} shape={isCulti?'rect':'circle'} width={imgW} height={imgH} dmMode={s.dmMode} placeholder=" " alt={l.name} />
+        {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessuna voce in questa categoria.</div>}
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))',gap:10}}>
+          {filtered.map(l=>{
+            const isExp = l.expanded;
+            return (
+            <div key={l.id} className="card" style={{padding:0,overflow:'hidden',display:'flex',flexDirection:'column',opacity:!l.revealed&&s.dmMode?.65:1}}>
+              {/* Immagine quadrata — clic per ingrandire */}
+              <div style={{position:'relative',aspectRatio:'1 / 1',cursor:'pointer'}}
+                onClick={()=>{const imgEl=document.querySelector(`[data-slot="lore-${l.id}"] img`) as HTMLImageElement;if(imgEl?.src)setEnlargedImg(imgEl.src);}}>
+                <div data-slot={'lore-'+l.id} style={{width:'100%',height:'100%'}}>
+                  <ImageSlot slotId={'lore-'+l.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={s.dmMode} placeholder=" " alt={l.name} />
                 </div>
+                {s.dmMode && !l.revealed && <span className="dm-badge" style={{position:'absolute',top:6,left:6}}>SEGRETA</span>}
               </div>
-              <div className="grow" style={{marginLeft:10,cursor:'pointer'}} onClick={()=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,expanded:!ll.expanded}:ll)}))}>
-                {s.dmMode ? (
-                  <input value={l.name} onClick={e=>e.stopPropagation()} onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,name:e.target.value}:ll)}))}
-                    style={{fontWeight:500,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3,fontSize:14}} />
-                ) : (
-                  <div style={{fontWeight:500}}>
-                    {l.name}
-                    {s.dmMode&&!l.revealed && <span className="dm-badge">SEGRETA</span>}
+
+              <div style={{padding:'8px 10px',flex:1,display:'flex',flexDirection:'column'}}>
+                <div style={{cursor:'pointer'}} onClick={()=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,expanded:!ll.expanded}:ll)}))}>
+                  <div className="row" style={{alignItems:'baseline',gap:6}}>
+                    <div className="grow" style={{fontWeight:500,fontSize:14}}>{l.name}</div>
+                    <span className="small muted" style={{fontSize:13}}>{isExp?'▾':'▸'}</span>
+                  </div>
+                  {l.subtitle && <div className="small muted" style={{marginTop:1}}>{l.subtitle}</div>}
+                </div>
+
+                {isExp && (
+                  <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+                    {s.dmMode ? (
+                      <>
+                        <input value={l.name} onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,name:e.target.value}:ll)}))}
+                          style={{fontWeight:500,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3,fontSize:13,width:'100%'}} />
+                        <input value={l.subtitle||''} placeholder="Sottotitolo" onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,subtitle:e.target.value}:ll)}))}
+                          style={{fontSize:12,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3,width:'100%'}} />
+                        <textarea value={l.text||''} placeholder="Testo della voce…" onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,text:e.target.value}:ll)}))} style={{fontSize:12,padding:'8px',minHeight:80,width:'100%'}} />
+                        <div className="row" style={{marginTop:6,gap:4,alignItems:'center'}}>
+                          <button className="btn btn-ghost" style={{padding:'2px 7px',fontSize:9}} title={l.revealed?'Nascondi ai giocatori':'Mostra ai giocatori'}
+                            onClick={()=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,revealed:!ll.revealed}:ll)}))}>{l.revealed?'◉':'◯'}</button>
+                          <ReorderBtns
+                            onUp={()=>{const idx=s.lore.findIndex(ll=>ll.id===l.id);update(prev=>({lore:moveInArray(prev.lore,idx,-1)}));}}
+                            onDown={()=>{const idx=s.lore.findIndex(ll=>ll.id===l.id);update(prev=>({lore:moveInArray(prev.lore,idx,1)}));}}
+                          />
+                          <div className="grow" />
+                          <button className="btn btn-danger btn-ghost" style={{padding:'2px 7px',fontSize:9}} onClick={()=>{if(confirm('Eliminare?'))update(prev=>({lore:prev.lore.filter(ll=>ll.id!==l.id)}));}}>&times;</button>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{fontSize:12,whiteSpace:'pre-wrap',lineHeight:1.6,fontStyle:'italic'}}>{l.text||<span className="muted small" style={{fontStyle:'normal'}}>(testo non ancora redatto)</span>}</div>
+                    )}
                   </div>
                 )}
-                {s.dmMode ? (
-                  <input value={l.subtitle||''} placeholder="Sottotitolo" onClick={e=>e.stopPropagation()} onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,subtitle:e.target.value}:ll)}))}
-                    style={{fontSize:13,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3}} />
-                ) : (
-                  l.subtitle && <div className="small muted">{l.subtitle}</div>
-                )}
-                {!l.revealed && !s.dmMode ? null : <div className={'pill lore-'+l.category} style={{marginTop:4}}>{l.category}</div>}
-                {s.dmMode && !l.revealed && <span className="dm-badge" style={{marginLeft:0,marginTop:4}}>SEGRETA</span>}
               </div>
-              {s.dmMode && (
-                <div style={{display:'flex',flexDirection:'column',gap:4}}>
-                  <button className="btn btn-ghost" style={{padding:'3px 7px',fontSize:9}} onClick={()=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,revealed:!ll.revealed}:ll)}))}>{l.revealed?'◉':'◯'}</button>
-                  <button className="btn btn-danger btn-ghost" style={{padding:'3px 7px',fontSize:9}} onClick={()=>{if(confirm('Eliminare?'))update(prev=>({lore:prev.lore.filter(ll=>ll.id!==l.id)}));}}>&times;</button>
-                </div>
-              )}
-              <ReorderBtns
-                onUp={()=>{const idx=s.lore.findIndex(ll=>ll.id===l.id);update(prev=>({lore:moveInArray(prev.lore,idx,-1)}));}}
-                onDown={()=>{const idx=s.lore.findIndex(ll=>ll.id===l.id);update(prev=>({lore:moveInArray(prev.lore,idx,1)}));}}
-              />
             </div>
-            {l.expanded && (
-              <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
-                {s.dmMode ? (
-                  <textarea value={l.text||''} placeholder="Testo della voce…" onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,text:e.target.value}:ll)}))} style={{fontSize:14,padding:'8px',minHeight:80}} />
-                ) : (
-                  <div style={{fontSize:14,whiteSpace:'pre-wrap',lineHeight:1.6,fontStyle:'italic'}}>{l.text||<span className="muted small" style={{fontStyle:'normal'}}>(testo non ancora redatto)</span>}</div>
-                )}
-              </div>
-            )}
-          </div>
-        )})}
+          )})}
+        </div>
+
         {s.dmMode && (
-          <div style={{marginTop:10}}>
+          <div style={{marginTop:12}}>
             <input placeholder="Nome voce…" value={draftName} onChange={e=>setDraftName(e.target.value)} style={{marginBottom:6}} />
             <input placeholder="Sottotitolo (opz.)" value={draftSub} onChange={e=>setDraftSub(e.target.value)} style={{marginBottom:6}} />
-            <div className="row" style={{gap:6,marginBottom:6}}>
-              {LORE_CATS.filter(c=>c!=='tutti').map(c=>(
+            <div className="row" style={{gap:6,marginBottom:6,flexWrap:'wrap'}}>
+              {LORE_CATS.map(c=>(
                 <button key={c} className={'pill lore-'+c} style={{cursor:'pointer',padding:'4px 10px',background:draftCat===c?'var(--bg-active)':'transparent'}} onClick={()=>setDraftCat(c)}>{c.charAt(0).toUpperCase()+c.slice(1)}</button>
               ))}
             </div>

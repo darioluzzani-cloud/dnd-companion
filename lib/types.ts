@@ -23,6 +23,8 @@ export interface NPC {
   location: string;
   relation: 'ally' | 'enemy' | 'neutral';
   note: string;
+  revealed?: boolean;   // assente = visibile (retrocompatibilità); false = preparato ma nascosto ai giocatori
+  expanded?: boolean;
 }
 
 export interface Spell {
