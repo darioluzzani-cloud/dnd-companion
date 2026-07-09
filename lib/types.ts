@@ -168,7 +168,7 @@ export interface CampaignState {
   marketStalls?: import('./dnd/market').MarketStall[];   // catalogo bancarelle (copy-on-write dai default)
   marketRumors?: import('./dnd/market').MarketRumor[];   // tabella dicerie d100 (copy-on-write dai default)
   market?: import('./dnd/market').MarketDay | null;      // il mercato tirato per il giorno corrente
-  armory?: { id: string; name: string; type: string; desc?: string }[];  // catalogo oggetti preparati dal DM (Armeria)
+  armory?: { id: string; name: string; type: string; desc?: string; effect?: string }[];  // catalogo oggetti preparati dal DM (Armeria)
   calendar?: CalendarState;
   lastRoll: DiceRoll | null;
   rollSeq: number;

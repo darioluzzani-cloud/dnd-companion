@@ -11,13 +11,15 @@ import { copyItemImage } from '@/components/shared/imageCopy';
 // Le voci usano lo slot immagine item-<id>, lo stesso schema degli oggetti
 // d'inventario: la consegna copia l'immagine sul nuovo oggetto (copyItemImage).
 
-export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; }
+export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; }
 
 export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignState; update: U; campaignId: string | null; onClose: () => void }) {
   const [filter, setFilter] = useState<string>(ITEM_TYPES[0]);
   const [draftName, setDraftName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [given, setGiven] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExp = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const armory: ArmoryEntry[] = (s as any).armory || [];
   const setArmory = (list: ArmoryEntry[]) => update({ armory: list } as any);
@@ -37,7 +39,7 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
     const newId = uid('it');
     update(prev => ({
       players: prev.players.map(pl => pl.id === playerId
-        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', equipped: false, expanded: false } as any] }
+        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', equipped: false, expanded: false } as any] }
         : pl),
     }));
     if (campaignId) copyItemImage(campaignId, e.id, newId);
@@ -77,26 +79,32 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
         {filtered.map(e => (
           <div key={e.id} className="card" style={{ padding: '10px 12px' }}>
             <div className="row" style={{ gap: 10, alignItems: 'flex-start' }}>
-              <div style={{ width: 48, height: 48, flexShrink: 0, overflow: 'hidden', borderRadius: 6 }}>
-                <ImageSlot slotId={'item-' + e.id} campaignId={campaignId} shape="rect" width={48} height={48} dmMode={s.dmMode} placeholder={e.name.slice(0, 2).toUpperCase()} alt={e.name} />
+              <div style={{ width: expanded.has(e.id) ? 48 : 32, height: expanded.has(e.id) ? 48 : 32, flexShrink: 0, overflow: 'hidden', borderRadius: 6, transition: 'all .15s' }}>
+                <ImageSlot slotId={'item-' + e.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={s.dmMode} placeholder={e.name.slice(0, 2).toUpperCase()} alt={e.name} />
               </div>
               <div className="grow">
-                {editingId === e.id ? (
-                  <>
+                <div className="row" style={{ gap: 6, alignItems: 'baseline', cursor: 'pointer' }} onClick={() => toggleExp(e.id)}>
+                  <div className="grow" style={{ fontWeight: 500, fontSize: 14 }}>{e.name} <span className="small muted">· {e.type}</span></div>
+                  <span className="small muted" style={{ fontSize: 13 }}>{expanded.has(e.id) ? '▾' : '▸'}</span>
+                </div>
+                {expanded.has(e.id) && (editingId === e.id ? (
+                  <div style={{ marginTop: 6 }}>
                     <input value={e.name} onChange={ev => patchEntry(e.id, { name: ev.target.value })} style={{ fontSize: 13, padding: '3px 8px', width: '100%', marginBottom: 3 }} />
                     <select value={e.type} onChange={ev => patchEntry(e.id, { type: ev.target.value })} style={{ fontSize: 12, marginBottom: 3 }}>
                       {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
+                    <input value={e.effect || ''} placeholder="Effetto (es. Recupera 2d4+2 PF)…" onChange={ev => patchEntry(e.id, { effect: ev.target.value })} style={{ fontSize: 12, padding: '4px 8px', width: '100%', marginBottom: 3, borderColor: 'var(--gold-dim)' }} />
                     <textarea value={e.desc || ''} placeholder="Descrizione…" onChange={ev => patchEntry(e.id, { desc: ev.target.value })} style={{ fontSize: 12, padding: '5px 8px', minHeight: 40, width: '100%' }} />
-                  </>
+                  </div>
                 ) : (
-                  <>
-                    <div style={{ fontWeight: 500, fontSize: 14 }}>{e.name}</div>
-                    <div className="pill" style={{ padding: '2px 8px', fontSize: 8, marginTop: 3 }}>{e.type}</div>
-                    {e.desc && <div className="small muted" style={{ marginTop: 4, fontStyle: 'italic' }}>{e.desc}</div>}
-                  </>
-                )}
+                  <div style={{ marginTop: 6 }}>
+                    {e.effect && <div className="small" style={{ color: 'var(--gold-light)' }}>✦ {e.effect}</div>}
+                    {e.desc && <div className="small muted" style={{ marginTop: 3, fontStyle: 'italic' }}>{e.desc}</div>}
+                    {!e.effect && !e.desc && <div className="small muted">(nessun dettaglio)</div>}
+                  </div>
+                ))}
                 {/* Consegna */}
+                {expanded.has(e.id) && (
                 <div className="row" style={{ gap: 6, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <select id={'give-' + e.id} defaultValue="" style={{ fontSize: 11 }}>
                     <option value="">— a chi? —</option>
@@ -111,6 +119,7 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                   <button className="btn btn-ghost" style={{ padding: '2px 7px', fontSize: 9 }} onClick={() => setEditingId(editingId === e.id ? null : e.id)}>{editingId === e.id ? 'Fine' : 'Modifica'}</button>
                   <button className="btn btn-danger btn-ghost" style={{ padding: '2px 7px', fontSize: 9 }} onClick={() => { if (confirm('Eliminare dal catalogo?')) setArmory(armory.filter(x => x.id !== e.id)); }}>&times;</button>
                 </div>
+                )}
               </div>
             </div>
           </div>
