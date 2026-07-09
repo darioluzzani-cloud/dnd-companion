@@ -4,6 +4,7 @@ import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { PlayerSelector } from '@/components/shared/PlayerSelector';
 import { AlchemyPopup } from '@/components/popups/AlchemyPopup';
+import { ArmoryPopup } from '@/components/popups/ArmoryPopup';
 import { U, moveInArray, ReorderBtns, computeAC, ITEM_TYPES } from '@/components/shared/common';
 import { copyItemImage } from '@/components/shared/imageCopy';
 
@@ -38,9 +39,10 @@ const ITEM_TEMPLATES = [
 export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; update:U; updPlayer:any; p:any; campaignId:string|null }) {
   const [draftName, setDraftName] = useState('');
   const [draftType, setDraftType] = useState('equipaggiamento');
-  const [filter, setFilter] = useState('tutti');
+  const [filter, setFilter] = useState('indossato');
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
   const [showAlchemy, setShowAlchemy] = useState(false);
+  const [showArmory, setShowArmory] = useState(false);
   const setItemField = (iid:string, f:string, v:any) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,[f]:v}:i)}));
   const toggleExpand = (iid:string) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,expanded:!i.expanded}:i)}));
 
@@ -91,7 +93,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
 
   const allItems = [...(p.inventory||[])].sort((a:any,b:any)=>(b.equipped?1:0)-(a.equipped?1:0));
   const visibleItems = s.dmMode ? allItems : allItems.filter((it:any)=>it.revealed!==false);
-  const filtered = filter==='tutti' ? visibleItems : visibleItems.filter((it:any)=>it.type===filter);
+  const filtered = filter==='indossato' ? visibleItems.filter((it:any)=>it.equipped) : visibleItems.filter((it:any)=>it.type===filter);
 
   return (
     <div>
@@ -102,18 +104,27 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
         </div>
       )}
       {showAlchemy && <AlchemyPopup s={s} update={update} p={p} updPlayer={updPlayer} campaignId={campaignId} onClose={()=>setShowAlchemy(false)} />}
+      {showArmory && <ArmoryPopup s={s} update={update} campaignId={campaignId} onClose={()=>setShowArmory(false)} />}
       <PlayerSelector s={s} update={update} p={p} campaignId={campaignId} />
       <div className="frame">
         <div className="row" style={{justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
           <div className="label">Inventario</div>
+          <div className="row" style={{gap:6}}>
+          {s.dmMode && (
+            <button className="alchemy-box-btn" onClick={()=>setShowArmory(true)} style={{borderColor:'var(--gold-dim)'}}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6l-8 8M6.5 20L4 17.5l3-3M14 4l6 6M4 20l3.5-.5L20 7l-3-3L4.5 16.5 4 20z"/></svg>
+              <span>Armeria</span>
+            </button>
+          )}
           <button className="alchemy-box-btn" onClick={()=>setShowAlchemy(true)}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 3h6v3a6 6 0 01-6 6v0a6 6 0 00-6 6v2a1 1 0 001 1h16a1 1 0 001-1v-2a6 6 0 00-6-6v0a6 6 0 01-6-6V3z"/><path d="M8 3h8" strokeLinecap="round"/></svg>
             <span>Alchimia</span>
           </button>
+          </div>
         </div>
         {/* Filtri per tipo */}
         <div className="row" style={{gap:5,flexWrap:'wrap',marginBottom:10}}>
-          {['tutti',...ITEM_TYPES].map(t => (
+          {['indossato',...ITEM_TYPES].map(t => (
             <button key={t} className="pill" style={{cursor:'pointer',padding:'4px 10px',fontSize:9,
               background:filter===t?'var(--bg-active)':'transparent',
               borderColor:filter===t?'var(--gold)':'var(--border)',
