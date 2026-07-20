@@ -24,6 +24,12 @@ export function SetsPopup({ s, update, p, campaignId, onClose }: { s: CampaignSt
 
   const inv: any[] = p?.inventory || [];
 
+  // Un set compare ai giocatori solo se almeno un PG del party ne possiede
+  // almeno un pezzo (evita di spoilerare set non ancora incontrati). Il DM
+  // li vede sempre tutti, per poterli preparare e assegnare.
+  const setOwnedByParty = (setId: string) => s.players.some(pl => (pl.inventory || []).some((it: any) => it.setId === setId));
+  const visibleSets = s.dmMode ? sets : sets.filter(set => setOwnedByParty(set.id));
+
   const addSet = () => setSets([...sets, { id: uid('set'), name: 'Nuovo set', pieces: 2, effect: '', color: '#c0783c' }]);
   const patchSet = (id: string, patch: Partial<ItemSet>) => setSets(sets.map(x => x.id === id ? { ...x, ...patch } : x));
 
@@ -44,9 +50,9 @@ export function SetsPopup({ s, update, p, campaignId, onClose }: { s: CampaignSt
 
         <div className="small muted" style={{ marginBottom: 10 }}>Pezzi equipaggiati da <b style={{ color: p?.color || 'var(--gold)' }}>{p?.short || p?.name || '—'}</b></div>
 
-        {sets.length === 0 && <div className="card small muted" style={{ textAlign: 'center', fontStyle: 'italic' }}>Nessun set definito. {s.dmMode ? 'Creane uno qui sotto e assegna il set agli oggetti dall’Armeria o dall’inventario.' : ''}</div>}
+        {visibleSets.length === 0 && <div className="card small muted" style={{ textAlign: 'center', fontStyle: 'italic' }}>{s.dmMode ? 'Nessun set definito. Creane uno qui sotto e assegna il set agli oggetti dall’Armeria o dall’inventario.' : 'Nessun set noto: se ne scoprirai i pezzi, compariranno qui.'}</div>}
 
-        {sets.map(set => {
+        {visibleSets.map(set => {
           const owned = inv.filter(it => it.setId === set.id);
           const equipped = owned.filter(it => it.equipped);
           const complete = equipped.length >= set.pieces;
