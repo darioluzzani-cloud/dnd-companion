@@ -11,7 +11,7 @@ import { copyItemImage } from '@/components/shared/imageCopy';
 // Le voci usano lo slot immagine item-<id>, lo stesso schema degli oggetti
 // d'inventario: la consegna copia l'immagine sul nuovo oggetto (copyItemImage).
 
-export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; }
+export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; }
 
 export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignState; update: U; campaignId: string | null; onClose: () => void }) {
   const [filter, setFilter] = useState<string>(ITEM_TYPES[0]);
@@ -39,7 +39,7 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
     const newId = uid('it');
     update(prev => ({
       players: prev.players.map(pl => pl.id === playerId
-        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', equipped: false, expanded: false } as any] }
+        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', armorType: e.armorType, armorCA: e.armorCA, enhSlots: e.enhSlots, setId: e.setId, equipped: false, expanded: false } as any] }
         : pl),
     }));
     if (campaignId) copyItemImage(campaignId, e.id, newId);
@@ -94,6 +94,33 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                       {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                     <input value={e.effect || ''} placeholder="Effetto (es. Recupera 2d4+2 PF)…" onChange={ev => patchEntry(e.id, { effect: ev.target.value })} style={{ fontSize: 12, padding: '4px 8px', width: '100%', marginBottom: 3, borderColor: 'var(--gold-dim)' }} />
+                    {e.type === 'armatura' && (
+                      <div className="row" style={{ gap: 6, marginBottom: 3 }}>
+                        <select value={e.armorType || ''} onChange={ev => patchEntry(e.id, { armorType: ev.target.value })} style={{ fontSize: 11, padding: '2px 4px', flex: 1 }}>
+                          <option value="">— tipo armatura —</option>
+                          <option value="leggera">Leggera</option>
+                          <option value="media">Media</option>
+                          <option value="pesante">Pesante</option>
+                          <option value="scudo">Scudo</option>
+                        </select>
+                        <div className="row" style={{ gap: 3, alignItems: 'center' }}>
+                          <span className="label" style={{ fontSize: 8 }}>CA</span>
+                          <input type="number" value={e.armorCA || 0} onChange={ev => patchEntry(e.id, { armorCA: parseInt(ev.target.value) || 0 })} style={{ width: 44, textAlign: 'center', fontSize: 12, padding: '2px 4px' }} />
+                        </div>
+                      </div>
+                    )}
+                    {(e.type === 'arma' || e.type === 'armatura' || e.type === 'magico' || e.type === 'unico') && (
+                      <div className="row" style={{ gap: 3, marginBottom: 3, alignItems: 'center' }}>
+                        <span className="label" style={{ fontSize: 8 }}>Slot potenziamento</span>
+                        <button className="btn btn-ghost" style={{ padding: '1px 6px', fontSize: 10 }} onClick={() => patchEntry(e.id, { enhSlots: Math.max(0, (e.enhSlots ?? 0) - 1) })}>−</button>
+                        <span className="small muted">{e.enhSlots ?? 0}/3</span>
+                        <button className="btn btn-ghost" style={{ padding: '1px 6px', fontSize: 10 }} onClick={() => patchEntry(e.id, { enhSlots: Math.min(3, (e.enhSlots ?? 0) + 1) })}>+</button>
+                      </div>
+                    )}
+                    <select value={e.setId || ''} onChange={ev => patchEntry(e.id, { setId: ev.target.value || undefined })} style={{ fontSize: 11, padding: '3px 6px', width: '100%', marginBottom: 3 }}>
+                      <option value="">— nessun set —</option>
+                      {(s.itemSets || []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                    </select>
                     <textarea value={e.desc || ''} placeholder="Descrizione…" onChange={ev => patchEntry(e.id, { desc: ev.target.value })} style={{ fontSize: 12, padding: '5px 8px', minHeight: 40, width: '100%' }} />
                   </div>
                 ) : (

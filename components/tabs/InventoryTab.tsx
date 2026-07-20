@@ -5,6 +5,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { PlayerSelector } from '@/components/shared/PlayerSelector';
 import { AlchemyPopup } from '@/components/popups/AlchemyPopup';
 import { ArmoryPopup } from '@/components/popups/ArmoryPopup';
+import { SetsPopup } from '@/components/popups/SetsPopup';
 import { U, moveInArray, ReorderBtns, computeAC, ITEM_TYPES } from '@/components/shared/common';
 import { copyItemImage } from '@/components/shared/imageCopy';
 
@@ -43,6 +44,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
   const [showAlchemy, setShowAlchemy] = useState(false);
   const [showArmory, setShowArmory] = useState(false);
+  const [showSets, setShowSets] = useState(false);
   const setItemField = (iid:string, f:string, v:any) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,[f]:v}:i)}));
   const toggleExpand = (iid:string) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,expanded:!i.expanded}:i)}));
 
@@ -105,6 +107,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
       )}
       {showAlchemy && <AlchemyPopup s={s} update={update} p={p} updPlayer={updPlayer} campaignId={campaignId} onClose={()=>setShowAlchemy(false)} />}
       {showArmory && <ArmoryPopup s={s} update={update} campaignId={campaignId} onClose={()=>setShowArmory(false)} />}
+      {showSets && <SetsPopup s={s} update={update} p={p} campaignId={campaignId} onClose={()=>setShowSets(false)} />}
       <PlayerSelector s={s} update={update} p={p} campaignId={campaignId} />
       <div className="frame">
         <div className="row" style={{justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -116,6 +119,10 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
               <span>Armeria</span>
             </button>
           )}
+          <button className="alchemy-box-btn" onClick={()=>setShowSets(true)} style={{borderColor:'var(--gold-dim)'}}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8L12 2z"/></svg>
+            <span>Set</span>
+          </button>
           <button className="alchemy-box-btn" onClick={()=>setShowAlchemy(true)}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 3h6v3a6 6 0 01-6 6v0a6 6 0 00-6 6v2a1 1 0 001 1h16a1 1 0 001-1v-2a6 6 0 00-6-6v0a6 6 0 01-6-6V3z"/><path d="M8 3h8" strokeLinecap="round"/></svg>
             <span>Alchimia</span>
@@ -234,6 +241,10 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                     )}
                     <textarea value={it.effect||''} placeholder="Effetto (es. +1 ai tiri per colpire)" onChange={e=>setItemField(it.id,'effect',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:36,marginBottom:4}} />
                     <textarea value={it.desc||''} placeholder="Descrizione oggetto…" onChange={e=>setItemField(it.id,'desc',e.target.value)} style={{fontSize:13,padding:'6px 8px',minHeight:36}} />
+                    <select value={it.setId||''} onChange={e=>setItemField(it.id,'setId',e.target.value||undefined)} style={{fontSize:11,padding:'3px 6px',width:'100%',marginTop:4}}>
+                      <option value="">— nessun set —</option>
+                      {(s.itemSets||[]).map((st:any)=><option key={st.id} value={st.id}>{st.name}</option>)}
+                    </select>
                   </>
                 ) : (
                   <>
