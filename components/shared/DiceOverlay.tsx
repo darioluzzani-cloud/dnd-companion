@@ -62,25 +62,36 @@ export function DiceOverlay() {
       <div style={{ perspective: 640 }}>
         <div style={{
           width: 132, height: 132, position: 'relative',
-          transformStyle: 'preserve-3d',
           animation: phase === 'spin' ? 'dice-spin .7s cubic-bezier(.35,.1,.4,1) forwards'
             : phase === 'settle' ? 'dice-settle .35s cubic-bezier(.2,.8,.3,1.4) forwards'
             : 'dice-idle 2s ease-in-out infinite',
         }}>
+          {/* Corpo del dado: sagoma + sfaccettature interne per dare volume */}
           <div style={{
             position: 'absolute', inset: 0, clipPath: shape,
-            background: `linear-gradient(150deg, ${accent} 0%, rgba(216,180,92,.35) 45%, var(--bg-deep) 100%)`,
+            background: `linear-gradient(150deg, ${accent} 0%, rgba(216,180,92,.30) 42%, var(--bg-deep) 100%)`,
             border: `2px solid ${accent}`,
-            boxShadow: phase === 'done' ? `0 0 30px ${accent}, inset 0 0 20px rgba(0,0,0,.4)` : 'inset 0 0 20px rgba(0,0,0,.35)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: phase === 'done' ? `0 0 34px ${accent}, inset 0 0 24px rgba(0,0,0,.45)` : 'inset 0 0 22px rgba(0,0,0,.4)',
           }}>
-            <span style={{
-              fontFamily: 'var(--font-display)', fontWeight: 700,
-              fontSize: phase === 'done' ? 52 : 34, color: '#fff',
-              textShadow: '0 2px 8px rgba(0,0,0,.9)', transition: 'font-size .2s',
-              opacity: phase === 'spin' ? .5 : 1,
-            }}>{roll.value}</span>
+            {/* Faccette: due triangoli sovrapposti col vertice al centro,
+                a semitrasparenza alternata, evocano gli spigoli del solido */}
+            <div style={{ position: 'absolute', inset: 0, clipPath: 'polygon(50% 50%, 0 0, 100% 0)', background: 'rgba(255,255,255,.10)' }} />
+            <div style={{ position: 'absolute', inset: 0, clipPath: 'polygon(50% 50%, 100% 0, 100% 100%)', background: 'rgba(0,0,0,.16)' }} />
+            <div style={{ position: 'absolute', inset: 0, clipPath: 'polygon(50% 50%, 100% 100%, 0 100%)', background: 'rgba(0,0,0,.28)' }} />
+            <div style={{ position: 'absolute', inset: 0, clipPath: 'polygon(50% 50%, 0 100%, 0 0)', background: 'rgba(255,255,255,.05)' }} />
           </div>
+        </div>
+        {/* Numero: fuori dal div rotante, quindi mai specchiato. Appare al
+            settle, quando il dado si è quasi fermato. */}
+        <div style={{
+          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none', opacity: phase === 'spin' ? 0 : 1, transition: 'opacity .2s',
+        }}>
+          <span style={{
+            fontFamily: 'var(--font-display)', fontWeight: 700,
+            fontSize: phase === 'done' ? 54 : 40, color: '#fff',
+            textShadow: `0 2px 10px rgba(0,0,0,.95), 0 0 14px ${accent}`, transition: 'font-size .2s',
+          }}>{roll.value}</span>
         </div>
       </div>
       <div style={{ marginTop: 22, textAlign: 'center', opacity: phase === 'done' ? 1 : 0, transition: 'opacity .25s' }}>
