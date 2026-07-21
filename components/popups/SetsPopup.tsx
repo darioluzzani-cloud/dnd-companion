@@ -23,12 +23,10 @@ export function SetsPopup({ s, update, p, campaignId, onClose }: { s: CampaignSt
   const [editing, setEditing] = useState(false);
 
   const inv: any[] = p?.inventory || [];
-
-  // Un set compare ai giocatori solo se almeno un PG del party ne possiede
-  // almeno un pezzo (evita di spoilerare set non ancora incontrati). Il DM
-  // li vede sempre tutti, per poterli preparare e assegnare.
-  const setOwnedByParty = (setId: string) => s.players.some(pl => (pl.inventory || []).some((it: any) => it.setId === setId));
-  const visibleSets = s.dmMode ? sets : sets.filter(set => setOwnedByParty(set.id));
+  // Visibilità: il DM vede tutti i set; il giocatore vede solo i set di cui
+  // il PG corrente possiede almeno un pezzo nel proprio inventario, così un
+  // set ancora non "toccato" da quel personaggio non ne rivela l'esistenza.
+  const visibleSets = s.dmMode ? sets : sets.filter(set => inv.some(it => it.setId === set.id));
 
   const addSet = () => setSets([...sets, { id: uid('set'), name: 'Nuovo set', pieces: 2, effect: '', color: '#c0783c' }]);
   const patchSet = (id: string, patch: Partial<ItemSet>) => setSets(sets.map(x => x.id === id ? { ...x, ...patch } : x));
