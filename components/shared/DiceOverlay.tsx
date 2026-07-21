@@ -42,7 +42,7 @@ export function DiceOverlay() {
       // spin → settle → done → dismiss
       const t1 = setTimeout(() => setPhase('settle'), 700);
       const t2 = setTimeout(() => setPhase('done'), 1050);
-      const t3 = setTimeout(() => setRoll(null), 2100);
+      const t3 = setTimeout(() => setRoll(null), 4200);
       (onRoll as any)._timers = [t1, t2, t3];
     };
     window.addEventListener('velmora-roll', onRoll);
@@ -98,8 +98,8 @@ export function DiceOverlay() {
         <div style={{ fontFamily: 'var(--font-display)', letterSpacing: 2, fontSize: 13, color: accent }}>
           {roll.label ? roll.label + ' · ' : ''}d{roll.die}
         </div>
-        {crit && <div style={{ color: 'var(--green)', fontSize: 12, marginTop: 2 }}>Critico!</div>}
-        {fail && <div style={{ color: 'var(--red)', fontSize: 12, marginTop: 2 }}>Fallimento critico</div>}
+        {crit && <div style={{ color: 'var(--green)', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 34, letterSpacing: 3, marginTop: 8, textShadow: '0 0 18px var(--green), 0 2px 6px rgba(0,0,0,.9)', animation: 'dice-pulse 1s ease-in-out infinite' }}>CRITICO!</div>}
+        {fail && <div style={{ color: 'var(--red)', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 34, letterSpacing: 3, marginTop: 8, textShadow: '0 0 18px var(--red), 0 2px 6px rgba(0,0,0,.9)', animation: 'dice-pulse 1s ease-in-out infinite' }}>FALLIMENTO!</div>}
       </div>
     </div>
   );

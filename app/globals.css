@@ -336,3 +336,4 @@ html[data-theme='light'] { --ember: #9a6a12; }
   0%,100% { transform: rotateX(720deg) rotateY(720deg) rotateZ(360deg) translateY(0); }
   50%     { transform: rotateX(720deg) rotateY(720deg) rotateZ(360deg) translateY(-6px); }
 }
+@keyframes dice-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
