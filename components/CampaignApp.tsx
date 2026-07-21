@@ -10,6 +10,7 @@ import { InventoryTab } from '@/components/tabs/InventoryTab';
 import { CombatTab } from '@/components/tabs/CombatTab';
 import { LoreTab } from '@/components/tabs/LoreTab';
 import { BaseTab } from '@/components/tabs/BaseTab';
+import { DiceOverlay } from '@/components/shared/DiceOverlay';
 
 const TABS = [
   {id:'quests',label:'Quest',icon:<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>},
@@ -63,7 +64,7 @@ export function CampaignApp({ slug }: { slug: string }) {
   );
 
   return (
-    <div className="app-wrap">
+        <div className="app-wrap">
       {/* === HEADER === */}
       <div className="topbar">
         <div className="grow">
@@ -94,6 +95,7 @@ export function CampaignApp({ slug }: { slug: string }) {
       </div>
 
       {showJournal && <JournalPopup s={s} update={update} campaignId={campaignId} onClose={()=>setShowJournal(false)} />}
+      <DiceOverlay />
       {showCalendar && s.dmMode && <CalendarPopup s={s} update={update} onClose={()=>setShowCalendar(false)} />}
 
       {/* === TAB BAR === */}

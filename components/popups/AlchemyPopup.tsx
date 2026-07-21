@@ -14,6 +14,7 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
   const [mixing, setMixing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<null|{success:boolean;recipe?:any}>(null);
+  const [expandedRecipes, setExpandedRecipes] = useState<Set<string>>(new Set());
   // DM recipe form
   const [showRecipeForm, setShowRecipeForm] = useState(false);
   const [rTool, setRTool] = useState('');
@@ -215,17 +216,39 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
               <div className="label" style={{marginBottom:6}}>Ricettario di {p.short||p.name}</div>
               {unlocked.map((r:any) => {
                 const missing = (r.ingredients||[]).filter((ing:string)=>ing && !(p.inventory||[]).some((it:any)=>it.name===ing && (it.qty||0)>0));
+                const isExp = expandedRecipes.has(r.id);
+                const toggle = () => setExpandedRecipes(prev => { const n = new Set(prev); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; });
                 return (
-                  <div key={r.id} className="row" style={{gap:8,padding:'5px 0',borderBottom:'1px solid var(--border)',flexWrap:'wrap'}}>
-                    <div className="grow" style={{minWidth:140}}>
-                      <div style={{fontSize:13,fontWeight:500,color:'var(--green-light)'}}>{r.result?.name}</div>
-                      <div className="small muted" style={{fontSize:11}}>
-                        {(r.ingredients||[]).filter(Boolean).join(' + ')} · {r.tool}
-                        {missing.length>0 && <span style={{color:'var(--red)'}}> — manca: {missing.join(', ')}</span>}
-                      </div>
+                  <div key={r.id} style={{borderBottom:'1px solid var(--border)'}}>
+                    {/* Riga compatta: solo nome + stato */}
+                    <div className="row" style={{gap:8,padding:'7px 0',cursor:'pointer',alignItems:'center'}} onClick={toggle}>
+                      <span style={{fontSize:11,color:'var(--gray-purple)',transition:'transform .15s',transform:isExp?'rotate(90deg)':'',display:'inline-block',width:12}}>▸</span>
+                      <div className="grow" style={{fontSize:13,fontWeight:500,color:'var(--green-light)'}}>{r.result?.name}</div>
+                      {missing.length===0
+                        ? <span className="pill" style={{fontSize:8,padding:'2px 7px',color:'var(--green)',borderColor:'var(--green)'}}>pronta</span>
+                        : <span className="pill" style={{fontSize:8,padding:'2px 7px',color:'var(--red)',borderColor:'var(--red)'}}>manca {missing.length}</span>}
                     </div>
-                    <button className="btn" style={{fontSize:9,padding:'4px 10px',color:'var(--green)',borderColor:'var(--green)',flexShrink:0}}
-                      onClick={()=>fill(r)} title="Porta gli ingredienti disponibili nei box di creazione">Prepara</button>
+                    {/* Corpo espanso: immagine, descrizione, ingredienti, prepara */}
+                    {isExp && (
+                      <div className="row" style={{gap:10,padding:'2px 0 10px 20px',alignItems:'flex-start'}}>
+                        <div style={{width:64,height:64,flexShrink:0,borderRadius:6,overflow:'hidden'}}>
+                          <ImageSlot slotId={'recipe-'+r.id} campaignId={campaignId} shape="rect" width={64} height={64} dmMode={s.dmMode} placeholder="⚗" alt={r.result?.name} />
+                        </div>
+                        <div className="grow">
+                          {r.result?.effect && <div style={{fontSize:12,color:'var(--green-light)'}}>✦ {r.result.effect}</div>}
+                          {r.result?.desc && <div className="small muted" style={{marginTop:2,fontStyle:'italic'}}>{r.result.desc}</div>}
+                          <div className="small" style={{marginTop:5}}>
+                            {(r.ingredients||[]).filter(Boolean).map((ing:string,i:number)=>{
+                              const has = (p.inventory||[]).some((it:any)=>it.name===ing && (it.qty||0)>0);
+                              return <span key={i} style={{color:has?'var(--green)':'var(--red)'}}>{has?'●':'○'} {ing}{i<(r.ingredients||[]).filter(Boolean).length-1?'  ':''}</span>;
+                            })}
+                          </div>
+                          <div className="small muted" style={{fontSize:10,marginTop:3}}>Strumento: {r.tool}</div>
+                          <button className="btn" style={{fontSize:9,padding:'4px 12px',marginTop:6,color:'var(--green)',borderColor:'var(--green)'}}
+                            onClick={()=>fill(r)} title="Porta gli ingredienti disponibili nei box di creazione">Prepara</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

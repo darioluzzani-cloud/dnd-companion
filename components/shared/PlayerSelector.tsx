@@ -4,6 +4,7 @@ import { CampaignState } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { getLevelInfo } from '@/lib/dnd/xp-table';
 import { sfxDice } from '@/lib/dnd/sounds';
+import { rollDice } from '@/components/shared/DiceOverlay';
 import { SheetPopup } from '@/components/popups/SheetPopup';
 import { FeatsPopup } from '@/components/popups/FeatsPopup';
 import { CasterType } from '@/lib/dnd/spell-slots';
@@ -254,7 +255,7 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
 
           const spendDie = () => {
             if (availHD <= 0) return;
-            const roll = Math.floor(Math.random() * hitDie) + 1;
+            const roll = rollDice(hitDie, 'Dado vita');
             const heal = Math.max(0, roll + conMod);
             sfxDice();
             setLastHd({ pid: p.id, roll, heal });
@@ -452,7 +453,7 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                       ))}
                     </div>
                     <button className="btn btn-primary" style={{width:'100%',fontSize:11}}
-                      onClick={()=>{sfxDice();setLastRoll({die,value:Math.floor(Math.random()*die)+1,t:Date.now()});}}>Tira d{die}</button>
+                      onClick={()=>{const v=rollDice(die);setLastRoll({die,value:v,t:Date.now()});}}>Tira d{die}</button>
                     {lastRoll && (
                       <div className="dice-display roll-anim" key={lastRoll.t} style={{marginTop:8}}>
                         <div className="small muted" style={{fontFamily:'var(--font-body)',fontSize:10}}>d{lastRoll.die}</div>

@@ -320,3 +320,19 @@ html[data-theme='light'] .enemy-dead::after { background: rgba(243, 237, 224, .9
 /* === FUCINA — colore brace, tematizzato === */
 :root { --ember: #e0a040; }
 html[data-theme='light'] { --ember: #9a6a12; }
+
+/* ─── Dado in overlay ─── */
+@keyframes dice-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dice-spin {
+  0%   { transform: rotateX(0) rotateY(0) rotateZ(0) scale(.6); }
+  100% { transform: rotateX(720deg) rotateY(540deg) rotateZ(180deg) scale(1); }
+}
+@keyframes dice-settle {
+  0%   { transform: rotateX(720deg) rotateY(540deg) rotateZ(180deg) scale(1); }
+  60%  { transform: rotateX(730deg) rotateY(548deg) rotateZ(184deg) scale(1.12); }
+  100% { transform: rotateX(720deg) rotateY(540deg) rotateZ(180deg) scale(1); }
+}
+@keyframes dice-idle {
+  0%,100% { transform: rotateX(720deg) rotateY(540deg) rotateZ(180deg) translateY(0); }
+  50%     { transform: rotateX(720deg) rotateY(540deg) rotateZ(180deg) translateY(-6px); }
+}

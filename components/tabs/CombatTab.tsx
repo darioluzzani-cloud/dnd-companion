@@ -4,6 +4,7 @@ import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { CONDITIONS } from '@/lib/dnd/conditions';
 import { sfxDice } from '@/lib/dnd/sounds';
+import { rollDice } from '@/components/shared/DiceOverlay';
 import { U } from '@/components/shared/common';
 import { BestiaryPopup } from '@/components/popups/BestiaryPopup';
 
@@ -158,8 +159,7 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
                     <button className="btn btn-ghost" style={{padding:'2px 4px',fontSize:11}} title="Ritira iniziativa (d20 + mod.)"
                       onClick={()=>{
                         const dexMod = Math.floor((((owner as any).abilities?.dex ?? 10) - 10) / 2);
-                        const r = Math.floor(Math.random()*20) + 1 + dexMod + ((owner as any).initBonus || 0);
-                        sfxDice();
+                        const r = rollDice(20, 'Iniziativa') + dexMod + ((owner as any).initBonus || 0);
                         update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,init:r}:c)}));
                       }}>⟳</button>
                   );
@@ -319,7 +319,7 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
             <button key={n} className={'btn'+(dice===n?' btn-primary':'')} onClick={()=>setDice(n)}>d{n}</button>
           ))}
         </div>
-        <button className="btn btn-primary" style={{width:'100%'}} onClick={()=>{sfxDice();const r=Math.floor(Math.random()*dice)+1;setLastRoll({die:dice,value:r,t:Date.now()});}}>Tira d{dice}</button>
+        <button className="btn btn-primary" style={{width:'100%'}} onClick={()=>{const r=rollDice(dice);setLastRoll({die:dice,value:r,t:Date.now()});}}>Tira d{dice}</button>
         {lastRoll && (
           <div className="dice-display roll-anim" key={lastRoll.t} style={{marginTop:10}}>
             <div className="small muted" style={{fontFamily:'var(--font-body)',fontSize:10}}>d{lastRoll.die}</div>
