@@ -76,7 +76,7 @@ export function seasonForMonth(m: number): string {
 }
 
 // Indice assoluto in giorni dall'anno 0 — usato per aritmetica e distanze
-function absDay(d: VelmoraDate): number {
+export function absDay(d: VelmoraDate): number {
   return ((d.year * MONTHS_PER_YEAR) + (d.month - 1)) * DAYS_PER_MONTH + (d.day - 1);
 }
 

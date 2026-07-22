@@ -117,14 +117,19 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   onChange={e=>setP('ac' as any, parseInt(e.target.value)||0)}
                   className="ac-value" style={{color:p.color||'var(--gold)'}} />
               </div>
-              {/* Iniziativa — derivata: mod. Des + bonus extra */}
+              {/* Iniziativa — override manuale opzionale; vuoto = derivata (mod. Des + bonus) */}
               {(() => {
                 const dexMod = Math.floor((((p as any).abilities?.dex ?? 10) - 10) / 2);
-                const ib = dexMod + ((p as any).initBonus || 0);
+                const derived = dexMod + ((p as any).initBonus || 0);
+                const ov = (p as any).initOverride;
+                const hasOv = ov !== undefined && ov !== null && ov !== '';
+                const shown = hasOv ? Number(ov) : derived;
                 return (
-                  <div className="pill" style={{padding:'4px 8px',gap:4,flexShrink:0,fontSize:11}} title="Bonus di iniziativa (mod. Des + extra)">
+                  <div className="pill" style={{padding:'4px 8px',gap:4,flexShrink:0,fontSize:11,borderColor:hasOv?'var(--blue)':undefined}} title="Iniziativa — lascia vuoto per il calcolo automatico (mod. Des + bonus)">
                     <span style={{color:'var(--blue)'}}>⚡</span>
-                    <span style={{fontFamily:'var(--font-display)',fontWeight:600,color:'var(--text)'}}>{ib >= 0 ? '+'+ib : ib}</span>
+                    <input type="number" value={hasOv?ov:''} placeholder={(derived>=0?'+':'')+derived}
+                      onChange={e=>setP('initOverride' as any, e.target.value===''?undefined:(parseInt(e.target.value)||0))}
+                      style={{width:32,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:12,fontWeight:600,color:hasOv?'var(--blue)':'var(--text)',padding:0}} />
                   </div>
                 );
               })()}

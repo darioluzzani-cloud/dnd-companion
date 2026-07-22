@@ -20,6 +20,7 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
   const [draftSub,setDraftSub]=useState('');
   const [draftCat,setDraftCat]=useState<string>('oggetti');
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   return (
     <div>
@@ -41,7 +42,7 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))',gap:10}}>
           {filtered.map(l=>{
-            const isExp = l.expanded;
+            const isExp = expandedCards.has(l.id);
             return (
             <div key={l.id} className="card" style={{padding:0,overflow:'hidden',display:'flex',flexDirection:'column',opacity:!l.revealed&&s.dmMode?.65:1}}>
               {/* Immagine quadrata — clic per ingrandire */}
@@ -54,7 +55,7 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
               </div>
 
               <div style={{padding:'8px 10px',flex:1,display:'flex',flexDirection:'column'}}>
-                <div style={{cursor:'pointer'}} onClick={()=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,expanded:!ll.expanded}:ll)}))}>
+                <div style={{cursor:'pointer'}} onClick={()=>setExpandedCards(prev=>{const n=new Set(prev);n.has(l.id)?n.delete(l.id):n.add(l.id);return n;})}>
                   <div className="row" style={{alignItems:'baseline',gap:6}}>
                     <div className="grow" style={{fontWeight:500,fontSize:14}}>{l.name}</div>
                     <span className="small muted" style={{fontSize:13}}>{isExp?'▾':'▸'}</span>

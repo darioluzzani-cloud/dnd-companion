@@ -21,6 +21,7 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
   const [draft, setDraft] = useState('');
   const [filter, setFilter] = useState('ally');
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const setField = (id:string,f:string,v:string) => update(prev=>({characters:prev.characters.map(c=>c.id===id?{...c,[f]:v}:c)}));
 
   const byRel = s.characters.filter(c=>c.relation===filter);
@@ -48,9 +49,9 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))',gap:10}}>
           {filtered.map(c => {
-            const isExp = (c as any).expanded;
+            const isExp = expandedCards.has(c.id);
             const hidden = (c as any).revealed===false;
-            const toggleExp = () => update(prev=>({characters:prev.characters.map(cc=>cc.id===c.id?{...cc,expanded:!isExp} as any:cc)}));
+            const toggleExp = () => setExpandedCards(prev=>{const n=new Set(prev);n.has(c.id)?n.delete(c.id):n.add(c.id);return n;});
             return (
             <div key={c.id} className="card" style={{padding:0,overflow:'hidden',display:'flex',flexDirection:'column',opacity:hidden&&s.dmMode?.65:1}}>
               {/* Immagine quadrata — clic per ingrandire */}

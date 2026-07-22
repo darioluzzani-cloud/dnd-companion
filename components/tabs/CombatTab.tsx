@@ -72,7 +72,9 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
     s.players.forEach(p => {
       if (!existing.has('pc-'+p.id)) {
         const dexMod = Math.floor((((p as any).abilities?.dex ?? 10) - 10) / 2);
-        const initRoll = Math.floor(Math.random()*20) + 1 + dexMod + ((p as any).initBonus || 0);
+        const ov = (p as any).initOverride;
+        const initMod = (ov !== undefined && ov !== null && ov !== '') ? Number(ov) : dexMod + ((p as any).initBonus || 0);
+        const initRoll = Math.floor(Math.random()*20) + 1 + initMod;
         newCombatants.push({
           id:'pc-'+p.id, name:p.name, init:initRoll, hp:p.hp??p.maxHp??30, maxHp:p.maxHp??30, side:'ally' as const, conditions:[], scenarioId:combatScen
         });

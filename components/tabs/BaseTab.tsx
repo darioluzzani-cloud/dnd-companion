@@ -5,6 +5,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 import { ForgeBox } from '@/components/shared/ForgeBox';
 import { MarketBox } from '@/components/shared/MarketBox';
+import { absDay } from '@/lib/dnd/calendar';
 
 
 // ─── TAB: BASE (Olmobianco) ──────────────────────────────────
@@ -134,6 +135,13 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
           const nextGold = nextLvData.costGold ?? b.costGold ?? 0;
           const nextTime = nextLvData.costTime || b.costTime || '';
           const nextPeople = nextLvData.costPeople ?? b.costPeople ?? 0;
+          // Cantiere in corso: b.construction = {startAbs, days, targetLevel}
+          const today = s.calendar?.date ? absDay(s.calendar.date) : null;
+          const con = b.construction;
+          const conElapsed = (con && today !== null) ? Math.max(0, today - con.startAbs) : 0;
+          const conPct = con && con.days > 0 ? Math.min(100, Math.round((conElapsed / con.days) * 100)) : 0;
+          const conDone = con && conElapsed >= con.days;
+          const conRemaining = con ? Math.max(0, con.days - conElapsed) : 0;
           return (
             <div key={b.id} className="card" style={{borderLeft:`3px solid ${gate.color}`}}>
               <div className="row" style={{cursor:'pointer',alignItems:'flex-start'}} onClick={()=>setBuilding(b.id,{expanded:!b.expanded})}>
@@ -146,7 +154,19 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                 <div className="grow" style={{marginLeft:12}}>
                   <div className="row" style={{justifyContent:'space-between'}}>
                     <div className="h2" style={{fontSize:15}}>{b.name}</div>
-                    <div className="pill" style={{padding:'3px 8px',fontSize:9,color:gate.color,borderColor:gate.color}}>Liv {b.level}/{b.maxLevel}</div>
+                    <div className="row" style={{gap:6,alignItems:'center'}}>
+                      {con && (
+                        <div title={conDone?'Cantiere pronto':`Cantiere: ${conElapsed}/${con.days} giorni`} style={{position:'relative',width:26,height:26,flexShrink:0}}>
+                          <svg width="26" height="26" viewBox="0 0 26 26" style={{transform:'rotate(-90deg)'}}>
+                            <circle cx="13" cy="13" r="10" fill="none" stroke="var(--bg-deep)" strokeWidth="3" />
+                            <circle cx="13" cy="13" r="10" fill="none" stroke={conDone?'var(--green)':gate.color} strokeWidth="3"
+                              strokeDasharray={2*Math.PI*10} strokeDashoffset={2*Math.PI*10*(1-conPct/100)} strokeLinecap="round" style={{transition:'stroke-dashoffset .4s'}} />
+                          </svg>
+                          <span style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:8,fontWeight:700,color:conDone?'var(--green)':gate.color}}>{conDone?'✓':conPct+'%'}</span>
+                        </div>
+                      )}
+                      <div className="pill" style={{padding:'3px 8px',fontSize:9,color:gate.color,borderColor:gate.color}}>Liv {b.level}/{b.maxLevel}</div>
+                    </div>
                   </div>
                   <div className="pill" style={{padding:'2px 7px',fontSize:8,marginTop:4,color:gate.color,borderColor:gate.color}}>{gate.label}</div>
                   <div style={{height:5,background:'var(--bg-deep)',borderRadius:3,overflow:'hidden',border:'1px solid var(--border)',marginTop:6}}>
@@ -217,6 +237,17 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                             {nextTime && <div className="row" style={{gap:4}}><span style={{fontSize:12}}>⏳</span><span className="small">{nextTime}</span></div>}
                             {nextPeople > 0 && <div className="row" style={{gap:4}}><span style={{fontSize:12}}>👥</span><span className="small">{nextPeople} persone</span></div>}
                           </div>
+                          {con && (
+                            <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+                              <div className="row" style={{gap:8,alignItems:'center'}}>
+                                <span className="small" style={{color:conDone?'var(--green)':gate.color,fontWeight:600}}>{conDone?'Cantiere pronto':`Cantiere in corso`}</span>
+                                <div className="grow" style={{height:6,background:'var(--bg-deep)',borderRadius:3,overflow:'hidden',border:'1px solid var(--border)'}}>
+                                  <div style={{height:'100%',width:conPct+'%',background:conDone?'var(--green)':gate.color,transition:'width .4s'}} />
+                                </div>
+                                <span className="small muted" style={{fontSize:10}}>{conDone?'0':conRemaining} gg</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                       {b.level >= b.maxLevel && (
@@ -235,6 +266,30 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                         <input type="number" value={b.maxLevel||4} onChange={e=>setBuilding(b.id,{maxLevel:parseInt(e.target.value)||4})}
                           style={{width:36,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontSize:12,padding:'2px',borderRadius:4}} />
                       </div>
+                      {/* Cantiere — legato al calendario */}
+                      {b.level < b.maxLevel && (
+                        <div style={{background:'var(--bg-deep)',border:'1px solid var(--border)',borderRadius:6,padding:8,marginBottom:6}}>
+                          <div className="label" style={{fontSize:9,marginBottom:6}}>Cantiere → Liv {b.level+1}</div>
+                          {!con ? (
+                            <div className="row" style={{gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                              <span className="small muted">Durata</span>
+                              <input type="number" min={1} defaultValue={14} id={'con-days-'+b.id} style={{width:52,textAlign:'center',fontSize:12,padding:'3px 4px'}} />
+                              <span className="small muted">giorni</span>
+                              <button className="btn btn-gold" style={{fontSize:10,padding:'3px 10px'}} disabled={!s.calendar?.date}
+                                onClick={()=>{const el=document.getElementById('con-days-'+b.id) as HTMLInputElement;const days=Math.max(1,parseInt(el?.value||'14')||14);if(!s.calendar?.date){alert('Imposta prima la data nel calendario.');return;}setBuilding(b.id,{construction:{startAbs:absDay(s.calendar.date),days,targetLevel:b.level+1}});}}>Avvia</button>
+                              {!s.calendar?.date && <span className="small muted" style={{fontSize:9}}>(serve il calendario)</span>}
+                            </div>
+                          ) : (
+                            <div className="row" style={{gap:6,alignItems:'center',flexWrap:'wrap'}}>
+                              <span className="small" style={{color:conDone?'var(--green)':gate.color}}>{conElapsed}/{con.days} gg {conDone?'· pronto':''}</span>
+                              <div className="grow" />
+                              {conDone && <button className="btn btn-primary" style={{fontSize:10,padding:'3px 10px'}}
+                                onClick={()=>setBuilding(b.id,{level:Math.min(b.maxLevel,con.targetLevel),construction:null})}>Completa →</button>}
+                              <button className="btn btn-danger btn-ghost" style={{fontSize:9,padding:'2px 8px'}} onClick={()=>{if(confirm('Annullare il cantiere?'))setBuilding(b.id,{construction:null});}}>Annulla</button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="row" style={{gap:6,marginBottom:6}}>
                         <div className="label" style={{fontSize:9}}>Tipo</div>
                         {GATE_TYPES.map(g=>(
