@@ -18,6 +18,9 @@ const GATE_TYPES = [
 export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; campaignId:string|null }) {
   const buildings: any[] = (s as any).buildings || [];
   const visible = s.dmMode ? buildings : buildings.filter((b:any)=>b.revealed!==false);
+  const [openB, setOpenB] = useState<Set<string>>(new Set());
+  const isOpenB = (id:string) => openB.has(id);
+  const toggleB = (id:string) => setOpenB(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n;});
   const [draftName, setDraftName] = useState('');
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
 
@@ -144,7 +147,7 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
           const conRemaining = con ? Math.max(0, con.days - conElapsed) : 0;
           return (
             <div key={b.id} className="card" style={{borderLeft:`3px solid ${gate.color}`}}>
-              <div className="row" style={{cursor:'pointer',alignItems:'flex-start'}} onClick={()=>setBuilding(b.id,{expanded:!b.expanded})}>
+              <div className="row" style={{cursor:'pointer',alignItems:'flex-start'}} onClick={()=>toggleB(b.id)}>
                 <div style={{width:64,height:88,flexShrink:0,overflow:'hidden',borderRadius:6,cursor:'pointer'}}
                   onClick={e=>{e.stopPropagation();const img=document.querySelector(`[data-slot="base-${b.id}-lv${b.level}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
                   <div data-slot={'base-'+b.id+'-lv'+b.level} style={{width:64,height:88}}>
@@ -174,13 +177,13 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                   </div>
                   {b.revealed===false && s.dmMode && <span className="dm-badge" style={{marginTop:4}}>NASCOSTO</span>}
                 </div>
-                <span className="small muted" style={{marginLeft:6,fontSize:16,flexShrink:0}}>{b.expanded?'▾':'▸'}</span>
+                <span className="small muted" style={{marginLeft:6,fontSize:16,flexShrink:0}}>{isOpenB(b.id)?'▾':'▸'}</span>
                 <ReorderBtns
                   onUp={()=>{const idx=buildings.findIndex((x:any)=>x.id===b.id);update(prev=>({buildings:moveInArray((prev as any).buildings||[],idx,-1)} as any));}}
                   onDown={()=>{const idx=buildings.findIndex((x:any)=>x.id===b.id);update(prev=>({buildings:moveInArray((prev as any).buildings||[],idx,1)} as any));}}
                 />
               </div>
-              {b.expanded && (
+              {isOpenB(b.id) && (
                 <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}}>
                   {s.dmMode && <input value={b.name} onChange={e=>setBuilding(b.id,{name:e.target.value})}
                     style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:14,color:'var(--gold)',background:'transparent',border:'1px solid var(--border)',padding:'4px 8px',marginBottom:6}} />}

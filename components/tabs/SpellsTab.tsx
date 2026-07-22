@@ -9,6 +9,8 @@ import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 
 // ─── TAB: MAGIE ──────────────────────────────────────────────
 export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignState; update:U; updPlayer:any; p:any; campaignId:string|null }) {
+  const [openSpells, setOpenSpells] = useState<Set<string>>(new Set());
+  const toggleSpell = (sid:string) => setOpenSpells(prev=>{const n=new Set(prev);n.has(sid)?n.delete(sid):n.add(sid);return n;});
   const info = getLevelInfo(p.xp||0);
   const autoSlots = getSlotTotals((p.caster||'none') as CasterType, info.level);
   // customSlots sovrascrive i valori auto se presente
@@ -143,11 +145,11 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
               return (
               <div key={sp.id} className="card" style={{borderLeft:sp.prepared?`3px solid ${p.color||'var(--gold)'}`:'3px solid transparent'}}>
                 <div className="row">
-                  <button onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,expanded:!ss.expanded}:ss)}))}
-                    style={{width:30,height:30,borderRadius:'50%',border:'1px solid var(--border)',background:'var(--bg-deep)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',transition:'all .15s',color:sp.expanded?p.color||'var(--gold)':'var(--gray-purple-deep)'}}>
+                  <button onClick={()=>toggleSpell(sp.id)}
+                    style={{width:30,height:30,borderRadius:'50%',border:'1px solid var(--border)',background:'var(--bg-deep)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',transition:'all .15s',color:openSpells.has(sp.id)?p.color||'var(--gold)':'var(--gray-purple-deep)'}}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.4 5.6 21.2 8 14 2 9.2h7.6z"/></svg>
                   </button>
-                  <div className="grow" style={{marginLeft:8,cursor:'pointer'}} onClick={()=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,expanded:!ss.expanded}:ss)}))}>
+                  <div className="grow" style={{marginLeft:8,cursor:'pointer'}} onClick={()=>toggleSpell(sp.id)}>
                     <div style={{fontWeight:600,fontFamily:'var(--font-display)',fontSize:14,letterSpacing:'.3px'}}>{sp.name}</div>
                     {sp.school && <div className="small muted" style={{fontSize:12}}>{sp.school}</div>}
                   </div>
@@ -165,7 +167,7 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
                   )}
                 </div>
                 {s.dmMode && sp.revealed===false && <div className="dm-badge" style={{marginTop:4}}>SEGRETA</div>}
-                {sp.expanded && (
+                {openSpells.has(sp.id) && (
                   <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
                     {/* Modifica testi — aperta a tutti i giocatori */}
                     {editingSpell === sp.id ? (

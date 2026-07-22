@@ -46,7 +46,8 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
   const [showArmory, setShowArmory] = useState(false);
   const [showSets, setShowSets] = useState(false);
   const setItemField = (iid:string, f:string, v:any) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,[f]:v}:i)}));
-  const toggleExpand = (iid:string) => updPlayer((pl:any)=>({...pl,inventory:pl.inventory.map((i:any)=>i.id===iid?{...i,expanded:!i.expanded}:i)}));
+  const [openItems, setOpenItems] = useState<Set<string>>(new Set());
+  const toggleExpand = (iid:string) => setOpenItems(prev=>{const n=new Set(prev);n.has(iid)?n.delete(iid):n.add(iid);return n;});
 
   // Sposta oggetto a un altro PG
   const moveItem = (item:any, targetId:string) => {
@@ -200,7 +201,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
               />
             </div>
             {/* Dettagli espandibili */}
-            {it.expanded && (
+            {openItems.has(it.id) && (
               <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
                 {s.dmMode ? (
                   <>
