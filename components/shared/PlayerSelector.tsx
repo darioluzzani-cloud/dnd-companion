@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { CampaignState } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
+import { NumberInput, Markdown } from '@/components/shared/textUtils';
 import { getLevelInfo } from '@/lib/dnd/xp-table';
 import { sfxDice } from '@/lib/dnd/sounds';
 import { rollDice } from '@/components/shared/DiceOverlay';
@@ -84,8 +85,8 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   style={{fontSize:13,padding:'3px 8px',marginBottom:4}} />
                 <div className="row" style={{gap:4}}>
                   <input value={p.species||''} placeholder="Specie" onChange={e=>setP('species',e.target.value)} style={{fontSize:13,padding:'3px 8px',flex:1}} />
-                  <input type="number" value={(p as any).initBonus||0} title="Bonus extra all'iniziativa (es. talento Allerta)"
-                    onChange={e=>setP('initBonus' as any, parseInt(e.target.value)||0)} style={{width:52,fontSize:13,padding:'3px 6px',textAlign:'center'}} />
+                  <NumberInput value={(p as any).initBonus||0} title="Bonus extra all'iniziativa (es. talento Allerta)"
+                    onChange={n=>setP('initBonus' as any, n)} style={{width:52,fontSize:13,padding:'3px 6px',textAlign:'center'}} />
                   <span className="small muted" style={{fontSize:10}}>iniz.</span>
                   <input type="color" value={p.color||'#a489dd'} onChange={e=>setP('color',e.target.value)} style={{width:28,height:28,padding:0,border:'none',cursor:'pointer'}} />
                 </div>
@@ -101,10 +102,10 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
             <div className="row" style={{gap:6,marginTop:6,flexWrap:'wrap',alignItems:'center'}}>
               <div className="pill" style={{padding:'4px 8px',gap:4,flexShrink:0}}>
                 <span style={{color:'var(--red)'}}>♥</span>
-                <input type="number" value={p.hp??p.maxHp??0} onChange={e=>{const v=parseInt(e.target.value)||0;update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,hp:v}:pl),combatants:prev.combatants.map(c=>c.id==='pc-'+p.id?{...c,hp:v}:c)}));}}
+                <NumberInput value={p.hp??p.maxHp??0} onChange={v=>{update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,hp:v}:pl),combatants:prev.combatants.map(c=>c.id==='pc-'+p.id?{...c,hp:v}:c)}));}}
                   style={{width:30,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
                 <span className="muted">/</span>
-                <input type="number" value={p.maxHp??0} onChange={e=>{const v=parseInt(e.target.value)||0;update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,maxHp:v,hp:Math.min(pl.hp??0,v)}:pl),combatants:prev.combatants.map(c=>c.id==='pc-'+p.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
+                <NumberInput value={p.maxHp??0} onChange={v=>{update(prev=>({players:prev.players.map(pl=>pl.id===p.id?{...pl,maxHp:v,hp:Math.min(pl.hp??0,v)}:pl),combatants:prev.combatants.map(c=>c.id==='pc-'+p.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
                   style={{width:30,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
                 <span className="small muted" style={{fontSize:11}}>PF</span>
               </div>
@@ -113,8 +114,8 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                 <svg viewBox="0 0 24 28" width="28" height="32" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M12 1L2 6v7c0 7.5 4.3 13.2 10 14 5.7-.8 10-6.5 10-14V6L12 1z" fill="var(--bg-deep)" stroke={p.color||'var(--gold)'} strokeWidth="1.2"/>
                 </svg>
-                <input type="number" value={(p as any).ac??10}
-                  onChange={e=>setP('ac' as any, parseInt(e.target.value)||0)}
+                <NumberInput value={(p as any).ac??10}
+                  onChange={n=>setP('ac' as any, n)}
                   className="ac-value" style={{color:p.color||'var(--gold)'}} />
               </div>
               {/* Iniziativa — override manuale opzionale; vuoto = derivata (mod. Des + bonus) */}
@@ -136,7 +137,7 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
               {/* Velocità — editabile */}
               <div className="pill" style={{padding:'4px 8px',gap:3,flexShrink:0,fontSize:11}} title="Velocità">
                 <span style={{color:'var(--green)'}}>»</span>
-                <input type="number" value={(p as any).speed ?? 9} onChange={e=>setP('speed' as any, parseInt(e.target.value)||0)}
+                <NumberInput value={(p as any).speed ?? 9} onChange={n=>setP('speed' as any, n)}
                   style={{width:24,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:12,fontWeight:600,color:'var(--text)',padding:0}} />
                 <span className="small muted" style={{fontSize:10}}>m</span>
               </div>
@@ -157,15 +158,15 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                   style={{fontFamily:'var(--font-display)',fontWeight:600,fontSize:13,color:'var(--green)',background:'transparent',border:'1px solid var(--border)',padding:'2px 8px',marginBottom:3}} />
                 <div className="row" style={{gap:4}}>
                   <span style={{color:'var(--red)',fontSize:12}}>♥</span>
-                  <input type="number" value={(p as any).companion?.hp??0}
-                    onChange={e=>{const v=parseInt(e.target.value)||0;const comp={...((p as any).companion||{name:'',maxHp:10}),hp:v};setP('companion' as any,comp);
+                  <NumberInput value={(p as any).companion?.hp??0}
+                    onChange={v=>{const comp={...((p as any).companion||{name:'',maxHp:10}),hp:v};setP('companion' as any,comp);
                       // Sync verso combattente
                       update(prev=>({combatants:prev.combatants.map(c=>c.id==='comp-'+p.id?{...c,hp:v}:c)}));
                     }}
                     style={{width:30,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
                   <span className="muted" style={{fontSize:12}}>/</span>
-                  <input type="number" value={(p as any).companion?.maxHp??0}
-                    onChange={e=>{const v=parseInt(e.target.value)||0;const comp={...((p as any).companion||{name:'',hp:0}),maxHp:v};if(comp.hp>v)comp.hp=v;setP('companion' as any,comp);
+                  <NumberInput value={(p as any).companion?.maxHp??0}
+                    onChange={v=>{const comp={...((p as any).companion||{name:'',hp:0}),maxHp:v};if(comp.hp>v)comp.hp=v;setP('companion' as any,comp);
                       update(prev=>({combatants:prev.combatants.map(c=>c.id==='comp-'+p.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));
                     }}
                     style={{width:30,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:13,fontWeight:600,color:'var(--text)',padding:0}} />
@@ -188,7 +189,7 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
         <div className="xp-bar" style={{marginTop:10}}><div style={{height:'100%',borderRadius:'3px',transition:'width .35s',width:info.pct+'%',background:`linear-gradient(90deg, ${p.color}88, ${p.color})`}} /></div>
         <div className="row" style={{marginTop:4,justifyContent:'space-between'}}>
           <div className="row" style={{gap:4}}>
-            <input type="number" value={p.xp||0} onChange={e=>setP('xp',parseInt(e.target.value)||0)}
+            <NumberInput value={p.xp||0} onChange={n=>setP('xp',n)}
               style={{width:60,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:12,color:'var(--text)',padding:'2px 4px',borderRadius:4}} />
             <span className="small muted">/ {info.next} PE</span>
           </div>
@@ -233,7 +234,7 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                     display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',
                   }}>
                     <div style={{fontFamily:'var(--font-display)',fontSize:7,letterSpacing:'1px',color:'var(--gray-purple)',textTransform:'uppercase',marginBottom:1,width:'100%',textAlign:'center'}}>{s.l}</div>
-                    <input type="number" value={val} onChange={e=>setAb(s.k,parseInt(e.target.value)||0)}
+                    <NumberInput value={val} onChange={n=>setAb(s.k,n)}
                       style={{width:'100%',maxWidth:40,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:15,fontWeight:600,color:'var(--text)',padding:0,lineHeight:1.1,display:'block',margin:'0 auto'}} />
                     <div style={{fontFamily:'var(--font-display)',fontSize:11,fontWeight:700,color:modColor,marginTop:1,width:'100%',textAlign:'center'}}>{mod(val)}</div>
                   </div>

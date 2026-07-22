@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { Markdown } from '@/components/shared/textUtils';
 import { CampaignState, uid } from '@/lib/types';
 import { getLevelInfo } from '@/lib/dnd/xp-table';
 import { getSlotTotals, CasterType } from '@/lib/dnd/spell-slots';
@@ -198,7 +199,7 @@ export function SpellsTab({ s, update, updPlayer, p, campaignId }: { s:CampaignS
                         <textarea value={sp.desc||''} placeholder="Descrizione…" onChange={e=>updPlayer((pl:any)=>({...pl,spells:pl.spells.map((ss:any)=>ss.id===sp.id?{...ss,desc:e.target.value}:ss)}))} style={{fontSize:13,padding:'6px 8px',minHeight:40}} />
                       </>
                     ) : (
-                      <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{sp.desc||<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
+                      <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{sp.desc?<Markdown text={sp.desc}/>:<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
                     )}
                     {/* Copia a un altro PG */}
                     {s.dmMode && (

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
+import { Markdown } from '@/components/shared/textUtils';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 
 const REL_NEXT: Record<string,string> = {ally:'enemy',enemy:'neutral',neutral:'ally'};
@@ -97,7 +98,7 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
                     ) : (
                       <>
                         {c.location && <div className="small muted" style={{marginBottom:4}}>📍 {c.location}</div>}
-                        {c.note ? <div style={{fontSize:12,lineHeight:1.6,fontStyle:'italic'}}>{c.note}</div> : <div className="small muted">(nessuna nota)</div>}
+                        {c.note ? <div style={{fontSize:12,lineHeight:1.6,fontStyle:'italic'}}><Markdown text={c.note}/></div> : <div className="small muted">(nessuna nota)</div>}
                       </>
                     )}
                   </div>

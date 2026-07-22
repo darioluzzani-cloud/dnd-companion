@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
+import { NumberInput, Markdown } from '@/components/shared/textUtils';
 import { PlayerSelector } from '@/components/shared/PlayerSelector';
 import { AlchemyPopup } from '@/components/popups/AlchemyPopup';
 import { ArmoryPopup } from '@/components/popups/ArmoryPopup';
@@ -249,8 +250,8 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                   </>
                 ) : (
                   <>
-                    {it.effect && <div style={{fontSize:14,lineHeight:1.5,color:'var(--gold)',marginBottom:4}}>✦ {it.effect}</div>}
-                    <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{it.desc||<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
+                    {it.effect && <div style={{fontSize:14,lineHeight:1.5,color:'var(--gold)',marginBottom:4}}>✦ <Markdown text={it.effect}/></div>}
+                    <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{it.desc?<Markdown text={it.desc}/>:<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
                     {/* Potenziamenti di fucina — si aggiornano da soli al termine del lavoro */}
                     {((it as any).upgrades||[]).length>0 && (
                       <div style={{marginTop:8,padding:'8px 10px',borderRadius:6,background:'var(--bg-deep)',border:'1px solid var(--ember)'}}>
@@ -269,7 +270,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                 {(it.type==='arma'||it.type==='armatura'||it.type==='magico'||it.type==='unico') && (
                   <div className="row" style={{gap:6,marginTop:6}}>
                     <span className="label" style={{fontSize:9}}>PU</span>
-                    <input type="number" value={it.pu??0} onChange={e=>setItemField(it.id,'pu',Math.max(0,parseInt(e.target.value)||0))}
+                    <NumberInput value={it.pu??0} min={0} onChange={n=>setItemField(it.id,'pu',n)}
                       style={{width:44,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:13,color:((it.pu??0)>0)?'var(--red)':'var(--gray-purple)',padding:'2px 4px',borderRadius:4}} />
                     <span className="small muted">Punti Usura</span>
                   </div>

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
+import { NumberInput, Markdown } from '@/components/shared/textUtils';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 import { ForgeBox } from '@/components/shared/ForgeBox';
 import { MarketBox } from '@/components/shared/MarketBox';
@@ -266,7 +267,7 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                         <span style={{fontFamily:'var(--font-display)',fontSize:14,fontWeight:600}}>{b.level}</span>
                         <button className="btn" style={{padding:'2px 8px',fontSize:11}} onClick={()=>setBuilding(b.id,{level:Math.min(b.maxLevel,b.level+1)})}>+</button>
                         <div className="label" style={{fontSize:9,marginLeft:12}}>Max</div>
-                        <input type="number" value={b.maxLevel||4} onChange={e=>setBuilding(b.id,{maxLevel:parseInt(e.target.value)||4})}
+                        <NumberInput value={b.maxLevel||4} min={1} onChange={n=>setBuilding(b.id,{maxLevel:n})}
                           style={{width:36,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontSize:12,padding:'2px',borderRadius:4}} />
                       </div>
                       {/* Cantiere — legato al calendario */}

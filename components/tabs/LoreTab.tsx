@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
+import { Markdown } from '@/components/shared/textUtils';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 
 const LORE_CATS = ['oggetti','luoghi','culti','fazioni'] as const;
@@ -84,7 +85,7 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                         </div>
                       </>
                     ) : (
-                      <div style={{fontSize:12,whiteSpace:'pre-wrap',lineHeight:1.6,fontStyle:'italic'}}>{l.text||<span className="muted small" style={{fontStyle:'normal'}}>(testo non ancora redatto)</span>}</div>
+                      <div style={{fontSize:12,lineHeight:1.6,fontStyle:'italic'}}>{l.text?<Markdown text={l.text}/>:<span className="muted small" style={{fontStyle:'normal'}}>(testo non ancora redatto)</span>}</div>
                     )}
                   </div>
                 )}

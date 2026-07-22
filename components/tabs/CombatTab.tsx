@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
+import { NumberInput } from '@/components/shared/textUtils';
 import { CONDITIONS } from '@/lib/dnd/conditions';
 import { sfxDice } from '@/lib/dnd/sounds';
 import { rollDice } from '@/components/shared/DiceOverlay';
@@ -168,7 +169,7 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
                 })()}
                 <div className="init-circle" title="Iniziativa">
                   {s.dmMode ? (
-                    <input type="number" value={k.init||0} onChange={e=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,init:parseInt(e.target.value)||0}:c)}))}
+                    <NumberInput value={k.init||0} onChange={n=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,init:n}:c)}))}
                       style={{width:32,textAlign:'center',background:'transparent',border:'none',fontFamily:'var(--font-display)',fontSize:16,color:'var(--gold)',padding:0}} />
                   ) : k.init||0}
                 </div>
@@ -184,7 +185,7 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
                       s.dmMode ? (
                         <div className="row" style={{gap:2}}>
                           <span style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/</span>
-                          <input type="number" value={k.maxHp||0} onChange={e=>{const v=parseInt(e.target.value)||1;update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
+                          <NumberInput value={k.maxHp||0} onChange={v=>{update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
                             style={{width:40,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)',padding:'2px 4px'}} />
                         </div>
                       ) : (
