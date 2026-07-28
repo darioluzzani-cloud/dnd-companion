@@ -79,9 +79,11 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
     const round = def.shape === 'circle';
     const qty = it ? (it.qty ?? 1) : 0;
     const spent = it && qty <= 0;   // consumato: resta la casella, l'immagine si spegne
+    // Il conteggio si mostra sui consumabili (sempre) e altrove solo se multiplo
+    const counted = !!it && (it.type === 'consumabile' || qty > 1 || qty <= 0);
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-        <div onClick={() => setPicking(id)} title={it ? `${it.name} ×${qty}` : def.label}
+        <div onClick={() => setPicking(id)} title={it ? (counted ? `${it.name} ×${qty}` : it.name) : def.label}
           style={{
             width: d.w, height: d.h, borderRadius: round ? '50%' : 8, position: 'relative', cursor: 'pointer',
             border: it ? `2px solid ${spent ? 'var(--border)' : accent}` : '1px dashed var(--border)',
@@ -96,10 +98,12 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
                 <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
                   dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
               </div>
-              <span style={{
-                position: 'absolute', bottom: 1, right: 3, fontSize: 9, fontWeight: 700,
-                color: spent ? 'var(--red)' : '#fff', textShadow: '0 1px 3px #000, 0 0 4px #000',
-              }}>×{qty}</span>
+              {counted && (
+                <span style={{
+                  position: 'absolute', bottom: 1, right: 3, fontSize: 9, fontWeight: 700,
+                  color: spent ? 'var(--red)' : '#fff', textShadow: '0 1px 3px #000, 0 0 4px #000',
+                }}>×{qty}</span>
+              )}
             </>
           ) : (
             <span style={{ fontSize: def.size === 'sm' ? 15 : 20, color: 'var(--gray-purple-deep)' }}>+</span>
@@ -107,7 +111,7 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
         </div>
 
         {/* Quantità: riducibile senza uscire dalla sagoma */}
-        {it && (
+        {counted && (
           <div className="row" style={{ gap: 3, alignItems: 'center' }}>
             <button onClick={e => { e.stopPropagation(); setQty(it.id, qty - 1); }} disabled={qty <= 0}
               style={{ width: 16, height: 16, lineHeight: 1, fontSize: 11, padding: 0, borderRadius: 3, border: '1px solid var(--border)', background: 'var(--bg-deep)', color: qty <= 0 ? 'var(--gray-purple-deep)' : 'var(--text)', cursor: qty <= 0 ? 'default' : 'pointer' }}>−</button>
