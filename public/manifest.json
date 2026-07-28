@@ -4,7 +4,7 @@
   "description": "D&D 5e Session Companion",
   "start_url": "/velmora",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#0b0814",
   "theme_color": "#0b0814",
   "icons": [

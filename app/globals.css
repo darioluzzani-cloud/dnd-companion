@@ -342,9 +342,10 @@ html[data-theme='light'] { --ember: #9a6a12; }
    In orizzontale l'altezza è la risorsa scarsa: la barra di navigazione
    lascia il fondo e diventa un montante verticale a sinistra, restituendo
    al contenuto tutta la colonna centrale e una larghezza maggiore.
-   La soglia di altezza esclude i telefoni coricati, dove un montante
-   ruberebbe spazio invece di darne. */
-@media (orientation: landscape) and (min-width: 900px) and (min-height: 480px) {
+   La soglia di altezza (520px) esclude i telefoni coricati, che restano
+   sotto quella misura, mentre i tablet la superano largamente; quella di
+   larghezza (800px) ammette anche i tablet da otto pollici. */
+@media (orientation: landscape) and (min-width: 800px) and (min-height: 520px) {
   body { padding-left: 104px; }
 
   .tab-bar {
@@ -382,6 +383,6 @@ html[data-theme='light'] { --ember: #9a6a12; }
 }
 
 /* Schermi molto ampi: il contenuto respira senza disperdersi */
-@media (orientation: landscape) and (min-width: 1500px) and (min-height: 480px) {
+@media (orientation: landscape) and (min-width: 1500px) and (min-height: 520px) {
   .app-wrap { max-width: 1240px; }
 }
