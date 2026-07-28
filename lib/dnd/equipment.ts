@@ -27,7 +27,7 @@ export interface SlotDef {
 export const EQUIP_SUBTYPES = ['elmo', 'mantello', 'parabracci', 'vesti', 'stivali', 'scudo', 'anello'];
 
 /** Sottocategorie di `magico` — un'arma magica va nelle mani, non fra i monili. */
-export const MAGIC_SUBTYPES = ['arma', 'anello', 'amuleto', 'altro'];
+export const MAGIC_SUBTYPES = ['arma', 'mantello', 'anello', 'amuleto', 'altro'];
 
 /** Sottocategorie disponibili per una data categoria principale (vuoto = nessuna). */
 export function subtypesFor(type: string): string[] {
@@ -75,11 +75,12 @@ export function slotAccepts(slotId: string, item: { type: string; subtype?: stri
     case 'mano2': return isWieldable(type, subtype) || (type === 'equipaggiamento' && subtype === 'scudo');
     case 'armatura': return type === 'armatura';
     case 'magico1': case 'magico2': case 'magico3':
-      return type === 'magico' || (type === 'equipaggiamento' && subtype === 'anello');
+      return (type === 'magico' && subtype !== 'arma' && subtype !== 'mantello')
+          || (type === 'equipaggiamento' && subtype === 'anello');
     case 'consum1': case 'consum2': case 'consum3':
       return type === 'consumabile';
     case 'elmo': case 'mantello': case 'parabracci': case 'vesti': case 'stivali':
-      return type === 'equipaggiamento' && subtype === slotId;
+      return (type === 'equipaggiamento' || type === 'magico') && subtype === slotId;
     default: return false;
   }
 }

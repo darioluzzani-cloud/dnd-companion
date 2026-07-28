@@ -148,7 +148,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
 
         {filter==='indossato' && (
           <>
-            <EquipDoll p={p} updPlayer={updPlayer} campaignId={campaignId} accent={p.color||'var(--gold)'} />
+            <EquipDoll s={s} p={p} updPlayer={updPlayer} campaignId={campaignId} accent={p.color||'var(--gold)'} />
             {filtered.length>0 && <div className="label" style={{margin:'12px 0 6px'}}>Equipaggiati senza alloggiamento</div>}
           </>
         )}
