@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { Markdown } from '@/components/shared/textUtils';
+import { computeAC } from '@/components/shared/common';
 import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded } from '@/lib/dnd/equipment';
 
 // ─── SAGOMA DELL'EQUIPAGGIAMENTO ─────────────────────────────
@@ -48,22 +49,28 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
     // Un'arma a due mani si radica nella mano principale e libera la secondaria
     const target: SlotId = (item && isTwoHanded(item) && (slotId === 'mano1' || slotId === 'mano2')) ? 'mano1' : slotId;
     const alsoClear = (item && isTwoHanded(item) && target === 'mano1') ? 'mano2' : null;
-    updPlayer(pl => ({
-      ...pl,
-      inventory: (pl.inventory || []).map((it: any) => {
+    // Se entra o esce un'armatura (corazza o scudo) la CA va ricalcolata
+    const displaced = inv.filter(it => it.slot === target || (alsoClear && it.slot === alsoClear));
+    const touchesArmor = (item?.type === 'armatura') || displaced.some(it => it.type === 'armatura');
+    updPlayer(pl => {
+      const inventory = (pl.inventory || []).map((it: any) => {
         if (it.id === itemId) return { ...it, slot: target, equipped: true };
         if (it.slot === target || (alsoClear && it.slot === alsoClear)) return { ...it, slot: undefined, equipped: false };
         return it;
-      }),
-    }));
+      });
+      const newPl = { ...pl, inventory };
+      return touchesArmor ? { ...newPl, ac: computeAC(newPl) } : newPl;
+    });
     setPicking(null); setShowAll(false);
   };
 
   const clear = (slotId: string) => {
-    updPlayer(pl => ({
-      ...pl,
-      inventory: (pl.inventory || []).map((it: any) => it.slot === slotId ? { ...it, slot: undefined, equipped: false } : it),
-    }));
+    const removed = inv.find(it => it.slot === slotId);
+    updPlayer(pl => {
+      const inventory = (pl.inventory || []).map((it: any) => it.slot === slotId ? { ...it, slot: undefined, equipped: false } : it);
+      const newPl = { ...pl, inventory };
+      return removed?.type === 'armatura' ? { ...newPl, ac: computeAC(newPl) } : newPl;
+    });
   };
 
   const setQty = (itemId: string, q: number) => {

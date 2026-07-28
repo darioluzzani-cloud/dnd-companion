@@ -163,15 +163,16 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
           }}>
             <div className="row" style={{alignItems:'flex-start'}}>
               <button onClick={()=>{
-                  if (it.type === 'armatura') {
-                    updPlayer((pl:any)=>{
-                      const newInv = pl.inventory.map((i:any) => i.id===it.id ? {...i, equipped:!it.equipped} : i);
-                      const newPl = {...pl, inventory:newInv};
-                      return {...newPl, ac: computeAC(newPl)};
-                    });
-                  } else {
-                    setItemField(it.id,'equipped',!it.equipped);
-                  }
+                  // Spegnere l'equipaggiamento libera anche l'eventuale alloggiamento
+                  // sulla sagoma, così elenco e sezione «indossato» restano allineati.
+                  const willEquip = !it.equipped;
+                  updPlayer((pl:any)=>{
+                    const newInv = pl.inventory.map((i:any) => i.id===it.id
+                      ? {...i, equipped:willEquip, slot: willEquip ? i.slot : undefined}
+                      : i);
+                    const newPl = {...pl, inventory:newInv};
+                    return it.type === 'armatura' ? {...newPl, ac: computeAC(newPl)} : newPl;
+                  });
                 }}
                 title={it.equipped?'Rimuovi equipaggiamento':'Equipaggia'}
                 style={{width:28,height:28,borderRadius:4,border:'1px solid '+(it.equipped?p.color||'var(--gold)':'var(--border)'),background:it.equipped?(p.color||'var(--gold)')+'22':'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0,marginTop:6,marginRight:6,fontSize:14,color:it.equipped?p.color||'var(--gold)':'var(--gray-purple-deep)'}}>
