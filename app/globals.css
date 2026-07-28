@@ -337,3 +337,51 @@ html[data-theme='light'] { --ember: #9a6a12; }
   50%     { transform: rotateX(720deg) rotateY(720deg) rotateZ(360deg) translateY(-6px); }
 }
 @keyframes dice-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
+/* === ORIZZONTALE (tablet coricato e schermi ampi) ===
+   In orizzontale l'altezza è la risorsa scarsa: la barra di navigazione
+   lascia il fondo e diventa un montante verticale a sinistra, restituendo
+   al contenuto tutta la colonna centrale e una larghezza maggiore.
+   La soglia di altezza esclude i telefoni coricati, dove un montante
+   ruberebbe spazio invece di darne. */
+@media (orientation: landscape) and (min-width: 900px) and (min-height: 480px) {
+  body { padding-left: 104px; }
+
+  .tab-bar {
+    top: 0; bottom: 0; left: 0; right: auto;
+    width: 104px;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 2px;
+    padding: 14px 0 calc(14px + env(safe-area-inset-bottom));
+    border-top: none;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 12px 6px;
+    gap: 5px;
+    border-top: none;
+    border-left: 2px solid transparent;
+  }
+  .tab.active {
+    border-top-color: transparent;
+    border-top-width: 0;
+    border-left-color: var(--gold);
+    border-left-width: 3px;
+    background: linear-gradient(90deg, var(--bg-active), transparent);
+  }
+
+  .app-wrap {
+    max-width: 1080px;
+    padding-bottom: 28px;
+  }
+}
+
+/* Schermi molto ampi: il contenuto respira senza disperdersi */
+@media (orientation: landscape) and (min-width: 1500px) and (min-height: 480px) {
+  .app-wrap { max-width: 1240px; }
+}
