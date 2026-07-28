@@ -2,15 +2,21 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
-import { SLOT_BY_ID, SlotId, slotAccepts } from '@/lib/dnd/equipment';
+import { Markdown } from '@/components/shared/textUtils';
+import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded } from '@/lib/dnd/equipment';
 
 // ─── SAGOMA DELL'EQUIPAGGIAMENTO ─────────────────────────────
-// Disposizione a caselle fisse, sul modello dello schema: elmo e mantello
-// in cima, parabracci e vesti scalati più in basso ai lati, le due mani
-// ancora sotto a fiancheggiare l'armatura, gli stivali in fondo; quindi
-// la fascia dei monili magici e quella dei consumabili a portata.
-// Lo sfondo è personalizzabile per singolo personaggio (slot doll-<id>),
-// con velatura scura crescente verso il basso come nella Fucina.
+// Caselle fisse secondo lo schema: elmo e mantello in cima, parabracci e
+// vesti scalati ai lati, le due mani a fiancheggiare l'armatura, stivali
+// in fondo, quindi monili magici e consumabili a portata.
+//
+// Gesti distinti, per non far collidere consultazione e collocazione:
+//   casella vuota → selettore degli oggetti idonei
+//   casella piena → scheda dell'oggetto (effetto, descrizione), da cui si
+//                   può comunque cambiare l'oggetto o sfilarlo
+//
+// Un'arma a due mani risiede nella mano principale e impegna anche la
+// secondaria, che la rispecchia come impugnatura occupata.
 
 const DIM = {
   sm: { w: 48, h: 48 },
@@ -18,25 +24,35 @@ const DIM = {
   xl: { w: 88, h: 116 },
 };
 
-// Scalatura verticale delle colonne laterali: parabracci e vesti partono
-// sotto la linea di elmo/mantello, e le armi seguono più in basso.
 const SIDE_OFFSET = 58;
 
 export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
   s: any; p: any; updPlayer: (fn: (pl: any) => any) => void; campaignId: string | null; accent: string;
 }) {
   const [picking, setPicking] = useState<SlotId | null>(null);
+  const [detail, setDetail] = useState<SlotId | null>(null);
   const [showAll, setShowAll] = useState(false);
   const inv: any[] = p?.inventory || [];
   const bySlot = (id: string) => inv.find(it => it.slot === id);
   const dollSlot = 'doll-' + (p?.id || 'x');
 
+  // L'arma a due mani vive in mano1 e riverbera su mano2
+  const mainHand = bySlot('mano1');
+  const twoHandedActive = mainHand && isTwoHanded(mainHand) ? mainHand : null;
+
+  // Oggetto mostrato in una casella (mano2 rispecchia l'arma a due mani)
+  const shownIn = (id: string) => (id === 'mano2' && twoHandedActive) ? twoHandedActive : bySlot(id);
+
   const place = (slotId: SlotId, itemId: string) => {
+    const item = inv.find(it => it.id === itemId);
+    // Un'arma a due mani si radica nella mano principale e libera la secondaria
+    const target: SlotId = (item && isTwoHanded(item) && (slotId === 'mano1' || slotId === 'mano2')) ? 'mano1' : slotId;
+    const alsoClear = (item && isTwoHanded(item) && target === 'mano1') ? 'mano2' : null;
     updPlayer(pl => ({
       ...pl,
       inventory: (pl.inventory || []).map((it: any) => {
-        if (it.id === itemId) return { ...it, slot: slotId, equipped: true };
-        if (it.slot === slotId) return { ...it, slot: undefined, equipped: false };
+        if (it.id === itemId) return { ...it, slot: target, equipped: true };
+        if (it.slot === target || (alsoClear && it.slot === alsoClear)) return { ...it, slot: undefined, equipped: false };
         return it;
       }),
     }));
@@ -57,7 +73,6 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
     }));
   };
 
-  // Caricamento dello sfondo: modello collaudato (input esterno + reload)
   const uploadBg = async (file: File) => {
     if (!campaignId) return;
     const ext = (file.name.split('.').pop() || 'png').toLowerCase();
@@ -75,29 +90,36 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
   const Cell = ({ id }: { id: SlotId }) => {
     const def = SLOT_BY_ID[id];
     const d = DIM[def.size];
-    const it = bySlot(id);
+    const it = shownIn(id);
+    const mirrored = id === 'mano2' && !!twoHandedActive;   // impugnatura impegnata
     const round = def.shape === 'circle';
     const qty = it ? (it.qty ?? 1) : 0;
-    const spent = it && qty <= 0;   // consumato: resta la casella, l'immagine si spegne
-    // Il conteggio si mostra sui consumabili (sempre) e altrove solo se multiplo
-    const counted = !!it && (it.type === 'consumabile' || qty > 1 || qty <= 0);
+    const spent = !!it && qty <= 0;
+    const counted = !!it && !mirrored && (it.type === 'consumabile' || qty > 1 || qty <= 0);
+    const dim = spent || mirrored;
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-        <div onClick={() => setPicking(id)} title={it ? (counted ? `${it.name} ×${qty}` : it.name) : def.label}
+        <div
+          onClick={() => { if (it) setDetail(mirrored ? 'mano1' : id); else setPicking(id); }}
+          title={it ? (mirrored ? `${it.name} — impugnata a due mani` : (counted ? `${it.name} ×${qty}` : it.name)) : def.label}
           style={{
             width: d.w, height: d.h, borderRadius: round ? '50%' : 8, position: 'relative', cursor: 'pointer',
-            border: it ? `2px solid ${spent ? 'var(--border)' : accent}` : '1px dashed var(--border)',
+            border: it ? `2px ${mirrored ? 'dashed' : 'solid'} ${spent ? 'var(--border)' : accent}` : '1px dashed var(--border)',
             background: it ? 'var(--bg-input)' : 'rgba(11,8,20,.55)',
-            boxShadow: it && !spent ? `0 0 10px ${accent}33` : 'none',
+            boxShadow: it && !dim ? `0 0 10px ${accent}33` : 'none',
             overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'all .15s',
           }}>
           {it ? (
             <>
-              <div style={{ position: 'absolute', inset: 0, opacity: spent ? .28 : 1, filter: spent ? 'grayscale(1) brightness(.55)' : 'none', transition: 'all .2s' }}>
+              <div style={{ position: 'absolute', inset: 0, opacity: spent ? .28 : (mirrored ? .45 : 1), filter: spent ? 'grayscale(1) brightness(.55)' : 'none', transition: 'all .2s' }}>
                 <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
                   dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
               </div>
+              {mirrored && (
+                <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: accent, textShadow: '0 1px 4px #000' }}>⇄</span>
+              )}
               {counted && (
                 <span style={{
                   position: 'absolute', bottom: 1, right: 3, fontSize: 9, fontWeight: 700,
@@ -110,8 +132,7 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
           )}
         </div>
 
-        {/* Quantità: riducibile senza uscire dalla sagoma */}
-        {counted && (
+        {counted && it && (
           <div className="row" style={{ gap: 3, alignItems: 'center' }}>
             <button onClick={e => { e.stopPropagation(); setQty(it.id, qty - 1); }} disabled={qty <= 0}
               style={{ width: 16, height: 16, lineHeight: 1, fontSize: 11, padding: 0, borderRadius: 3, border: '1px solid var(--border)', background: 'var(--bg-deep)', color: qty <= 0 ? 'var(--gray-purple-deep)' : 'var(--text)', cursor: qty <= 0 ? 'default' : 'pointer' }}>−</button>
@@ -120,8 +141,8 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
           </div>
         )}
 
-        <span style={{ fontSize: 8, letterSpacing: .3, color: it ? (spent ? 'var(--gray-purple-deep)' : accent) : 'var(--gray-purple-deep)', maxWidth: d.w + 16, textAlign: 'center', lineHeight: 1.2 }}>
-          {it ? it.name : def.label}
+        <span style={{ fontSize: 8, letterSpacing: .3, color: it ? (dim ? 'var(--gray-purple-deep)' : accent) : 'var(--gray-purple-deep)', maxWidth: d.w + 16, textAlign: 'center', lineHeight: 1.2 }}>
+          {mirrored ? 'a due mani' : (it ? it.name : def.label)}
         </span>
       </div>
     );
@@ -130,13 +151,12 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
   const col: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' };
   const band: React.CSSProperties = { display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' };
 
-  // Solo ciò che il personaggio vede davvero nel proprio inventario
   const pickable = inv.filter(it => s?.dmMode || it.revealed !== false);
   const candidates = picking ? pickable.filter(it => it.slot !== picking && (showAll || slotAccepts(picking, it))) : [];
+  const detailItem = detail ? bySlot(detail) : null;
 
   return (
     <div className="card" style={{ padding: 0, position: 'relative', overflow: 'hidden' }}>
-      {/* Sfondo personalizzato del personaggio */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <ImageSlot slotId={dollSlot} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="" />
       </div>
@@ -152,7 +172,6 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
           </label>
         )}
 
-        {/* Corpo: colonne laterali scalate sotto la linea di elmo/mantello */}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', alignItems: 'flex-start' }}>
           <div style={{ ...col, paddingTop: SIDE_OFFSET }}>
             <Cell id="parabracci" />
@@ -179,6 +198,62 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
           <div style={band}><Cell id="consum1" /><Cell id="consum2" /><Cell id="consum3" /></div>
         </div>
       </div>
+
+      {/* Scheda dell'oggetto indossato — consultazione rapida */}
+      {detail && detailItem && (
+        <div className="alchemy-overlay" onClick={e => { if (e.target === e.currentTarget) setDetail(null); }}>
+          <div className="alchemy-popup" style={{ maxWidth: 420 }}>
+            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+              <div className="small muted">{SLOT_BY_ID[detail].label}</div>
+              <button className="btn btn-ghost" style={{ fontSize: 16, padding: '2px 8px' }} onClick={() => setDetail(null)}>✕</button>
+            </div>
+
+            <div className="row" style={{ gap: 12, alignItems: 'flex-start', marginBottom: 10 }}>
+              <div style={{ width: 88, height: 88, borderRadius: 8, overflow: 'hidden', flexShrink: 0, border: `1px solid ${accent}` }}>
+                <ImageSlot slotId={'item-' + detailItem.id} campaignId={campaignId} shape="rect" width={88} height={88} dmMode={false} placeholder={detailItem.name.slice(0, 2).toUpperCase()} alt={detailItem.name} />
+              </div>
+              <div className="grow">
+                <div className="h2" style={{ fontSize: 16, color: accent }}>{detailItem.name}</div>
+                <div className="small muted" style={{ marginTop: 2 }}>
+                  {detailItem.type}{detailItem.subtype ? ' · ' + detailItem.subtype : ''}
+                  {(detailItem.qty ?? 1) !== 1 ? ` · ×${detailItem.qty ?? 1}` : ''}
+                </div>
+                {detailItem.type === 'armatura' && (detailItem.armorCA || detailItem.subtype) && (
+                  <div className="small" style={{ marginTop: 3 }}>CA {detailItem.armorCA || '—'}</div>
+                )}
+              </div>
+            </div>
+
+            {detailItem.effect && (
+              <div className="card" style={{ padding: '8px 10px' }}>
+                <div className="label" style={{ fontSize: 8, marginBottom: 3, color: 'var(--gold)' }}>Effetto</div>
+                <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--gold)' }}><Markdown text={detailItem.effect} /></div>
+              </div>
+            )}
+            {detailItem.desc && (
+              <div className="card" style={{ padding: '8px 10px' }}>
+                <div style={{ fontSize: 13, lineHeight: 1.6, fontStyle: 'italic' }}><Markdown text={detailItem.desc} /></div>
+              </div>
+            )}
+            {(detailItem.upgrades || []).length > 0 && (
+              <div className="card" style={{ padding: '8px 10px' }}>
+                <div className="label" style={{ fontSize: 8, marginBottom: 4, color: 'var(--ember)' }}>Potenziamenti</div>
+                {(detailItem.upgrades || []).map((u: any, i: number) => (
+                  <div key={i} className="small" style={{ marginBottom: 2 }}>⚒ <b>{u.name}</b>{u.desc ? ' — ' + u.desc : ''}</div>
+                ))}
+              </div>
+            )}
+            {!detailItem.effect && !detailItem.desc && (
+              <div className="card small muted" style={{ textAlign: 'center', fontStyle: 'italic' }}>Nessuna descrizione registrata.</div>
+            )}
+
+            <div className="row" style={{ gap: 6, marginTop: 10 }}>
+              <button className="btn grow" style={{ fontSize: 11 }} onClick={() => { const sl = detail; setDetail(null); setPicking(sl); }}>Cambia oggetto</button>
+              <button className="btn btn-danger btn-ghost" style={{ fontSize: 11 }} onClick={() => { clear(detail); setDetail(null); }}>Sfila</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Selettore */}
       {picking && (
@@ -207,7 +282,9 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
                   <div className="grow">
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{it.name} <span className="small muted">×{it.qty ?? 1}</span></div>
                     <div className="small muted" style={{ fontSize: 10 }}>
-                      {it.type}{it.subtype ? ' · ' + it.subtype : ''}{it.slot ? ' · ora in ' + (SLOT_BY_ID[it.slot]?.label || it.slot) : ''}
+                      {it.type}{it.subtype ? ' · ' + it.subtype : ''}
+                      {isTwoHanded(it) ? ' · impegna entrambe le mani' : ''}
+                      {it.slot ? ' · ora in ' + (SLOT_BY_ID[it.slot]?.label || it.slot) : ''}
                     </div>
                   </div>
                 </div>

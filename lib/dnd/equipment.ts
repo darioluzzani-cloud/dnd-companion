@@ -24,7 +24,17 @@ export interface SlotDef {
 }
 
 /** Sottocategorie di `equipaggiamento` — governano gli alloggiamenti del corpo. */
-export const EQUIP_SUBTYPES = ['elmo', 'mantello', 'parabracci', 'vesti', 'stivali', 'scudo', 'anello'];
+export const EQUIP_SUBTYPES = ['elmo', 'mantello', 'parabracci', 'vesti', 'stivali', 'anello'];
+
+/** Sottocategorie di `arma` — l'arma a due mani occupa entrambe le impugnature. */
+export const ARMA_SUBTYPES = ['a una mano', 'a due mani'];
+
+/**
+ * Foggie dell'armatura. Non compaiono fra le sottocategorie perché l'armatura
+ * dispone già del proprio campo `armorType`, collegato al calcolo della CA:
+ * lo scudo si dichiara lì, e `armorKind` legge indifferentemente i due campi.
+ */
+export const ARMOR_SUBTYPES = ['leggera', 'media', 'pesante', 'scudo'];
 
 /** Sottocategorie di `magico` — un'arma magica va nelle mani, non fra i monili. */
 export const MAGIC_SUBTYPES = ['arma', 'mantello', 'anello', 'amuleto', 'altro'];
@@ -33,7 +43,24 @@ export const MAGIC_SUBTYPES = ['arma', 'mantello', 'anello', 'amuleto', 'altro']
 export function subtypesFor(type: string): string[] {
   if (type === 'equipaggiamento') return EQUIP_SUBTYPES;
   if (type === 'magico') return MAGIC_SUBTYPES;
+  if (type === 'arma') return ARMA_SUBTYPES;
   return [];
+}
+
+/** Foggia dell'armatura: legge la sottocategoria, con ricaduta sul vecchio campo armorType. */
+export function armorKind(item: { subtype?: string; armorType?: string }): string | undefined {
+  return item.subtype || item.armorType;
+}
+
+/** Uno scudo, comunque sia stato catalogato in passato. */
+export function isShield(item: { type: string; subtype?: string; armorType?: string }): boolean {
+  if (item.type === 'armatura') return armorKind(item) === 'scudo';
+  return item.type === 'equipaggiamento' && item.subtype === 'scudo';  // retrocompatibilità
+}
+
+/** Arma che richiede entrambe le mani. */
+export function isTwoHanded(item: { type: string; subtype?: string }): boolean {
+  return (item.type === 'arma' || item.type === 'unico' || item.type === 'magico') && item.subtype === 'a due mani';
 }
 
 export const SLOTS: SlotDef[] = [
@@ -68,12 +95,12 @@ function isWieldable(type: string, subtype?: string): boolean {
  *   armatura → categoria armatura
  *   consum.  → categoria consumabile
  */
-export function slotAccepts(slotId: string, item: { type: string; subtype?: string }): boolean {
+export function slotAccepts(slotId: string, item: { type: string; subtype?: string; armorType?: string }): boolean {
   const { type, subtype } = item;
   switch (slotId) {
     case 'mano1': return isWieldable(type, subtype);
-    case 'mano2': return isWieldable(type, subtype) || (type === 'equipaggiamento' && subtype === 'scudo');
-    case 'armatura': return type === 'armatura';
+    case 'mano2': return isWieldable(type, subtype) || isShield(item);
+    case 'armatura': return type === 'armatura' && armorKind(item) !== 'scudo';
     case 'magico1': case 'magico2': case 'magico3':
       return (type === 'magico' && subtype !== 'arma' && subtype !== 'mantello')
           || (type === 'equipaggiamento' && subtype === 'anello');
