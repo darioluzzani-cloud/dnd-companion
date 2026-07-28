@@ -7,6 +7,8 @@ import { PlayerSelector } from '@/components/shared/PlayerSelector';
 import { AlchemyPopup } from '@/components/popups/AlchemyPopup';
 import { ArmoryPopup } from '@/components/popups/ArmoryPopup';
 import { SetsPopup } from '@/components/popups/SetsPopup';
+import { EquipDoll } from '@/components/shared/EquipDoll';
+import { subtypesFor } from '@/lib/dnd/equipment';
 import { U, moveInArray, ReorderBtns, computeAC, ITEM_TYPES } from '@/components/shared/common';
 import { copyItemImage } from '@/components/shared/imageCopy';
 
@@ -97,7 +99,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
 
   const allItems = [...(p.inventory||[])].sort((a:any,b:any)=>(b.equipped?1:0)-(a.equipped?1:0));
   const visibleItems = s.dmMode ? allItems : allItems.filter((it:any)=>it.revealed!==false);
-  const filtered = filter==='indossato' ? visibleItems.filter((it:any)=>it.equipped) : visibleItems.filter((it:any)=>it.type===filter);
+  const filtered = filter==='indossato' ? visibleItems.filter((it:any)=>it.equipped && !it.slot) : visibleItems.filter((it:any)=>it.type===filter);
 
   return (
     <div>
@@ -144,7 +146,14 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
           ))}
         </div>
 
-        {filtered.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun oggetto.</div>}
+        {filter==='indossato' && (
+          <>
+            <EquipDoll p={p} updPlayer={updPlayer} campaignId={campaignId} accent={p.color||'var(--gold)'} />
+            {filtered.length>0 && <div className="label" style={{margin:'12px 0 6px'}}>Equipaggiati senza alloggiamento</div>}
+          </>
+        )}
+
+        {filtered.length===0 && filter!=='indossato' && <div className="card muted small" style={{textAlign:'center'}}>Nessun oggetto.</div>}
         {filtered.map((it:any) => (
           <div key={it.id} className="card" style={{
             borderLeft: it.equipped ? '3px solid '+(p.color||'var(--gold)') : '3px solid transparent',
@@ -206,9 +215,17 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
               <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
                 {s.dmMode ? (
                   <>
-                    <select value={it.type||'altro'} onChange={e=>setItemField(it.id,'type',e.target.value)} style={{fontSize:12,padding:'3px 6px',marginBottom:4}}>
-                      {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <div className="row" style={{gap:6,marginBottom:4}}>
+                      <select value={it.type||'altro'} onChange={e=>{setItemField(it.id,'type',e.target.value);setItemField(it.id,'subtype',undefined);}} style={{fontSize:12,padding:'3px 6px'}}>
+                        {ITEM_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+                      </select>
+                      {subtypesFor(it.type||'').length>0 && (
+                        <select value={it.subtype||''} onChange={e=>setItemField(it.id,'subtype',e.target.value||undefined)} style={{fontSize:12,padding:'3px 6px'}}>
+                          <option value="">— sottocategoria —</option>
+                          {subtypesFor(it.type||'').map(st=><option key={st} value={st}>{st}</option>)}
+                        </select>
+                      )}
+                    </div>
                     {it.type === 'armatura' && (
                       <div className="row" style={{gap:6,marginBottom:4}}>
                         <div className="row" style={{gap:3,flex:1}}>

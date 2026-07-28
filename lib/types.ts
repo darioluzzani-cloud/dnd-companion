@@ -44,6 +44,8 @@ export interface InventoryItem {
   type: string;
   icon?: string;
   setId?: string;   // set di appartenenza (bonus quando tutti i pezzi sono equipaggiati dallo stesso PG)
+  subtype?: string; // sottocategoria (elmo, mantello, anello, scudo, arma magica…)
+  slot?: string;    // alloggiamento occupato sulla sagoma dell'equipaggiamento
   upgrades?: { name: string; desc: string }[];  // lavori di fucina applicati
 }
 

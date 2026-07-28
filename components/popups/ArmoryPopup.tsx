@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U, ITEM_TYPES } from '@/components/shared/common';
+import { subtypesFor } from '@/lib/dnd/equipment';
 import { ImageSlot } from '@/components/ImageSlot';
 import { copyItemImage } from '@/components/shared/imageCopy';
 
@@ -11,7 +12,7 @@ import { copyItemImage } from '@/components/shared/imageCopy';
 // Le voci usano lo slot immagine item-<id>, lo stesso schema degli oggetti
 // d'inventario: la consegna copia l'immagine sul nuovo oggetto (copyItemImage).
 
-export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; }
+export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; }
 
 export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignState; update: U; campaignId: string | null; onClose: () => void }) {
   const [filter, setFilter] = useState<string>(ITEM_TYPES[0]);
@@ -39,7 +40,7 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
     const newId = uid('it');
     update(prev => ({
       players: prev.players.map(pl => pl.id === playerId
-        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', armorType: e.armorType, armorCA: e.armorCA, enhSlots: e.enhSlots, setId: e.setId, equipped: false, expanded: false } as any] }
+        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', armorType: e.armorType, armorCA: e.armorCA, enhSlots: e.enhSlots, setId: e.setId, subtype: e.subtype, equipped: false, expanded: false } as any] }
         : pl),
     }));
     if (campaignId) copyItemImage(campaignId, e.id, newId);
@@ -90,9 +91,17 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                 {expanded.has(e.id) && (editingId === e.id ? (
                   <div style={{ marginTop: 6 }}>
                     <input value={e.name} onChange={ev => patchEntry(e.id, { name: ev.target.value })} style={{ fontSize: 13, padding: '3px 8px', width: '100%', marginBottom: 3 }} />
-                    <select value={e.type} onChange={ev => patchEntry(e.id, { type: ev.target.value })} style={{ fontSize: 12, marginBottom: 3 }}>
-                      {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <div className="row" style={{ gap: 6, marginBottom: 3 }}>
+                      <select value={e.type} onChange={ev => patchEntry(e.id, { type: ev.target.value, subtype: undefined })} style={{ fontSize: 12 }}>
+                        {ITEM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      {subtypesFor(e.type).length > 0 && (
+                        <select value={e.subtype || ''} onChange={ev => patchEntry(e.id, { subtype: ev.target.value || undefined })} style={{ fontSize: 12 }}>
+                          <option value="">— sottocategoria —</option>
+                          {subtypesFor(e.type).map(st => <option key={st} value={st}>{st}</option>)}
+                        </select>
+                      )}
+                    </div>
                     <input value={e.effect || ''} placeholder="Effetto (es. Recupera 2d4+2 PF)…" onChange={ev => patchEntry(e.id, { effect: ev.target.value })} style={{ fontSize: 12, padding: '4px 8px', width: '100%', marginBottom: 3, borderColor: 'var(--gold-dim)' }} />
                     {e.type === 'armatura' && (
                       <div className="row" style={{ gap: 6, marginBottom: 3 }}>
