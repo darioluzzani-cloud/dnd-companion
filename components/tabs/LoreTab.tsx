@@ -4,6 +4,7 @@ import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { Markdown } from '@/components/shared/textUtils';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
+import { RevealsView, RevealsEditor, RevealBadge } from '@/components/shared/Reveals';
 
 const LORE_CATS = ['oggetti','luoghi','culti','fazioni'] as const;
 
@@ -22,6 +23,7 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
   const [draftCat,setDraftCat]=useState<string>('oggetti');
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  const setReveals = (id:string,list:any) => update(prev=>({lore:prev.lore.map(ll=>ll.id===id?{...ll,reveals:list}:ll)}));
 
   return (
     <div>
@@ -59,6 +61,7 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                 <div style={{cursor:'pointer'}} onClick={()=>setExpandedCards(prev=>{const n=new Set(prev);n.has(l.id)?n.delete(l.id):n.add(l.id);return n;})}>
                   <div className="row" style={{alignItems:'baseline',gap:6}}>
                     <div className="grow" style={{fontWeight:500,fontSize:14}}>{l.name}</div>
+                    {s.dmMode && <RevealBadge list={(l as any).reveals} onChange={x=>setReveals(l.id,x)} accent="var(--gold)" />}
                     <span className="small muted" style={{fontSize:13}}>{isExp?'▾':'▸'}</span>
                   </div>
                   {l.subtitle && <div className="small muted" style={{marginTop:1}}>{l.subtitle}</div>}
@@ -73,6 +76,7 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                         <input value={l.subtitle||''} placeholder="Sottotitolo" onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,subtitle:e.target.value}:ll)}))}
                           style={{fontSize:12,background:'transparent',border:'1px solid var(--border)',padding:'3px 8px',marginBottom:3,width:'100%'}} />
                         <textarea value={l.text||''} placeholder="Testo della voce…" onChange={e=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,text:e.target.value}:ll)}))} style={{fontSize:12,padding:'8px',minHeight:80,width:'100%'}} />
+                        <RevealsEditor list={(l as any).reveals} onChange={x=>setReveals(l.id,x)} />
                         <div className="row" style={{marginTop:6,gap:4,alignItems:'center'}}>
                           <button className="btn btn-ghost" style={{padding:'2px 7px',fontSize:9}} title={l.revealed?'Nascondi ai giocatori':'Mostra ai giocatori'}
                             onClick={()=>update(prev=>({lore:prev.lore.map(ll=>ll.id===l.id?{...ll,revealed:!ll.revealed}:ll)}))}>{l.revealed?'◉':'◯'}</button>
@@ -85,7 +89,10 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                         </div>
                       </>
                     ) : (
+                      <>
                       <div style={{fontSize:12,lineHeight:1.6,fontStyle:'italic'}}>{l.text?<Markdown text={l.text}/>:<span className="muted small" style={{fontStyle:'normal'}}>(testo non ancora redatto)</span>}</div>
+                      <RevealsView list={(l as any).reveals} dmMode={false} />
+                      </>
                     )}
                   </div>
                 )}

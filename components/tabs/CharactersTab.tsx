@@ -4,6 +4,7 @@ import { CampaignState, uid } from '@/lib/types';
 import { ImageSlot } from '@/components/ImageSlot';
 import { Markdown } from '@/components/shared/textUtils';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
+import { RevealsView, RevealsEditor, RevealBadge } from '@/components/shared/Reveals';
 
 const REL_NEXT: Record<string,string> = {ally:'enemy',enemy:'neutral',neutral:'ally'};
 const REL_TABS = [
@@ -24,6 +25,7 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
   const setField = (id:string,f:string,v:string) => update(prev=>({characters:prev.characters.map(c=>c.id===id?{...c,[f]:v}:c)}));
+  const setReveals = (id:string,list:any) => update(prev=>({characters:prev.characters.map(c=>c.id===id?{...c,reveals:list}:c)}));
 
   const byRel = s.characters.filter(c=>c.relation===filter);
   const filtered = s.dmMode ? byRel : byRel.filter(c=>(c as any).revealed!==false);
@@ -68,6 +70,7 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
                 <div style={{cursor:'pointer'}} onClick={toggleExp}>
                   <div className="row" style={{alignItems:'baseline',gap:6}}>
                     <div className="h2 grow" style={{fontSize:14}}>{c.name}</div>
+                    {s.dmMode && <RevealBadge list={(c as any).reveals} onChange={l=>setReveals(c.id,l)} accent="var(--gold)" />}
                     <span className="small muted" style={{fontSize:13}}>{isExp?'▾':'▸'}</span>
                   </div>
                   {c.role && <div className="small" style={{color:'var(--gold-dim)',marginTop:1}}>{c.role}</div>}
@@ -81,6 +84,7 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
                         <input value={c.role||''} placeholder="Ruolo" onChange={e=>setField(c.id,'role',e.target.value)} style={{marginBottom:3,fontSize:12,padding:'4px 8px',width:'100%'}} />
                         <input value={c.location||''} placeholder="Luogo" onChange={e=>setField(c.id,'location',e.target.value)} style={{marginBottom:3,fontSize:12,padding:'4px 8px',width:'100%'}} />
                         <textarea value={c.note||''} placeholder="Note…" onChange={e=>setField(c.id,'note',e.target.value)} style={{fontSize:12,padding:'6px 8px',minHeight:60,width:'100%'}} />
+                        <RevealsEditor list={(c as any).reveals} onChange={l=>setReveals(c.id,l)} />
                         <div className="row" style={{marginTop:6,gap:4,flexWrap:'wrap',alignItems:'center'}}>
                           <button className={'pill relation-'+c.relation} style={{cursor:'pointer',fontSize:9}}
                             onClick={()=>update(prev=>({characters:prev.characters.map(cc=>cc.id===c.id?{...cc,relation:(REL_NEXT[cc.relation]||'neutral') as any}:cc)}))}>{c.relation==='ally'?'Alleato':c.relation==='enemy'?'Nemico':'Neutrale'}</button>
@@ -99,6 +103,7 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
                       <>
                         {c.location && <div className="small muted" style={{marginBottom:4}}>📍 {c.location}</div>}
                         {c.note ? <div style={{fontSize:12,lineHeight:1.6,fontStyle:'italic'}}><Markdown text={c.note}/></div> : <div className="small muted">(nessuna nota)</div>}
+                        <RevealsView list={(c as any).reveals} dmMode={false} />
                       </>
                     )}
                   </div>

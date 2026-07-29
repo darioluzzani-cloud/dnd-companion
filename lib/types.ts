@@ -16,6 +16,14 @@ export interface Scenario {
   quests: Quest[];
 }
 
+/** Frammento di lore rivelabile: preparato in anticipo, scoperto a piacere. */
+export interface RevealFragment {
+  id: string;
+  title?: string;
+  text: string;
+  revealed?: boolean;
+}
+
 export interface NPC {
   id: string;
   name: string;
@@ -25,6 +33,7 @@ export interface NPC {
   note: string;
   revealed?: boolean;   // assente = visibile (retrocompatibilità); false = preparato ma nascosto ai giocatori
   expanded?: boolean;
+  reveals?: RevealFragment[];   // frammenti da svelare progressivamente
 }
 
 export interface Spell {
@@ -118,6 +127,7 @@ export interface LoreEntry {
   text: string;
   revealed: boolean;
   expanded: boolean;
+  reveals?: RevealFragment[];   // frammenti da svelare progressivamente
 }
 
 export interface AlchemyRecipe {
