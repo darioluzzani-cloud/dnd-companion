@@ -159,6 +159,7 @@ export interface BestiaryEntry {
   name: string;
   maxHp: number;
   initMod: number;
+  variants?: number;   // quanti ritratti distinti sono stati preparati (assente = 1)
 }
 
 export interface DiceRoll {

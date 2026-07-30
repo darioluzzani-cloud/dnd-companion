@@ -26,6 +26,12 @@ export function BestiaryPopup({ s, update, campaignId, combatScen, onClose }: { 
     setDraftName(''); setDraftHp(''); setDraftInit('');
   };
 
+  const MAX_VARIANTS = 6;
+  // Il primo ritratto conserva lo slot storico, così le schede già
+  // illustrate non perdono l'immagine; i successivi si numerano.
+  const slotFor = (e: BestiaryEntry, i: number) => i === 0 ? 'beast-' + e.id : `beast-${e.id}-${i + 1}`;
+  const variantsOf = (e: BestiaryEntry) => Math.max(1, Math.min(MAX_VARIANTS, e.variants || 1));
+
   const patchEntry = (id: string, patch: Partial<BestiaryEntry>) =>
     setBestiary(bestiary.map(e => e.id === id ? { ...e, ...patch } : e));
 
@@ -44,7 +50,7 @@ export function BestiaryPopup({ s, update, campaignId, combatScen, onClose }: { 
         hp: e.maxHp, maxHp: e.maxHp,
         side: 'enemy' as const, conditions: [],
         scenarioId: combatScen,
-        imgSlot: 'beast-' + e.id,
+        imgSlot: slotFor(e, existing % variantsOf(e)),
       } as any],
     }));
   };
@@ -71,8 +77,29 @@ export function BestiaryPopup({ s, update, campaignId, combatScen, onClose }: { 
         {bestiary.map(e => (
           <div key={e.id} className="card" style={{ padding: '10px 12px' }}>
             <div className="row" style={{ gap: 10 }}>
-              <div style={{ width: 44, height: 60, flexShrink: 0, overflow: 'hidden', borderRadius: 6 }}>
-                <ImageSlot slotId={'beast-' + e.id} campaignId={campaignId} shape="rect" width={44} height={60} dmMode={s.dmMode} placeholder={e.name.slice(0, 2).toUpperCase()} alt={e.name} />
+              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  {Array.from({ length: variantsOf(e) }).map((_, i) => (
+                    <div key={i} title={variantsOf(e) > 1 ? `Ritratto ${i + 1}` : e.name}
+                      style={{ width: 44, height: 60, overflow: 'hidden', borderRadius: 6, position: 'relative' }}>
+                      <ImageSlot slotId={slotFor(e, i)} campaignId={campaignId} shape="rect" width={44} height={60} dmMode={s.dmMode} placeholder={e.name.slice(0, 2).toUpperCase()} alt={e.name} />
+                      {variantsOf(e) > 1 && (
+                        <span style={{ position: 'absolute', bottom: 1, right: 3, fontSize: 8, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px #000' }}>{i + 1}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {s.dmMode && (
+                  <div className="row" style={{ gap: 3, justifyContent: 'center' }}>
+                    <button className="btn btn-ghost" style={{ padding: '0 6px', fontSize: 10 }} title="Un ritratto in meno"
+                      disabled={variantsOf(e) <= 1}
+                      onClick={() => patchEntry(e.id, { variants: variantsOf(e) - 1 })}>−</button>
+                    <span className="small muted" style={{ fontSize: 9 }}>{variantsOf(e)}</span>
+                    <button className="btn btn-ghost" style={{ padding: '0 6px', fontSize: 10 }} title="Prepara un altro ritratto"
+                      disabled={variantsOf(e) >= MAX_VARIANTS}
+                      onClick={() => patchEntry(e.id, { variants: variantsOf(e) + 1 })}>+</button>
+                  </div>
+                )}
               </div>
               <div className="grow">
                 {editingId === e.id ? (
