@@ -111,3 +111,16 @@ export function slotAccepts(slotId: string, item: { type: string; subtype?: stri
     default: return false;
   }
 }
+
+/** Numero massimo di oggetti a cui un personaggio può essere sintonizzato. */
+export const ATTUNE_MAX = 3;
+
+/** Quante sintonie il personaggio ha in atto. */
+export function attunedCount(inventory?: any[]): number {
+  return (inventory || []).filter(it => it.attuned).length;
+}
+
+/** L'oggetto esige la sintonia? */
+export function needsAttunement(item?: { attunement?: boolean }): boolean {
+  return !!item?.attunement;
+}

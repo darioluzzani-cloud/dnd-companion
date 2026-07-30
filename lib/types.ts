@@ -54,6 +54,8 @@ export interface InventoryItem {
   icon?: string;
   setId?: string;   // set di appartenenza (bonus quando tutti i pezzi sono equipaggiati dallo stesso PG)
   subtype?: string; // sottocategoria (elmo, mantello, anello, scudo, arma magica…)
+  attunement?: boolean;  // l'oggetto richiede sintonia
+  attuned?: boolean;     // il personaggio è attualmente sintonizzato
   slot?: string;    // alloggiamento occupato sulla sagoma dell'equipaggiamento
   upgrades?: { name: string; desc: string }[];  // lavori di fucina applicati
 }
@@ -189,7 +191,7 @@ export interface CampaignState {
   marketStalls?: import('./dnd/market').MarketStall[];   // catalogo bancarelle (copy-on-write dai default)
   marketRumors?: import('./dnd/market').MarketRumor[];   // tabella dicerie d100 (copy-on-write dai default)
   market?: import('./dnd/market').MarketDay | null;      // il mercato tirato per il giorno corrente
-  armory?: { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number }[];
+  armory?: { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; attunement?: boolean }[];
   itemSets?: ItemSet[];  // catalogo oggetti preparati dal DM (Armeria)
   calendar?: CalendarState;
   lastRoll: DiceRoll | null;

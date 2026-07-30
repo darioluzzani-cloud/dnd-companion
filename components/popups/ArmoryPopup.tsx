@@ -12,7 +12,7 @@ import { copyItemImage } from '@/components/shared/imageCopy';
 // Le voci usano lo slot immagine item-<id>, lo stesso schema degli oggetti
 // d'inventario: la consegna copia l'immagine sul nuovo oggetto (copyItemImage).
 
-export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; }
+export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; attunement?: boolean; }
 
 export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignState; update: U; campaignId: string | null; onClose: () => void }) {
   const [filter, setFilter] = useState<string>(ITEM_TYPES[0]);
@@ -40,7 +40,7 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
     const newId = uid('it');
     update(prev => ({
       players: prev.players.map(pl => pl.id === playerId
-        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', armorType: e.armorType, armorCA: e.armorCA, enhSlots: e.enhSlots, setId: e.setId, subtype: e.subtype, equipped: false, expanded: false } as any] }
+        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', armorType: e.armorType, armorCA: e.armorCA, enhSlots: e.enhSlots, setId: e.setId, subtype: e.subtype, attunement: e.attunement, equipped: false, expanded: false } as any] }
         : pl),
     }));
     if (campaignId) copyItemImage(campaignId, e.id, newId);
@@ -126,6 +126,10 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                         <button className="btn btn-ghost" style={{ padding: '1px 6px', fontSize: 10 }} onClick={() => patchEntry(e.id, { enhSlots: Math.min(3, (e.enhSlots ?? 0) + 1) })}>+</button>
                       </div>
                     )}
+                    <label className="row" style={{ gap: 5, alignItems: 'center', marginBottom: 4, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={!!e.attunement} onChange={ev => patchEntry(e.id, { attunement: ev.target.checked })} />
+                      <span className="small" style={{ color: e.attunement ? 'var(--blue)' : 'var(--gray-purple)' }}>◈ Richiede sintonia</span>
+                    </label>
                     <select value={e.setId || ''} onChange={ev => patchEntry(e.id, { setId: ev.target.value || undefined })} style={{ fontSize: 11, padding: '3px 6px', width: '100%', marginBottom: 3 }}>
                       <option value="">— nessun set —</option>
                       {(s.itemSets || []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
@@ -134,6 +138,7 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                   </div>
                 ) : (
                   <div style={{ marginTop: 6 }}>
+                    {e.attunement && <div className="small" style={{ color: 'var(--blue)' }}>◈ Richiede sintonia</div>}
                     {e.effect && <div className="small" style={{ color: 'var(--gold-light)' }}>✦ {e.effect}</div>}
                     {e.desc && <div className="small muted" style={{ marginTop: 3, fontStyle: 'italic' }}>{e.desc}</div>}
                     {!e.effect && !e.desc && <div className="small muted">(nessun dettaglio)</div>}

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { Markdown } from '@/components/shared/textUtils';
 import { computeAC } from '@/components/shared/common';
-import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded } from '@/lib/dnd/equipment';
+import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, ATTUNE_MAX, attunedCount } from '@/lib/dnd/equipment';
 
 // ─── SAGOMA DELL'EQUIPAGGIAMENTO ─────────────────────────────
 // Caselle fisse secondo lo schema: elmo e mantello in cima, parabracci e
@@ -73,6 +73,16 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
     });
   };
 
+  const toggleAttune = (itemId: string) => {
+    const it = inv.find(x => x.id === itemId);
+    if (!it) return;
+    if (!it.attuned && attunedCount(inv) >= ATTUNE_MAX) return;   // limite raggiunto
+    updPlayer(pl => ({
+      ...pl,
+      inventory: (pl.inventory || []).map((x: any) => x.id === itemId ? { ...x, attuned: !x.attuned || undefined } : x),
+    }));
+  };
+
   const setQty = (itemId: string, q: number) => {
     updPlayer(pl => ({
       ...pl,
@@ -124,6 +134,13 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
                 <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
                   dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
               </div>
+              {it.attunement && !mirrored && (
+                <span title={it.attuned ? 'Sintonizzato' : 'Richiede sintonia — non ancora sintonizzato'}
+                  style={{ position: 'absolute', top: 1, left: 3, fontSize: 10, fontWeight: 700,
+                    color: it.attuned ? 'var(--blue)' : 'var(--gray-purple)',
+                    textShadow: it.attuned ? '0 0 6px var(--blue), 0 1px 3px #000' : '0 1px 3px #000',
+                    opacity: it.attuned ? 1 : .8 }}>◈</span>
+              )}
               {mirrored && (
                 <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: accent, textShadow: '0 1px 4px #000' }}>⇄</span>
               )}
@@ -231,6 +248,23 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
               </div>
             </div>
 
+            {detailItem.attunement && (() => {
+              const bloccato = !detailItem.attuned && attunedCount(inv) >= ATTUNE_MAX;
+              return (
+                <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 8 }}>
+                  <button className="btn" disabled={bloccato}
+                    style={{ fontSize: 11, padding: '4px 12px',
+                      color: detailItem.attuned ? 'var(--blue)' : 'var(--gray-purple)',
+                      borderColor: detailItem.attuned ? 'var(--blue)' : 'var(--border)',
+                      background: detailItem.attuned ? 'var(--bg-active)' : 'transparent',
+                      opacity: bloccato ? .5 : 1 }}
+                    onClick={() => toggleAttune(detailItem.id)}>
+                    ◈ {detailItem.attuned ? 'Sintonizzato' : 'Sintonizzati'}
+                  </button>
+                  {bloccato && <span className="small" style={{ color: 'var(--red)' }}>Hai già {ATTUNE_MAX} sintonie attive</span>}
+                </div>
+              );
+            })()}
             {detailItem.effect && (
               <div className="card" style={{ padding: '8px 10px' }}>
                 <div className="label" style={{ fontSize: 8, marginBottom: 3, color: 'var(--gold)' }}>Effetto</div>

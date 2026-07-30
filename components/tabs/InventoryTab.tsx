@@ -8,7 +8,7 @@ import { AlchemyPopup } from '@/components/popups/AlchemyPopup';
 import { ArmoryPopup } from '@/components/popups/ArmoryPopup';
 import { SetsPopup } from '@/components/popups/SetsPopup';
 import { EquipDoll } from '@/components/shared/EquipDoll';
-import { subtypesFor } from '@/lib/dnd/equipment';
+import { subtypesFor, ATTUNE_MAX, attunedCount } from '@/lib/dnd/equipment';
 import { U, moveInArray, ReorderBtns, computeAC, ITEM_TYPES } from '@/components/shared/common';
 import { copyItemImage } from '@/components/shared/imageCopy';
 
@@ -133,6 +133,24 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
           </button>
           </div>
         </div>
+        {/* Sintonie in atto */}
+        {(() => {
+          const n = attunedCount(p.inventory);
+          if (n === 0 && !(p.inventory||[]).some((it:any)=>it.attunement)) return null;
+          return (
+            <div className="row" style={{gap:6,alignItems:'center',marginBottom:8}}>
+              <span className="label" style={{fontSize:8,color:'var(--blue)'}}>◈ Sintonia</span>
+              <div className="row" style={{gap:3}}>
+                {Array.from({length:ATTUNE_MAX}).map((_,i)=>(
+                  <span key={i} style={{width:9,height:9,borderRadius:'50%',border:'1px solid var(--blue)',
+                    background:i<n?'var(--blue)':'transparent',display:'inline-block'}} />
+                ))}
+              </div>
+              <span className="small muted" style={{fontSize:10}}>{n}/{ATTUNE_MAX}</span>
+            </div>
+          );
+        })()}
+
         {/* Filtri per tipo */}
         <div className="row" style={{gap:5,flexWrap:'wrap',marginBottom:10}}>
           {['indossato',...ITEM_TYPES].map(t => (
@@ -227,6 +245,12 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                         </select>
                       )}
                     </div>
+                    {(it.type==='magico'||it.type==='unico') && (
+                      <label className="row" style={{gap:5,alignItems:'center',marginBottom:4,cursor:'pointer'}}>
+                        <input type="checkbox" checked={!!it.attunement} onChange={e=>setItemField(it.id,'attunement',e.target.checked||undefined)} />
+                        <span className="small" style={{color:it.attunement?'var(--blue)':'var(--gray-purple)'}}>◈ Richiede sintonia</span>
+                      </label>
+                    )}
                     {it.type === 'armatura' && (
                       <div className="row" style={{gap:6,marginBottom:4}}>
                         <div className="row" style={{gap:3,flex:1}}>
@@ -268,6 +292,25 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                   </>
                 ) : (
                   <>
+                    {it.attunement && (() => {
+                      const n = attunedCount(p.inventory);
+                      const bloccato = !it.attuned && n >= ATTUNE_MAX;
+                      return (
+                        <div className="row" style={{gap:6,alignItems:'center',marginBottom:5}}>
+                          <button className="btn" disabled={bloccato}
+                            style={{fontSize:10,padding:'3px 10px',
+                              color:it.attuned?'var(--blue)':'var(--gray-purple)',
+                              borderColor:it.attuned?'var(--blue)':'var(--border)',
+                              background:it.attuned?'var(--bg-active)':'transparent',
+                              opacity:bloccato?.5:1}}
+                            title={bloccato?`Hai già ${ATTUNE_MAX} sintonie attive`:(it.attuned?'Interrompi la sintonia':'Sintonizzati')}
+                            onClick={()=>{ if(!bloccato) setItemField(it.id,'attuned',!it.attuned||undefined); }}>
+                            ◈ {it.attuned?'Sintonizzato':'Richiede sintonia'}
+                          </button>
+                          {bloccato && <span className="small" style={{color:'var(--red)',fontSize:10}}>limite raggiunto</span>}
+                        </div>
+                      );
+                    })()}
                     {it.effect && <div style={{fontSize:14,lineHeight:1.5,color:'var(--gold)',marginBottom:4}}>✦ <Markdown text={it.effect}/></div>}
                     <div style={{fontSize:14,lineHeight:1.5,fontStyle:'italic'}}>{it.desc?<Markdown text={it.desc}/>:<span className="muted small" style={{fontStyle:'normal'}}>(nessuna descrizione)</span>}</div>
                     {/* Potenziamenti di fucina — si aggiornano da soli al termine del lavoro */}
