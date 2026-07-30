@@ -213,8 +213,21 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
         </div>
 
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 14 }}>
-          <div className="label" style={{ fontSize: 8, textAlign: 'center', marginBottom: 6 }}>Oggetti magici</div>
+          <div className="label" style={{ fontSize: 8, textAlign: 'center', marginBottom: 6 }}>Oggetti magici ed anelli</div>
           <div style={band}><Cell id="magico1" /><Cell id="magico2" /><Cell id="magico3" /></div>
+          {/* Sintonie in atto: il conteggio appartiene ai monili e sta sotto di essi */}
+          <div className="row" style={{ gap: 6, alignItems: 'center', justifyContent: 'center', marginTop: 10 }}>
+            <span className="label" style={{ fontSize: 8, color: 'var(--blue)' }}>◈ Sintonia</span>
+            <div className="row" style={{ gap: 3 }}>
+              {Array.from({ length: ATTUNE_MAX }).map((_, i) => {
+                const on = i < attunedCount(inv);
+                return <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', border: '1px solid var(--blue)',
+                  background: on ? 'var(--blue)' : 'transparent',
+                  boxShadow: on ? '0 0 6px var(--blue)' : 'none', display: 'inline-block' }} />;
+              })}
+            </div>
+            <span className="small muted" style={{ fontSize: 10 }}>{attunedCount(inv)}/{ATTUNE_MAX}</span>
+          </div>
         </div>
 
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 12 }}>
