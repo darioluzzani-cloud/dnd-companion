@@ -56,15 +56,19 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
 
   const Tile = ({ it }: { it: any }) => {
     const qty = it.qty ?? 1;
+    const spent = qty <= 0;   // esaurito: la tessera resta, l'immagine si spegne
     return (
       <div onClick={() => setDetailId(it.id)} title={it.name}
         style={{ width: TILE, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <div style={{ position: 'relative', width: TILE, height: TILE, borderRadius: 8, overflow: 'hidden',
-          border: it.equipped ? `2px solid ${accent}` : '1px solid var(--border)',
+          border: it.equipped && !spent ? `2px solid ${accent}` : '1px solid var(--border)',
           background: 'var(--bg-input)',
-          boxShadow: it.equipped ? `0 0 8px ${accent}44` : 'none' }}>
-          <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
-            dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
+          boxShadow: it.equipped && !spent ? `0 0 8px ${accent}44` : 'none' }}>
+          <div style={{ position: 'absolute', inset: 0, opacity: spent ? .28 : 1,
+            filter: spent ? 'grayscale(1) brightness(.55)' : 'none', transition: 'all .2s' }}>
+            <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
+              dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
+          </div>
           {it.attunement && (
             <span title={it.attuned ? 'Sintonizzato' : 'Richiede sintonia'}
               style={{ position: 'absolute', top: 1, left: 3, fontSize: 10, fontWeight: 700,
@@ -73,14 +77,16 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
           {(it.upgrades || []).length > 0 && (
             <span style={{ position: 'absolute', top: 1, right: 3, fontSize: 9, color: 'var(--ember)', textShadow: '0 1px 3px #000' }}>⚒</span>
           )}
-          {qty > 1 && (
-            <span style={{ position: 'absolute', bottom: 1, right: 3, fontSize: 9, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px #000' }}>×{qty}</span>
+          {(qty > 1 || spent) && (
+            <span style={{ position: 'absolute', bottom: 1, right: 3, fontSize: 9, fontWeight: 700,
+              color: spent ? 'var(--red)' : '#fff', textShadow: '0 1px 3px #000' }}>×{qty}</span>
           )}
           {s.dmMode && it.revealed === false && (
             <span style={{ position: 'absolute', bottom: 1, left: 3, fontSize: 8, color: 'var(--gold)', textShadow: '0 1px 3px #000' }}>◯</span>
           )}
         </div>
-        <span style={{ fontSize: 8, lineHeight: 1.2, textAlign: 'center', color: it.equipped ? accent : 'var(--text)' }}>{it.name}</span>
+        <span style={{ fontSize: 8, lineHeight: 1.2, textAlign: 'center',
+          color: spent ? 'var(--gray-purple-deep)' : (it.equipped ? accent : 'var(--text)') }}>{it.name}</span>
       </div>
     );
   };

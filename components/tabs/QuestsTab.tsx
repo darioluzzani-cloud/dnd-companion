@@ -72,11 +72,40 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
     update(prev => ({scenarios: moveInArray(prev.scenarios, idx, dir)}));
   };
 
+  // Quest di lungo respiro ancora aperte, raccolte da tutti gli scenari:
+  // un promemoria di ciò che il gruppo si porta dietro fra una sessione e l'altra.
+  const longTerm = s.scenarios.flatMap((sc2:any) =>
+    ((sc2.quests||[]) as any[])
+      .filter(q => q.longTerm && !q.done && (s.dmMode || q.revealed))
+      .map(q => ({ q, scen: sc2 }))
+  );
+
   return (
     <div>
       {enlargedImg && (
         <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
           <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
+        </div>
+      )}
+
+      {longTerm.length > 0 && (
+        <div className="frame" style={{borderColor:'var(--blue)'}}>
+          <div className="row" style={{gap:8,alignItems:'center',marginBottom:8}}>
+            <span style={{color:'var(--blue)',fontSize:13}}>⟳</span>
+            <div className="label" style={{color:'var(--blue)'}}>Impegni di lungo termine</div>
+            <div className="grow" />
+            <span className="small muted" style={{fontSize:10}}>{longTerm.length}</span>
+          </div>
+          {longTerm.map(({q, scen}) => (
+            <div key={q.id} className="card" style={{padding:'7px 10px',marginBottom:4,borderLeft:'2px solid var(--blue)'}}>
+              <div className="row" style={{gap:8,alignItems:'baseline'}}>
+                <div className="grow" style={{fontSize:13,fontWeight:500}}>{q.title}</div>
+                <span className="small muted" style={{fontSize:9}}>{scen.name}</span>
+              </div>
+              {q.desc && <div className="small muted" style={{marginTop:2,fontStyle:'italic'}}>{q.desc}</div>}
+              {s.dmMode && !q.revealed && <span className="dm-badge" style={{marginTop:3}}>SEGRETA</span>}
+            </div>
+          ))}
         </div>
       )}
 
@@ -243,9 +272,19 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
                             if(img?.src)setEnlargedImg(img.src);
                           }}>
                             <div data-slot={'quest-'+q.id}>
-                              <ImageSlot slotId={'quest-'+q.id} campaignId={campaignId} shape="rounded" width={200} height={112} dmMode={s.dmMode} placeholder={s.dmMode?'📷 Immagine quest':''} alt={q.title} hideIfEmpty />
+                              <ImageSlot slotId={'quest-'+q.id} campaignId={campaignId} shape="rounded" width={200} height={112} dmMode={s.dmMode} placeholder={s.dmMode?'📷 Immagine quest':''} alt={q.title} hideIfEmpty
+                                objectPosition={`center ${q.imgPos ?? 50}%`} />
                             </div>
                           </div>
+                          {s.dmMode && (
+                            <div className="row" style={{gap:6,alignItems:'center',marginTop:4,maxWidth:200}} onClick={e=>e.stopPropagation()}>
+                              <span className="label" style={{fontSize:8}}>Inquadr.</span>
+                              <input type="range" min={0} max={100} value={q.imgPos ?? 50}
+                                onChange={e=>updThisScen(x=>({...x,quests:x.quests.map((qq:any)=>qq.id===q.id?{...qq,imgPos:parseInt(e.target.value)}:qq)}))}
+                                style={{flex:1}} title="Sposta il ritaglio verso l'alto o verso il basso" />
+                              <span className="small muted" style={{fontSize:9,width:28,textAlign:'right'}}>{q.imgPos ?? 50}%</span>
+                            </div>
+                          )}
                         </div>
                         {s.dmMode && (
                           <div style={{display:'flex',flexDirection:'column',gap:3,alignItems:'center'}}>
