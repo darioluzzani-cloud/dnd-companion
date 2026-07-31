@@ -18,6 +18,8 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
   // Apertura locale: di default segue lo scenario attivo condiviso, così
   // all'avvio il box in gioco appare già aperto senza propagare nulla.
   const [openScen, setOpenScen] = useState<string>(s.activeScenario || '');
+  // Apertura del riquadro «Quest attive»: locale, mai nel dato condiviso.
+  const [openLT, setOpenLT] = useState(false);
   const [draft, setDraft] = useState('');
   const [newScenName, setNewScenName] = useState('');
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
@@ -85,27 +87,6 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
       {enlargedImg && (
         <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
           <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
-        </div>
-      )}
-
-      {longTerm.length > 0 && (
-        <div className="frame" style={{borderColor:'var(--blue)'}}>
-          <div className="row" style={{gap:8,alignItems:'center',marginBottom:8}}>
-            <span style={{color:'var(--blue)',fontSize:13}}>⟳</span>
-            <div className="label" style={{color:'var(--blue)'}}>Impegni di lungo termine</div>
-            <div className="grow" />
-            <span className="small muted" style={{fontSize:10}}>{longTerm.length}</span>
-          </div>
-          {longTerm.map(({q, scen}) => (
-            <div key={q.id} className="card" style={{padding:'7px 10px',marginBottom:4,borderLeft:'2px solid var(--blue)'}}>
-              <div className="row" style={{gap:8,alignItems:'baseline'}}>
-                <div className="grow" style={{fontSize:13,fontWeight:500}}>{q.title}</div>
-                <span className="small muted" style={{fontSize:9}}>{scen.name}</span>
-              </div>
-              {q.desc && <div className="small muted" style={{marginTop:2,fontStyle:'italic'}}>{q.desc}</div>}
-              {s.dmMode && !q.revealed && <span className="dm-badge" style={{marginTop:3}}>SEGRETA</span>}
-            </div>
-          ))}
         </div>
       )}
 
@@ -327,6 +308,31 @@ export function QuestsTab({ s, update, updScen, sc, campaignId }: { s:CampaignSt
           </div>
         )}
       </div>
+
+      {/* Quest attive — raccolta trasversale agli scenari, sotto il riquadro
+          principale. L'apertura è locale (regola: nessun toggle di navigazione
+          nello stato condiviso), sul modello della testata della Fucina. */}
+      {longTerm.length > 0 && (
+        <div className="frame" style={{borderColor:'var(--blue)'}}>
+          <div className="row" style={{gap:8,alignItems:'center',cursor:'pointer',marginBottom:openLT?8:0}} onClick={()=>setOpenLT(!openLT)}>
+            <span style={{color:'var(--blue)',fontSize:13}}>⟳</span>
+            <div className="label" style={{color:'var(--blue)'}}>Quest attive</div>
+            <div className="grow" />
+            <span className="small muted" style={{fontSize:10}}>{longTerm.length}</span>
+            <span style={{fontSize:14,color:'var(--blue)',transition:'transform .2s',transform:openLT?'rotate(180deg)':''}}>▾</span>
+          </div>
+          {openLT && longTerm.map(({q, scen}) => (
+            <div key={q.id} className="card" style={{padding:'7px 10px',marginBottom:4,borderLeft:'2px solid var(--blue)'}}>
+              <div className="row" style={{gap:8,alignItems:'baseline'}}>
+                <div className="grow" style={{fontSize:13,fontWeight:500}}>{q.title}</div>
+                <span className="small muted" style={{fontSize:9}}>{scen.name}</span>
+              </div>
+              {q.desc && <div className="small muted" style={{marginTop:2,fontStyle:'italic'}}>{q.desc}</div>}
+              {s.dmMode && !q.revealed && <span className="dm-badge" style={{marginTop:3}}>SEGRETA</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
