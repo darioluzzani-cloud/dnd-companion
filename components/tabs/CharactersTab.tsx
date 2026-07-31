@@ -107,9 +107,20 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
             <div style={{cursor:'pointer',marginBottom:10}}
               onClick={()=>{const img=document.querySelector(`[data-slot="png-detail-${detail.id}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
               <div data-slot={'png-detail-'+detail.id}>
-                <ImageSlot slotId={'png-'+detail.id} campaignId={campaignId} shape="rounded" width="100%" height={200} dmMode={s.dmMode} placeholder={s.dmMode?'📷 Ritratto':''} alt={detail.name} hideIfEmpty={!s.dmMode} />
+                <ImageSlot slotId={'png-'+detail.id} campaignId={campaignId} shape="rounded" width="100%" height={200} dmMode={s.dmMode} placeholder={s.dmMode?'📷 Ritratto':''} alt={detail.name} hideIfEmpty={!s.dmMode}
+                  objectPosition={`center ${detail.imgPos ?? 50}%`} />
               </div>
             </div>
+
+            {s.dmMode && (
+              <div className="row" style={{gap:8,alignItems:'center',marginBottom:10}}>
+                <span className="label" style={{fontSize:8}}>Inquadratura</span>
+                <input type="range" min={0} max={100} value={detail.imgPos ?? 50}
+                  onChange={e=>setField(detail.id,'imgPos',parseInt(e.target.value))}
+                  style={{flex:1}} title="Sposta il ritaglio verso l'alto o verso il basso" />
+                <span className="small muted" style={{fontSize:10,width:32,textAlign:'right'}}>{detail.imgPos ?? 50}%</span>
+              </div>
+            )}
 
             {detail.location && !s.dmMode && <div className="small muted" style={{marginBottom:6}}>📍 {detail.location}</div>}
 

@@ -34,6 +34,7 @@ export interface NPC {
   revealed?: boolean;   // assente = visibile (retrocompatibilità); false = preparato ma nascosto ai giocatori
   expanded?: boolean;
   reveals?: RevealFragment[];   // frammenti da svelare progressivamente
+  imgPos?: number;              // inquadratura verticale dell'immagine nel riquadro (0–100)
 }
 
 export interface Spell {
@@ -130,6 +131,7 @@ export interface LoreEntry {
   revealed: boolean;
   expanded: boolean;
   reveals?: RevealFragment[];   // frammenti da svelare progressivamente
+  imgPos?: number;              // inquadratura verticale dell'immagine nel riquadro (0–100)
 }
 
 export interface AlchemyRecipe {

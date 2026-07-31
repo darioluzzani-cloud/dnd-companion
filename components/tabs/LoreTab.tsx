@@ -103,9 +103,20 @@ export function LoreTab({ s, update, campaignId }: { s:CampaignState; update:U; 
             <div style={{cursor:'pointer',marginBottom:10}}
               onClick={()=>{const img=document.querySelector(`[data-slot="lore-detail-${detail.id}"] img`) as HTMLImageElement;if(img?.src)setEnlargedImg(img.src);}}>
               <div data-slot={'lore-detail-'+detail.id}>
-                <ImageSlot slotId={'lore-'+detail.id} campaignId={campaignId} shape="rounded" width="100%" height={200} dmMode={s.dmMode} placeholder={s.dmMode?'📷 Immagine':''} alt={detail.name} hideIfEmpty={!s.dmMode} />
+                <ImageSlot slotId={'lore-'+detail.id} campaignId={campaignId} shape="rounded" width="100%" height={200} dmMode={s.dmMode} placeholder={s.dmMode?'📷 Immagine':''} alt={detail.name} hideIfEmpty={!s.dmMode}
+                  objectPosition={`center ${detail.imgPos ?? 50}%`} />
               </div>
             </div>
+
+            {s.dmMode && (
+              <div className="row" style={{gap:8,alignItems:'center',marginBottom:10}}>
+                <span className="label" style={{fontSize:8}}>Inquadratura</span>
+                <input type="range" min={0} max={100} value={detail.imgPos ?? 50}
+                  onChange={e=>setField(detail.id,'imgPos',parseInt(e.target.value))}
+                  style={{flex:1}} title="Sposta il ritaglio verso l'alto o verso il basso" />
+                <span className="small muted" style={{fontSize:10,width:32,textAlign:'right'}}>{detail.imgPos ?? 50}%</span>
+              </div>
+            )}
 
             {s.dmMode ? (
               <>
