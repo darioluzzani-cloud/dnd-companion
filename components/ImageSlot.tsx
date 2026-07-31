@@ -59,10 +59,11 @@ interface Props {
   placeholder?: string;
   alt?: string;
   hideIfEmpty?: boolean;  // se true, il riquadro è invisibile finché non c'è un'immagine (salvo modalità DM)
+  objectPosition?: string;  // inquadratura: sposta il ritaglio dentro il riquadro (es. 'center 30%')
   onUploaded?: () => void; // notifica il genitore a upload completato
 }
 
-export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height, dmMode, placeholder, alt, hideIfEmpty, onUploaded }: Props) {
+export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height, dmMode, placeholder, alt, hideIfEmpty, objectPosition, onUploaded }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -123,7 +124,7 @@ export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height
   return (
     <div className="img-frame" style={style}>
       {url
-        ? <img src={url} alt={alt || ''} className="img-slot" style={{ borderRadius }} loading="lazy" />
+        ? <img src={url} alt={alt || ''} className="img-slot" style={{ borderRadius, objectPosition }} loading="lazy" />
         : <div className="img-empty" style={{ borderRadius }}>{placeholder || alt?.slice(0, 2).toUpperCase() || 'IMG'}</div>
       }
       {dmMode && (

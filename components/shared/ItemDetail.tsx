@@ -8,13 +8,14 @@ import { ATTUNE_MAX, attunedCount } from '@/lib/dnd/equipment';
 // dell'inventario, così le due viste non divergono col tempo: i comandi
 // propri di ciascuna restano fuori, passati come contorno.
 
-export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, onEnlarge, imageHeight = 200, slotPrefix = 'itemdetail' }: {
+export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, onEnlarge, onImgPos, imageHeight = 200, slotPrefix = 'itemdetail' }: {
   item: any;
   inventory?: any[];
   campaignId: string | null;
   accent: string;
   onAttune?: () => void;
   onEnlarge?: (src: string) => void;
+  onImgPos?: (v: number) => void;   // se presente, compare il cursore d'inquadratura
   imageHeight?: number;
   slotPrefix?: string;
 }) {
@@ -33,9 +34,20 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
         }}>
         <div data-slot={anchor}>
           <ImageSlot slotId={'item-' + item.id} campaignId={campaignId} shape="rounded" width="100%" height={imageHeight}
-            dmMode={false} placeholder={item.name.slice(0, 2).toUpperCase()} alt={item.name} hideIfEmpty />
+            dmMode={false} placeholder={item.name.slice(0, 2).toUpperCase()} alt={item.name} hideIfEmpty
+            objectPosition={`center ${item.imgPos ?? 50}%`} />
         </div>
       </div>
+
+      {onImgPos && (
+        <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 10 }} onClick={e => e.stopPropagation()}>
+          <span className="label" style={{ fontSize: 8 }}>Inquadratura</span>
+          <input type="range" min={0} max={100} value={item.imgPos ?? 50}
+            onChange={e => onImgPos(parseInt(e.target.value))}
+            style={{ flex: 1 }} title="Sposta il ritaglio verso l'alto o verso il basso" />
+          <span className="small muted" style={{ fontSize: 10, width: 32, textAlign: 'right' }}>{item.imgPos ?? 50}%</span>
+        </div>
+      )}
 
       <div className="row" style={{ gap: 8, alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 8 }}>
         <div className="h2 grow" style={{ fontSize: 16, color: accent }}>{item.name}</div>

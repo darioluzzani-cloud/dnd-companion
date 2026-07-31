@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ITEM_TYPES, computeAC } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { ItemDetailBody } from '@/components/shared/ItemDetail';
-import { ATTUNE_MAX, attunedCount, subtypesFor } from '@/lib/dnd/equipment';
+import { ATTUNE_MAX, attunedCount, subtypesFor, itemGradient } from '@/lib/dnd/equipment';
 import { NumberInput } from '@/components/shared/textUtils';
 
 // ─── GRIGLIA DELL'INVENTARIO ─────────────────────────────────
@@ -56,13 +56,12 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
 
   const Tile = ({ it }: { it: any }) => {
     const qty = it.qty ?? 1;
-    const grad = gradientFor(it);
     return (
       <div onClick={() => setDetailId(it.id)} title={it.name}
         style={{ width: TILE, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 3 }}>
         <div style={{ position: 'relative', width: TILE, height: TILE, borderRadius: 8, overflow: 'hidden',
           border: it.equipped ? `2px solid ${accent}` : '1px solid var(--border)',
-          background: grad || 'var(--bg-input)',
+          background: 'var(--bg-input)',
           boxShadow: it.equipped ? `0 0 8px ${accent}44` : 'none' }}>
           <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
             dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
@@ -122,13 +121,14 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
       {/* Scheda dell'oggetto */}
       {detail && (
         <div className="alchemy-overlay" onClick={e => { if (e.target === e.currentTarget) setDetailId(null); }}>
-          <div className="alchemy-popup sheet-popup" style={{ maxWidth: 520 }}>
+          <div className="alchemy-popup sheet-popup" style={{ maxWidth: 520, background: itemGradient(detail, accent, 135) || undefined }}>
             <div className="row" style={{ justifyContent: 'flex-end', marginBottom: 6 }}>
               <button className="btn btn-ghost" style={{ fontSize: 16, padding: '2px 8px' }} onClick={() => setDetailId(null)}>✕</button>
             </div>
 
             <ItemDetailBody item={detail} inventory={p.inventory} campaignId={campaignId} accent={accent}
-              onAttune={() => toggleAttune(detail)} onEnlarge={onEnlarge} slotPrefix="invgrid" />
+              onAttune={() => toggleAttune(detail)} onEnlarge={onEnlarge} slotPrefix="invgrid"
+              onImgPos={s.dmMode ? (v: number) => setItemField(detail.id, 'imgPos', v) : undefined} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow"

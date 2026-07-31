@@ -124,3 +124,21 @@ export function attunedCount(inventory?: any[]): number {
 export function needsAttunement(item?: { attunement?: boolean }): boolean {
   return !!item?.attunement;
 }
+
+/**
+ * Tinta di fondo dell'oggetto: azzurra per il magico, cremisi per l'unico,
+ * del colore del personaggio per ciò che è passato dall'incudine, con
+ * intensità crescente al numero di potenziamenti applicati.
+ */
+export function itemGradient(it: any, playerColor?: string, angle = 90): string | undefined {
+  const enh = it?.enhUsed || 0;
+  if (!it) return undefined;
+  if (it.type === 'magico') return `linear-gradient(${angle}deg, rgba(80,140,220,${enh > 0 ? .22 + enh * .12 : .22}) 0%, var(--bg-input) 40%)`;
+  if (it.type === 'unico')  return `linear-gradient(${angle}deg, rgba(180,50,90,${enh > 0 ? .2 + enh * .12 : .2}) 0%, var(--bg-input) 40%)`;
+  if (enh > 0) {
+    const c = playerColor || '#a489dd';
+    const intensity = [0, .18, .3, .45][Math.min(enh, 3)];
+    return `linear-gradient(${angle}deg, ${c}${Math.round(intensity * 255).toString(16).padStart(2, '0')} 0%, var(--bg-input) 40%)`;
+  }
+  return undefined;
+}

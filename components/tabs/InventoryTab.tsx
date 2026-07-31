@@ -115,51 +115,37 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
       {showSets && <SetsPopup s={s} update={update} p={p} campaignId={campaignId} onClose={()=>setShowSets(false)} />}
       <PlayerSelector s={s} update={update} p={p} campaignId={campaignId} />
       <div className="frame">
-        <div className="row" style={{justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-          <div className="label">Inventario</div>
-          <div className="row" style={{gap:6}}>
+        {/* Barra dei menù: le due viste e i richiami, su una sola riga */}
+        <div className="row" style={{gap:6,flexWrap:'wrap',marginBottom:10}}>
+          {[{k:'indossato',l:'Indossato'},{k:'inventario',l:'Inventario'}].map(v => {
+            const on = filter===v.k;
+            const col = p.color||'var(--gold)';
+            return (
+              <button key={v.k} onClick={()=>setFilter(v.k)}
+                style={{flex:'1 1 110px',padding:'12px 14px',borderRadius:8,cursor:'pointer',textAlign:'left',
+                  fontFamily:'var(--font-display)',fontSize:12,letterSpacing:'.5px',
+                  border:'1px solid '+(on?col:'var(--border)'),
+                  color:on?'var(--text)':'var(--gray-purple-deep)',
+                  background:on?`linear-gradient(270deg, ${col}66 0%, ${col}22 45%, var(--bg-input) 100%)`:'transparent',
+                  boxShadow:on?`0 0 10px ${col}33`:'none',transition:'all .15s'}}>
+                {v.l}
+              </button>
+            );
+          })}
           {s.dmMode && (
-            <button className="alchemy-box-btn" onClick={()=>setShowArmory(true)} style={{borderColor:'var(--gold-dim)'}}>
+            <button className="alchemy-box-btn" onClick={()=>setShowArmory(true)} style={{borderColor:'var(--gold-dim)',padding:'12px 12px',flex:'0 1 auto'}}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6l-8 8M6.5 20L4 17.5l3-3M14 4l6 6M4 20l3.5-.5L20 7l-3-3L4.5 16.5 4 20z"/></svg>
               <span>Armeria</span>
             </button>
           )}
-          <button className="alchemy-box-btn" onClick={()=>setShowSets(true)} style={{borderColor:'var(--gold-dim)'}}>
+          <button className="alchemy-box-btn" onClick={()=>setShowSets(true)} style={{borderColor:'var(--gold-dim)',padding:'12px 12px',flex:'0 1 auto'}}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8L12 2z"/></svg>
             <span>Set</span>
           </button>
-          <button className="alchemy-box-btn" onClick={()=>setShowAlchemy(true)}>
+          <button className="alchemy-box-btn" onClick={()=>setShowAlchemy(true)} style={{padding:'12px 12px',flex:'0 1 auto'}}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 3h6v3a6 6 0 01-6 6v0a6 6 0 00-6 6v2a1 1 0 001 1h16a1 1 0 001-1v-2a6 6 0 00-6-6v0a6 6 0 01-6-6V3z"/><path d="M8 3h8" strokeLinecap="round"/></svg>
             <span>Alchimia</span>
           </button>
-          </div>
-        </div>
-        {/* Le due viste */}
-        <div className="row" style={{gap:6,marginBottom:8}}>
-          {[{k:'indossato',l:'Indossato'},{k:'inventario',l:'Inventario'}].map(v => (
-            <button key={v.k} className="pill" style={{cursor:'pointer',padding:'6px 14px',fontSize:10,flex:1,
-              background:filter===v.k?'var(--bg-active)':'transparent',
-              borderColor:filter===v.k?'var(--gold)':'var(--border)',
-              color:filter===v.k?'var(--gold)':'var(--gray-purple-deep)'}}
-              onClick={()=>setFilter(v.k)}>
-              {v.l}
-            </button>
-          ))}
-        </div>
-
-        {/* Pastiglie di categoria: salto rapido alla fascia corrispondente */}
-        <div className="row" style={{gap:5,flexWrap:'wrap',marginBottom:10}}>
-          {ITEM_TYPES.map(t => (
-            <button key={t} className="pill" style={{cursor:'pointer',padding:'3px 9px',fontSize:8,
-              background:'transparent',borderColor:'var(--border)',color:'var(--gray-purple-deep)'}}
-              title={'Vai alla fascia «'+t+'»'}
-              onClick={()=>{
-                setFilter('inventario');
-                setTimeout(()=>{document.getElementById('shelf-'+t)?.scrollIntoView({behavior:'smooth',block:'start'});},60);
-              }}>
-              {t.charAt(0).toUpperCase()+t.slice(1)}
-            </button>
-          ))}
         </div>
 
         {filter==='indossato' && (

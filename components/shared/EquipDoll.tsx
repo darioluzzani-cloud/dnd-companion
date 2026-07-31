@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { ItemDetailBody } from '@/components/shared/ItemDetail';
 import { computeAC } from '@/components/shared/common';
-import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, ATTUNE_MAX, attunedCount } from '@/lib/dnd/equipment';
+import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, ATTUNE_MAX, attunedCount, itemGradient } from '@/lib/dnd/equipment';
 
 // ─── SAGOMA DELL'EQUIPAGGIAMENTO ─────────────────────────────
 // Caselle fisse secondo lo schema: elmo e mantello in cima, parabracci e
@@ -239,14 +239,15 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
       {/* Scheda dell'oggetto indossato — consultazione rapida */}
       {detail && detailItem && (
         <div className="alchemy-overlay" onClick={e => { if (e.target === e.currentTarget) setDetail(null); }}>
-          <div className="alchemy-popup" style={{ maxWidth: 420 }}>
+          <div className="alchemy-popup" style={{ maxWidth: 420, background: itemGradient(detailItem, accent, 135) || undefined }}>
             <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
               <div className="small muted">{SLOT_BY_ID[detail].label}</div>
               <button className="btn btn-ghost" style={{ fontSize: 16, padding: '2px 8px' }} onClick={() => setDetail(null)}>✕</button>
             </div>
 
             <ItemDetailBody item={detailItem} inventory={inv} campaignId={campaignId} accent={accent}
-              onAttune={() => toggleAttune(detailItem.id)} imageHeight={160} slotPrefix="dolldetail" />
+              onAttune={() => toggleAttune(detailItem.id)} imageHeight={160} slotPrefix="dolldetail"
+              onImgPos={s?.dmMode ? (v: number) => updPlayer(pl => ({ ...pl, inventory: (pl.inventory || []).map((x: any) => x.id === detailItem.id ? { ...x, imgPos: v } : x) })) : undefined} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow" style={{ fontSize: 11 }} onClick={() => { const sl = detail; setDetail(null); setPicking(sl); }}>Cambia oggetto</button>
