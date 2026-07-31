@@ -8,6 +8,7 @@ import { AlchemyPopup } from '@/components/popups/AlchemyPopup';
 import { ArmoryPopup } from '@/components/popups/ArmoryPopup';
 import { SetsPopup } from '@/components/popups/SetsPopup';
 import { EquipDoll } from '@/components/shared/EquipDoll';
+import { InventoryGrid } from '@/components/shared/InventoryGrid';
 import { subtypesFor } from '@/lib/dnd/equipment';
 import { U, moveInArray, ReorderBtns, computeAC, ITEM_TYPES } from '@/components/shared/common';
 import { copyItemImage } from '@/components/shared/imageCopy';
@@ -99,13 +100,13 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
 
   const allItems = [...(p.inventory||[])].sort((a:any,b:any)=>(b.equipped?1:0)-(a.equipped?1:0));
   const visibleItems = s.dmMode ? allItems : allItems.filter((it:any)=>it.revealed!==false);
-  const filtered = filter==='indossato' ? visibleItems.filter((it:any)=>it.equipped && !it.slot) : visibleItems.filter((it:any)=>it.type===filter);
+  const filtered = filter==='indossato' ? visibleItems.filter((it:any)=>it.equipped && !it.slot) : [];
 
   return (
     <div>
       {/* Overlay immagine ingrandita */}
       {enlargedImg && (
-        <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:200,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
+        <div onClick={()=>setEnlargedImg(null)} style={{position:'fixed',inset:0,zIndex:260,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',padding:20}}>
           <img src={enlargedImg} style={{maxWidth:'100%',maxHeight:'90vh',borderRadius:8,border:'1px solid var(--border)'}} alt="" />
         </div>
       )}
@@ -133,14 +134,29 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
           </button>
           </div>
         </div>
-        {/* Filtri per tipo */}
+        {/* Le due viste */}
+        <div className="row" style={{gap:6,marginBottom:8}}>
+          {[{k:'indossato',l:'Indossato'},{k:'inventario',l:'Inventario'}].map(v => (
+            <button key={v.k} className="pill" style={{cursor:'pointer',padding:'6px 14px',fontSize:10,flex:1,
+              background:filter===v.k?'var(--bg-active)':'transparent',
+              borderColor:filter===v.k?'var(--gold)':'var(--border)',
+              color:filter===v.k?'var(--gold)':'var(--gray-purple-deep)'}}
+              onClick={()=>setFilter(v.k)}>
+              {v.l}
+            </button>
+          ))}
+        </div>
+
+        {/* Pastiglie di categoria: salto rapido alla fascia corrispondente */}
         <div className="row" style={{gap:5,flexWrap:'wrap',marginBottom:10}}>
-          {['indossato',...ITEM_TYPES].map(t => (
-            <button key={t} className="pill" style={{cursor:'pointer',padding:'4px 10px',fontSize:9,
-              background:filter===t?'var(--bg-active)':'transparent',
-              borderColor:filter===t?'var(--gold)':'var(--border)',
-              color:filter===t?'var(--gold)':'var(--gray-purple-deep)'}}
-              onClick={()=>setFilter(t)}>
+          {ITEM_TYPES.map(t => (
+            <button key={t} className="pill" style={{cursor:'pointer',padding:'3px 9px',fontSize:8,
+              background:'transparent',borderColor:'var(--border)',color:'var(--gray-purple-deep)'}}
+              title={'Vai alla fascia «'+t+'»'}
+              onClick={()=>{
+                setFilter('inventario');
+                setTimeout(()=>{document.getElementById('shelf-'+t)?.scrollIntoView({behavior:'smooth',block:'start'});},60);
+              }}>
               {t.charAt(0).toUpperCase()+t.slice(1)}
             </button>
           ))}
@@ -153,7 +169,12 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
           </>
         )}
 
-        {filtered.length===0 && filter!=='indossato' && <div className="card muted small" style={{textAlign:'center'}}>Nessun oggetto.</div>}
+        {filter==='inventario' && (
+          <InventoryGrid s={s} p={p} updPlayer={updPlayer} campaignId={campaignId}
+            items={visibleItems} gradientFor={getEnhGradient} onEnlarge={setEnlargedImg}
+            setItemField={setItemField} />
+        )}
+
         {filtered.map((it:any) => (
           <div key={it.id} className="card" style={{
             borderLeft: it.equipped ? '3px solid '+(p.color||'var(--gold)') : '3px solid transparent',

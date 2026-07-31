@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
-import { Markdown } from '@/components/shared/textUtils';
+import { ItemDetailBody } from '@/components/shared/ItemDetail';
 import { computeAC } from '@/components/shared/common';
 import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, ATTUNE_MAX, attunedCount } from '@/lib/dnd/equipment';
 
@@ -245,61 +245,8 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
               <button className="btn btn-ghost" style={{ fontSize: 16, padding: '2px 8px' }} onClick={() => setDetail(null)}>✕</button>
             </div>
 
-            <div className="row" style={{ gap: 12, alignItems: 'flex-start', marginBottom: 10 }}>
-              <div style={{ width: 88, height: 88, borderRadius: 8, overflow: 'hidden', flexShrink: 0, border: `1px solid ${accent}` }}>
-                <ImageSlot slotId={'item-' + detailItem.id} campaignId={campaignId} shape="rect" width={88} height={88} dmMode={false} placeholder={detailItem.name.slice(0, 2).toUpperCase()} alt={detailItem.name} />
-              </div>
-              <div className="grow">
-                <div className="h2" style={{ fontSize: 16, color: accent }}>{detailItem.name}</div>
-                <div className="small muted" style={{ marginTop: 2 }}>
-                  {detailItem.type}{detailItem.subtype ? ' · ' + detailItem.subtype : ''}
-                  {(detailItem.qty ?? 1) !== 1 ? ` · ×${detailItem.qty ?? 1}` : ''}
-                </div>
-                {detailItem.type === 'armatura' && (detailItem.armorCA || detailItem.subtype) && (
-                  <div className="small" style={{ marginTop: 3 }}>CA {detailItem.armorCA || '—'}</div>
-                )}
-              </div>
-            </div>
-
-            {detailItem.attunement && (() => {
-              const bloccato = !detailItem.attuned && attunedCount(inv) >= ATTUNE_MAX;
-              return (
-                <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 8 }}>
-                  <button className="btn" disabled={bloccato}
-                    style={{ fontSize: 11, padding: '4px 12px',
-                      color: detailItem.attuned ? 'var(--blue)' : 'var(--gray-purple)',
-                      borderColor: detailItem.attuned ? 'var(--blue)' : 'var(--border)',
-                      background: detailItem.attuned ? 'var(--bg-active)' : 'transparent',
-                      opacity: bloccato ? .5 : 1 }}
-                    onClick={() => toggleAttune(detailItem.id)}>
-                    ◈ {detailItem.attuned ? 'Sintonizzato' : 'Sintonizzati'}
-                  </button>
-                  {bloccato && <span className="small" style={{ color: 'var(--red)' }}>Hai già {ATTUNE_MAX} sintonie attive</span>}
-                </div>
-              );
-            })()}
-            {detailItem.effect && (
-              <div className="card" style={{ padding: '8px 10px' }}>
-                <div className="label" style={{ fontSize: 8, marginBottom: 3, color: 'var(--gold)' }}>Effetto</div>
-                <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--gold)' }}><Markdown text={detailItem.effect} /></div>
-              </div>
-            )}
-            {detailItem.desc && (
-              <div className="card" style={{ padding: '8px 10px' }}>
-                <div style={{ fontSize: 13, lineHeight: 1.6, fontStyle: 'italic' }}><Markdown text={detailItem.desc} /></div>
-              </div>
-            )}
-            {(detailItem.upgrades || []).length > 0 && (
-              <div className="card" style={{ padding: '8px 10px' }}>
-                <div className="label" style={{ fontSize: 8, marginBottom: 4, color: 'var(--ember)' }}>Potenziamenti</div>
-                {(detailItem.upgrades || []).map((u: any, i: number) => (
-                  <div key={i} className="small" style={{ marginBottom: 2 }}>⚒ <b>{u.name}</b>{u.desc ? ' — ' + u.desc : ''}</div>
-                ))}
-              </div>
-            )}
-            {!detailItem.effect && !detailItem.desc && (
-              <div className="card small muted" style={{ textAlign: 'center', fontStyle: 'italic' }}>Nessuna descrizione registrata.</div>
-            )}
+            <ItemDetailBody item={detailItem} inventory={inv} campaignId={campaignId} accent={accent}
+              onAttune={() => toggleAttune(detailItem.id)} imageHeight={160} slotPrefix="dolldetail" />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow" style={{ fontSize: 11 }} onClick={() => { const sl = detail; setDetail(null); setPicking(sl); }}>Cambia oggetto</button>
