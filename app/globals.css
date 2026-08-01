@@ -391,3 +391,20 @@ html[data-theme='light'] { --ember: #9a6a12; }
 @media (orientation: landscape) and (min-width: 1500px) and (min-height: 520px) {
   .app-wrap { max-width: 1240px; }
 }
+
+/* === BARRA DEI MENÙ DELL'INVENTARIO ========================= */
+/* Comportamento di riferimento (tablet, scrivania, telefono coricato):
+   viste e richiami su una sola riga, i richiami a larghezza naturale. */
+.inv-menubar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.inv-views { display: flex; gap: 6px; flex: 1 1 240px; min-width: 0; }
+.inv-tools { display: flex; gap: 6px; flex: 0 1 auto; }
+.inv-tools > .alchemy-box-btn { padding: 12px 12px; flex: 0 1 auto; }
+
+/* Telefono in verticale: lo spazio non basta per cinque caselle in fila,
+   e la ripartizione automatica lasciava «Alchimia» orfana a capo. Qui i
+   richiami prendono una riga propria e se la dividono in parti uguali. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .inv-tools { flex: 1 1 100%; }
+  .inv-tools > .alchemy-box-btn { flex: 1 1 0; min-width: 0; padding: 12px 6px; justify-content: center; }
+  .inv-tools > .alchemy-box-btn svg { flex-shrink: 0; }
+}
