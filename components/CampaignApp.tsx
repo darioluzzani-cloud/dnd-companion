@@ -3,6 +3,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useCampaignState } from '@/hooks/useCampaignState';
 import { CalendarPopup, CalendarBar } from '@/components/popups/CalendarPopup';
 import { JournalPopup } from '@/components/popups/JournalPopup';
+import { TimelinePopup } from '@/components/popups/TimelinePopup';
 import { QuestsTab } from '@/components/tabs/QuestsTab';
 import { CharactersTab } from '@/components/tabs/CharactersTab';
 import { SpellsTab } from '@/components/tabs/SpellsTab';
@@ -38,6 +39,7 @@ export function CampaignApp({ slug }: { slug: string }) {
 
   const [showCalendar, setShowCalendar] = useState(false);
   const [showJournal, setShowJournal] = useState(false);
+  const [showTimeline, setShowTimeline] = useState(false);
   const [theme, setTheme] = useState<'dark'|'light'>('dark');
   useEffect(() => {
     const saved = (typeof window !== 'undefined' && window.localStorage.getItem('velmora-theme')) as 'dark'|'light'|null;
@@ -77,9 +79,17 @@ export function CampaignApp({ slug }: { slug: string }) {
           <div className="campaign-sub">Compagno di Sessione</div>
           <CalendarBar s={s} onOpen={()=>setShowCalendar(true)} />
         </div>
-        <button className="journal-topbar-btn" onClick={()=>setShowJournal(true)} title="Diario di gioco">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z"/><path d="M9 7h7M9 11h7"/></svg>
-        </button>
+        <div className="topbar-tools">
+          <button className="journal-topbar-btn" onClick={()=>setShowJournal(true)} title="Diario di gioco">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z"/><path d="M9 7h7M9 11h7"/></svg>
+          </button>
+          <button className="journal-topbar-btn" onClick={()=>setShowTimeline(true)} title="Le Cronache">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M12 3v18M12 6h6M12 12h5M12 18h6" strokeLinecap="round"/>
+              <circle cx="12" cy="6" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="18" r="1.6"/>
+            </svg>
+          </button>
+        </div>
         <div className="row" style={{gap:6}}>
           <button className="btn btn-ghost" style={{padding:'4px 6px'}} onClick={toggleTheme} title={theme==='dark'?'Tema chiaro':'Tema scuro'}>
             {theme === 'dark'
@@ -95,6 +105,7 @@ export function CampaignApp({ slug }: { slug: string }) {
       </div>
 
       {showJournal && <JournalPopup s={s} update={update} campaignId={campaignId} onClose={()=>setShowJournal(false)} />}
+      {showTimeline && <TimelinePopup s={s} update={update} campaignId={campaignId} onClose={()=>setShowTimeline(false)} />}
       <DiceOverlay />
       {showCalendar && s.dmMode && <CalendarPopup s={s} update={update} onClose={()=>setShowCalendar(false)} />}
 

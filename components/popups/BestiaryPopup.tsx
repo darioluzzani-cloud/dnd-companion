@@ -77,17 +77,23 @@ export function BestiaryPopup({ s, update, campaignId, combatScen, onClose }: { 
         {bestiary.map(e => (
           <div key={e.id} className="card" style={{ padding: '10px 12px' }}>
             <div className="row" style={{ gap: 10 }}>
-              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <div style={{ display: 'flex', gap: 3 }}>
-                  {Array.from({ length: variantsOf(e) }).map((_, i) => (
-                    <div key={i} title={variantsOf(e) > 1 ? `Ritratto ${i + 1}` : e.name}
-                      style={{ width: 44, height: 60, overflow: 'hidden', borderRadius: 6, position: 'relative' }}>
-                      <ImageSlot slotId={slotFor(e, i)} campaignId={campaignId} shape="rect" width={44} height={60} dmMode={s.dmMode} placeholder={e.name.slice(0, 2).toUpperCase()} alt={e.name} />
-                      {variantsOf(e) > 1 && (
-                        <span style={{ position: 'absolute', bottom: 1, right: 3, fontSize: 8, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px #000' }}>{i + 1}</span>
-                      )}
-                    </div>
-                  ))}
+              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 3, width: variantsOf(e) > 1 ? 79 : 44 }}>
+                {/* Con più ritratti la fila diventa una griglia a due colonne di
+                    provini più piccoli: la colonna resta di larghezza fissa e il
+                    testo della scheda non viene più spinto fuori dalla card. */}
+                <div style={{ display: 'grid', gridTemplateColumns: variantsOf(e) > 1 ? '38px 38px' : '44px', gap: 3 }}>
+                  {Array.from({ length: variantsOf(e) }).map((_, i) => {
+                    const w = variantsOf(e) > 1 ? 38 : 44, h = variantsOf(e) > 1 ? 50 : 60;
+                    return (
+                      <div key={i} title={variantsOf(e) > 1 ? `Ritratto ${i + 1}` : e.name}
+                        style={{ width: w, height: h, overflow: 'hidden', borderRadius: 6, position: 'relative' }}>
+                        <ImageSlot slotId={slotFor(e, i)} campaignId={campaignId} shape="rect" width={w} height={h} dmMode={s.dmMode} placeholder={e.name.slice(0, 2).toUpperCase()} alt={e.name} />
+                        {variantsOf(e) > 1 && (
+                          <span style={{ position: 'absolute', bottom: 1, right: 3, fontSize: 8, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px #000' }}>{i + 1}</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 {s.dmMode && (
                   <div className="row" style={{ gap: 3, justifyContent: 'center' }}>
@@ -101,7 +107,7 @@ export function BestiaryPopup({ s, update, campaignId, combatScen, onClose }: { 
                   </div>
                 )}
               </div>
-              <div className="grow">
+              <div className="grow" style={{ minWidth: 0 }}>
                 {editingId === e.id ? (
                   <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
                     <input value={e.name} onChange={ev => patchEntry(e.id, { name: ev.target.value })} style={{ fontSize: 13, padding: '3px 8px', flex: '1 1 100%' }} />

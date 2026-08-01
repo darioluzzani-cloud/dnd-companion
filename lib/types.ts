@@ -134,6 +134,32 @@ export interface LoreEntry {
   imgPos?: number;              // inquadratura verticale dell'immagine nel riquadro (0–100)
 }
 
+/** Categorie della Cronaca: governano colore e raggruppamento visivo. */
+export type TimelineCat = 'campagna' | 'storia' | 'sigilli' | 'personale' | 'presagio';
+
+/**
+ * Evento della Cronaca. La data è volutamente a precisione variabile: molti
+ * fatti antichi si collocano solo per anno, e imporre giorno e mese
+ * costringerebbe a inventare precisione che il mondo non possiede.
+ * `revealed` governa l'esistenza della voce per i giocatori; `reveals`
+ * ne scopre il contenuto un frammento alla volta, come per PNG e Lore.
+ */
+export interface TimelineEvent {
+  id: string;
+  title: string;
+  year: number;              // anno d.V. — unico campo obbligatorio della data
+  month?: number;            // 1-12, facoltativo
+  day?: number;              // 1-30, facoltativo
+  approx?: boolean;          // datazione incerta: si legge "attorno al…"
+  era?: string;              // etichetta libera ("epoca Teodora", "prima del Vespro")
+  cat?: TimelineCat;
+  text?: string;             // testo di base, visibile quando la voce è svelata
+  dmNote?: string;
+  revealed?: boolean;
+  reveals?: RevealFragment[];
+  imgPos?: number;           // inquadratura verticale dell'immagine (0–100)
+}
+
 export interface AlchemyRecipe {
   id: string;
   tool: string;
@@ -188,6 +214,7 @@ export interface CampaignState {
   alchemyRecipes?: AlchemyRecipe[];
   bestiary?: BestiaryEntry[];
   journal?: JournalEntry[];
+  timeline?: TimelineEvent[];   // Le Cronache della Marca
   baseRations?: number;  // razioni giornaliere nel magazzino del villaggio
   smithUpgrades?: { id: string; name: string; desc: string; material?: string; cat?: 'base'|'avanzato'|'nanico'; materials?: { name: string; qty: number }[] }[];  // catalogo della fucina
   marketBuildingId?: string;      // edificio (di norma la Piazza) che governa il livello del mercato
