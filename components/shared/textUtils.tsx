@@ -52,7 +52,14 @@ export function NumberInput({ value, onChange, min, max, empty0 = true, style, c
 
   return (
     <input
-      type="text" inputMode="numeric" pattern="[0-9-]*"
+      // Il trattino dentro una classe di caratteri va sempre protetto nella
+      // nuova sintassi delle espressioni regolari (flag `v`, che i browser
+      // applicano agli attributi `pattern`): spostarlo in testa non basta.
+      // Qui esco del tutto dalla classe e dichiaro il segno come prefisso
+      // facoltativo, che è anche ciò che il campo accetta davvero: «1-2» era
+      // formalmente valido per il vecchio pattern e non lo è mai stato per la
+      // validazione effettiva, che resta quella di `onChange`.
+      type="text" inputMode="numeric" pattern="-?[0-9]*"
       value={draft} title={title} placeholder={placeholder} className={className} style={style}
       onChange={e => {
         const raw = e.target.value;
