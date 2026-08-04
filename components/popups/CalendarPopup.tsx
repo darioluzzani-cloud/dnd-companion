@@ -65,7 +65,7 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
     update(prev => {
       const { players, removed } = sweepExpired(prev.players, next.date);
       if (removed.length) {
-        const detail = removed.map(r => `${r.name} (${r.player})`).join(', ');
+        const detail = removed.map(r => `${r.name} ×${r.doses} (${r.player})`).join(', ');
         setTimeout(() => setSwept(detail), 0);
       }
       return { calendar: next, players };
@@ -244,7 +244,7 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
                 <div className="row" style={{gap:6,alignItems:'flex-start'}}>
                   <span style={{color:'var(--red)',fontSize:13}}>⧖</span>
                   <div className="grow">
-                    <div className="label" style={{fontSize:8,color:'var(--red)',marginBottom:2}}>Preparati guasti</div>
+                    <div className="label" style={{fontSize:8,color:'var(--red)',marginBottom:2}}>Partite guaste, scartate</div>
                     <div className="small muted" style={{fontSize:11,lineHeight:1.5}}>{swept}</div>
                   </div>
                   <button className="btn btn-ghost" style={{padding:'1px 6px',fontSize:10}} onClick={()=>setSwept(null)}>✕</button>

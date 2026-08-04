@@ -7,7 +7,7 @@ import { sfxComplete } from '@/lib/dnd/sounds';
 import { U, ITEM_TYPES } from '@/components/shared/common';
 import { copyRecipeImage } from '@/components/shared/imageCopy';
 import { absDay } from '@/lib/dnd/calendar';
-import { PERISH_DAYS } from '@/lib/dnd/perishables';
+import { PERISH_DAYS, addDose } from '@/lib/dnd/perishables';
 
 
 export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:CampaignState; update:U; p:any; updPlayer:any; campaignId:string|null; onClose:()=>void }) {
@@ -75,29 +75,32 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
       });
       if (matched) {
         const res = matched.result;
-        // I preparati deperibili non si accumulano fra giornate diverse: una
-        // partita fatta oggi e una fatta domani sono due voci con due
-        // scadenze. Solo lo stesso giorno il conteggio si somma.
+        // Il preparato resta UNA voce d'inventario: se è deperibile, la
+        // nuova partita entra come lotto datato al giorno corrente, e si
+        // somma a quello dello stesso giorno se già esiste. Due giornate
+        // diverse convivono dentro lo stesso oggetto, non in due voci.
         const perish = !!res.perishable;
-        const today = s.calendar?.date ? absDay(s.calendar.date) : undefined;
-        const existing = inv.find((i:any) => i.name === res.name
-          && (!perish || (i.perishable && i.madeOn === today)));
+        const today = s.calendar?.date ? absDay(s.calendar.date) : 0;
+        const existing = inv.find((i:any) => i.name === res.name);
         if (existing) {
-          inv = inv.map((i:any) => i.id === existing.id ? { ...i, qty: (i.qty||0) + (res.qty||1), revealed: true } : i);
+          inv = inv.map((i:any) => {
+            if (i.id !== existing.id) return i;
+            const base = { ...i, revealed: true };
+            return perish
+              ? addDose({ ...base, perishable: true }, today, res.qty || 1)
+              : { ...base, qty: (i.qty || 0) + (res.qty || 1) };
+          });
         } else {
-          inv = [...inv, { id:newItemId, name:res.name, type:res.type||'consumabile', qty:res.qty||1,
-            effect:res.effect||'', desc:res.desc||'', equipped:false, expanded:false, pu:0, revealed:true,
-            ...(perish ? { perishable:true, madeOn: today } : {}) }];
+          const fresh:any = { id:newItemId, name:res.name, type:res.type||'consumabile', qty:res.qty||1,
+            effect:res.effect||'', desc:res.desc||'', equipped:false, expanded:false, pu:0, revealed:true };
+          inv = [...inv, perish ? addDose({ ...fresh, qty:0, perishable:true }, today, res.qty||1) : fresh];
         }
       }
       return { ...pl, inventory: inv };
     });
 
     if (matched) {
-      const perish = !!matched.result.perishable;
-      const today = s.calendar?.date ? absDay(s.calendar.date) : undefined;
-      const existing = (p.inventory||[]).find((i:any) => i.name === matched.result.name
-        && (!perish || (i.perishable && i.madeOn === today)));
+      const existing = (p.inventory||[]).find((i:any) => i.name === matched.result.name);
       if (!existing && campaignId) copyRecipeImage(campaignId, matched.id, newItemId);
       setResult({ success:true, recipe:matched });
       sfxComplete();

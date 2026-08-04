@@ -282,8 +282,10 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
                 return { ...pl,
                   hp: pl.maxHp ?? pl.hp ?? 0,
                   slotsUsed: {},
-                  // Regola della casa: recupero integrale dei dadi vita.
-                  // Il regolamento 2024 ne restituirebbe metà.
+                  // Regolamento 2024: il riposo lungo restituisce tutti i
+                  // punti ferita e TUTTI i dadi vita spesi. È una delle
+                  // differenze rispetto all'edizione precedente, che ne
+                  // restituiva metà.
                   hitDiceUsed: 0,
                   exhaustion: Math.max(0, ((pl as any).exhaustion || 0) - 1),
                   resources: (pl.resources || []).map((r:any) => r.recovery === 'none' ? r : { ...r, current: r.max }),

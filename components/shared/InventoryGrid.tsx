@@ -4,10 +4,9 @@ import { ITEM_TYPES, computeAC } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { ItemDetailBody } from '@/components/shared/ItemDetail';
 import { ATTUNE_MAX, attunedCount, subtypesFor, itemGradient, ammoApplies } from '@/lib/dnd/equipment';
-import { isPerishable, daysLeft } from '@/lib/dnd/perishables';
+import { isPerishable, soonestLeft, batchesOf, withBatches, addDose, PERISH_DAYS } from '@/lib/dnd/perishables';
 import { NumberInput } from '@/components/shared/textUtils';
-import { absDay, addDays, formatDate } from '@/lib/dnd/calendar';
-import { PERISH_DAYS } from '@/lib/dnd/perishables';
+import { absDay, formatDate } from '@/lib/dnd/calendar';
 
 // ─── GRIGLIA DELL'INVENTARIO ─────────────────────────────────
 // Una fascia per categoria, disposte in verticale; dentro ogni fascia le
@@ -28,13 +27,14 @@ const shortCat = (c: string) => CAT_SHORT[c] || c;
 const TILE = 74;
 const ROW_MIN = 104;
 
-export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor, onEnlarge, setItemField, players, onTransfer }: {
+export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor, onEnlarge, setItemField, players, onTransfer, onConsume }: {
   s: any; p: any; updPlayer: (fn: (pl: any) => any) => void; campaignId: string | null;
   items: any[]; gradientFor: (it: any) => string | undefined;
   onEnlarge: (src: string) => void;
   setItemField: (id: string, field: string, value: any) => void;
   players?: any[];
   onTransfer?: (item: any, targetId: string) => void;
+  onConsume?: (itemId: string, madeOn: number, n?: number) => void;
 }) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const accent = p?.color || 'var(--gold)';
@@ -83,7 +83,7 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
             <span style={{ position: 'absolute', top: 1, right: 3, fontSize: 9, color: 'var(--ember)', textShadow: '0 1px 3px #000' }}>⚒</span>
           )}
           {(() => {
-            const left = s.calendar?.date && isPerishable(it) ? daysLeft(it, s.calendar.date) : null;
+            const left = s.calendar?.date && isPerishable(it) ? soonestLeft(it, s.calendar.date) : null;
             return left === null ? null : (
               <span title={left <= 1 ? 'Scade entro domani' : `Ancora buono per ${left} giorni`}
                 style={{ position: 'absolute', top: 1, right: (it.upgrades || []).length > 0 ? 14 : 3, fontSize: 9,
@@ -152,7 +152,8 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
               onQty={n => setItemField(detail.id, 'qty', n)}
               onPu={n => setItemField(detail.id, 'pu', n)}
               players={players}
-              onTransfer={onTransfer ? (target: string) => { onTransfer(detail, target); setDetailId(null); } : undefined} />
+              onTransfer={onTransfer ? (target: string) => { onTransfer(detail, target); setDetailId(null); } : undefined}
+              onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detail.id, madeOn, n) : undefined} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow"
@@ -220,28 +221,37 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
                   </label>
                 )}
 
-                {/* Deperibile: la data di preparazione si imprime alla creazione;
-                    qui il DM può correggerla o dichiararla su un oggetto nato altrove. */}
+                {/* Deperibile: dichiarandolo, la scorta presente diventa un
+                    lotto datato a oggi; togliendolo, i lotti si fondono nella
+                    quantità semplice. La correzione delle singole partite
+                    avviene sui riquadri della scheda, sopra. */}
                 <label className="row" style={{ gap: 5, alignItems: 'center', marginBottom: 4, cursor: 'pointer' }}>
                   <input type="checkbox" checked={!!detail.perishable} onChange={e => {
                     const on = e.target.checked;
-                    setItemField(detail.id, 'perishable', on || undefined);
-                    if (on && typeof detail.madeOn !== 'number' && s.calendar?.date) {
-                      setItemField(detail.id, 'madeOn', absDay(s.calendar.date));
-                    }
+                    const today = s.calendar?.date ? absDay(s.calendar.date) : 0;
+                    updPlayer((pl: any) => ({
+                      ...pl,
+                      inventory: (pl.inventory || []).map((i: any) => {
+                        if (i.id !== detail.id) return i;
+                        if (!on) { const n = { ...i, perishable: undefined, batches: undefined }; delete n.madeOn; return n; }
+                        const cur = batchesOf({ ...i, perishable: true });
+                        return withBatches({ ...i, perishable: true },
+                          cur.length ? cur : [{ madeOn: today, qty: i.qty ?? 0 }]);
+                      }),
+                    }));
                   }} />
-                  <span className="small" style={{ color: detail.perishable ? 'var(--red)' : 'var(--gray-purple)' }}>⧖ Deperibile — scade dopo {PERISH_DAYS} giorni</span>
+                  <span className="small" style={{ color: detail.perishable ? 'var(--red)' : 'var(--gray-purple)' }}>⧖ Deperibile — {PERISH_DAYS} giorni per partita</span>
                 </label>
                 {detail.perishable && s.calendar?.date && (
-                  <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4 }}>
-                    <span className="label" style={{ fontSize: 8 }}>Preparato il</span>
-                    <button className="btn btn-ghost" style={{ padding: '1px 6px', fontSize: 10 }}
-                      onClick={() => setItemField(detail.id, 'madeOn', (detail.madeOn ?? absDay(s.calendar.date)) - 1)}>−</button>
-                    <span className="small muted" style={{ fontSize: 10 }}>
-                      {formatDate(addDays({ year: 0, month: 1, day: 1 }, detail.madeOn ?? absDay(s.calendar.date)))}
-                    </span>
-                    <button className="btn btn-ghost" style={{ padding: '1px 6px', fontSize: 10 }}
-                      onClick={() => setItemField(detail.id, 'madeOn', (detail.madeOn ?? absDay(s.calendar.date)) + 1)}>+</button>
+                  <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
+                    <span className="label" style={{ fontSize: 8 }}>Nuova partita</span>
+                    <button className="btn btn-ghost" style={{ padding: '1px 8px', fontSize: 10 }}
+                      title="Aggiunge una dose datata al giorno corrente"
+                      onClick={() => updPlayer((pl: any) => ({
+                        ...pl,
+                        inventory: (pl.inventory || []).map((i: any) => i.id === detail.id ? addDose(i, absDay(s.calendar.date), 1) : i),
+                      }))}>+ dose di oggi</button>
+                    <span className="small muted" style={{ fontSize: 9 }}>{formatDate(s.calendar.date)}</span>
                   </div>
                 )}
 

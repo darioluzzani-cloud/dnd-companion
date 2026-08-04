@@ -12,6 +12,7 @@ import { InventoryGrid } from '@/components/shared/InventoryGrid';
 import { subtypesFor } from '@/lib/dnd/equipment';
 import { U, moveInArray, ReorderBtns, computeAC, ITEM_TYPES } from '@/components/shared/common';
 import { copyItemImage } from '@/components/shared/imageCopy';
+import { consumeDose } from '@/lib/dnd/perishables';
 
 const ITEM_TEMPLATES = [
   {name:'Pozione di cura',type:'consumabile',effect:'Recupera 2d4+2 PF',desc:'Liquido rosso che luccica quando viene agitato.'},
@@ -73,6 +74,13 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
     if (campaignId) copyItemImage(campaignId, item.id, newId);
   };
   const otherPlayers = s.players.filter(pl => pl.id !== p.id);
+
+  // Consumo di una dose da un lotto di preparato deperibile. Passa da
+  // `consumeDose`, che riallinea `qty` come somma dei lotti e libera il
+  // riquadro quando la partita si esaurisce.
+  const consumeBatch = (iid:string, madeOn:number, n=1) => updPlayer((pl:any)=>({
+    ...pl, inventory: (pl.inventory||[]).map((i:any)=> i.id===iid ? consumeDose(i, madeOn, n) : i),
+  }));
   // Calcola gradiente per potenziamento
   const getEnhGradient = (it:any) => {
     const enh = it.enhUsed || 0;
@@ -153,7 +161,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
         {filter==='indossato' && (
           <>
             <EquipDoll s={s} p={p} updPlayer={updPlayer} campaignId={campaignId} accent={p.color||'var(--gold)'}
-              players={otherPlayers} onTransfer={moveItem} setItemField={setItemField} />
+              players={otherPlayers} onTransfer={moveItem} setItemField={setItemField} onConsume={consumeBatch} />
             {filtered.length>0 && <div className="label" style={{margin:'12px 0 6px'}}>Equipaggiati senza alloggiamento</div>}
           </>
         )}
@@ -161,7 +169,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
         {filter==='inventario' && (
           <InventoryGrid s={s} p={p} updPlayer={updPlayer} campaignId={campaignId}
             items={visibleItems} gradientFor={getEnhGradient} onEnlarge={setEnlargedImg}
-            setItemField={setItemField} players={otherPlayers} onTransfer={moveItem} />
+            setItemField={setItemField} players={otherPlayers} onTransfer={moveItem} onConsume={consumeBatch} />
         )}
 
         {filtered.map((it:any) => (
