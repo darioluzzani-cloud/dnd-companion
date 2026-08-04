@@ -1,14 +1,17 @@
 'use client';
 import { ImageSlot } from '@/components/ImageSlot';
 import { Markdown } from '@/components/shared/textUtils';
-import { ATTUNE_MAX, attunedCount } from '@/lib/dnd/equipment';
+import { NumberInput } from '@/components/shared/textUtils';
+import { ATTUNE_MAX, attunedCount, qtyEditable, hasWear } from '@/lib/dnd/equipment';
+import { isPerishable, perishLabel, daysLeft } from '@/lib/dnd/perishables';
 
 // ─── SCHEDA DELL'OGGETTO ─────────────────────────────────────
 // Corpo condiviso fra la sagoma dell'equipaggiamento e la griglia
 // dell'inventario, così le due viste non divergono col tempo: i comandi
 // propri di ciascuna restano fuori, passati come contorno.
 
-export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, onEnlarge, onImgPos, imageHeight = 200, slotPrefix = 'itemdetail' }: {
+export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, onEnlarge, onImgPos, imageHeight = 200, slotPrefix = 'itemdetail',
+  dmMode, onQty, onPu, players, onTransfer, today }: {
   item: any;
   inventory?: any[];
   campaignId: string | null;
@@ -18,11 +21,19 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
   onImgPos?: (v: number) => void;   // se presente, compare il cursore d'inquadratura
   imageHeight?: number;
   slotPrefix?: string;
+  dmMode?: boolean;
+  onQty?: (n: number) => void;      // regolazione della quantità
+  onPu?: (n: number) => void;       // Punti Usura
+  players?: { id: string; name: string; short?: string; color?: string }[];
+  onTransfer?: (targetId: string) => void;   // «Passa a…»
+  today?: any;                      // data corrente, per la scadenza dei preparati
 }) {
   if (!item) return null;
   const qty = item.qty ?? 1;
   const anchor = `${slotPrefix}-${item.id}`;
   const bloccato = !item.attuned && attunedCount(inventory) >= ATTUNE_MAX;
+  const canQty = !!onQty && qtyEditable(item, dmMode);
+  const perish = today && isPerishable(item) ? { label: perishLabel(item, today), left: daysLeft(item, today) } : null;
 
   return (
     <>
@@ -95,6 +106,52 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
       )}
       {!item.effect && !item.desc && (item.upgrades || []).length === 0 && (
         <div className="card small muted" style={{ textAlign: 'center', fontStyle: 'italic' }}>Nessuna descrizione registrata.</div>
+      )}
+
+      {/* Preparato deperibile: la scadenza si dichiara, non si subisce */}
+      {perish?.label && (
+        <div className="card" style={{ padding: '6px 10px', borderColor: (perish.left ?? 9) <= 1 ? 'var(--red)' : 'var(--border-sec)' }}>
+          <span className="small" style={{ color: (perish.left ?? 9) <= 1 ? 'var(--red)' : 'var(--gray-purple)' }}>⧖ {perish.label}</span>
+        </div>
+      )}
+
+      {/* Quantità — regolabile dal giocatore su ciò che si consuma e su ciò
+          che il DM ha dichiarato munizione; dal DM sempre. */}
+      {canQty && (
+        <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 10 }}>
+          <span className="label" style={{ fontSize: 9 }}>Quantità</span>
+          <button className="btn" style={{ padding: '3px 12px', fontSize: 13 }} onClick={() => onQty!(Math.max(0, qty - 1))}>−</button>
+          <NumberInput value={qty} min={0} onChange={n => onQty!(Math.max(0, n))}
+            style={{ width: 52, textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600, padding: '3px 4px' }} />
+          <button className="btn" style={{ padding: '3px 12px', fontSize: 13 }} onClick={() => onQty!(qty + 1)}>+</button>
+          {item.ammo && <span className="small muted" style={{ fontSize: 9 }}>munizione</span>}
+        </div>
+      )}
+
+      {/* Punti Usura — visibili e correggibili anche dal giocatore */}
+      {onPu && hasWear(item) && (
+        <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 8 }}>
+          <span className="label" style={{ fontSize: 9 }}>Usura</span>
+          <button className="btn" style={{ padding: '3px 12px', fontSize: 13 }} onClick={() => onPu(Math.max(0, (item.pu ?? 0) - 1))}>−</button>
+          <NumberInput value={item.pu ?? 0} min={0} onChange={n => onPu(Math.max(0, n))}
+            style={{ width: 52, textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600,
+              color: (item.pu ?? 0) > 0 ? 'var(--red)' : 'var(--gray-purple)', padding: '3px 4px' }} />
+          <button className="btn" style={{ padding: '3px 12px', fontSize: 13 }} onClick={() => onPu((item.pu ?? 0) + 1)}>+</button>
+          <span className="small muted" style={{ fontSize: 9 }}>PU</span>
+        </div>
+      )}
+
+      {/* Passa a… — un solo comando, aperto anche ai giocatori: un oggetto
+          consegnato di mano in mano non deve passare dal DM. */}
+      {onTransfer && (players || []).length > 0 && (
+        <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 8 }}>
+          <span className="label" style={{ fontSize: 9, flexShrink: 0 }}>Passa a</span>
+          <select className="grow" style={{ fontSize: 12, padding: '4px 6px' }} defaultValue=""
+            onChange={e => { const v = e.target.value; e.target.value = ''; if (v) onTransfer(v); }}>
+            <option value="">— scegli il destinatario —</option>
+            {(players || []).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+          </select>
+        </div>
       )}
     </>
   );

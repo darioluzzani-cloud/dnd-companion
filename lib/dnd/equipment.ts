@@ -142,3 +142,28 @@ export function itemGradient(it: any, playerColor?: string, angle = 90): string 
   }
   return undefined;
 }
+
+/**
+ * Categorie la cui quantità il giocatore regola da sé senza chiedere nulla:
+ * ciò che si consuma, si spende o si accumula. Per armi, equipaggiamento e
+ * oggetti magici la facoltà si concede caso per caso, dichiarando l'oggetto
+ * «munizione» in redazione — è la differenza fra dieci frecce e una spada.
+ */
+export const FREE_QTY_TYPES = ['consumabile', 'tesoro', 'alchemico', 'altro'];
+
+export function qtyEditable(item: { type?: string; ammo?: boolean }, dmMode?: boolean): boolean {
+  if (dmMode) return true;
+  if (item?.ammo) return true;
+  return FREE_QTY_TYPES.includes(item?.type || '');
+}
+
+/** Categorie che accumulano Punti Usura. */
+export const WEAR_TYPES = ['arma', 'armatura', 'magico', 'unico'];
+export function hasWear(item: { type?: string }): boolean {
+  return WEAR_TYPES.includes(item?.type || '');
+}
+
+/** La spunta «munizione» ha senso solo dove la quantità non è già libera. */
+export function ammoApplies(item: { type?: string }): boolean {
+  return !FREE_QTY_TYPES.includes(item?.type || '');
+}

@@ -5,7 +5,7 @@ import { U } from '@/components/shared/common';
 import { Markdown, NumberInput } from '@/components/shared/textUtils';
 import { RevealBadge, RevealsView, RevealsEditor } from '@/components/shared/Reveals';
 import { ImageSlot } from '@/components/ImageSlot';
-import { MONTHS, monthInfo, DAYS_PER_MONTH, MONTHS_PER_YEAR } from '@/lib/dnd/calendar';
+import { MONTHS, monthInfo, DAYS_PER_MONTH, MONTHS_PER_YEAR, absDay } from '@/lib/dnd/calendar';
 import { sfxReveal } from '@/lib/dnd/sounds';
 
 // ─── LE CRONACHE DELLA MARCA — la linea del tempo ────────────
@@ -35,7 +35,7 @@ const colorOf = (e: TimelineEvent) => (TL_CATS.find(c => c.k === catOf(e)) || TL
  *  precedono quelle precise dello stesso anno — un fatto collocato solo
  *  nell'anno sta "all'inizio" di quell'anno, che è la lettura più onesta. */
 const sortKey = (e: TimelineEvent) =>
-  ((e.year * MONTHS_PER_YEAR) + ((e.month || 0) === 0 ? 0 : e.month! - 1)) * DAYS_PER_MONTH + ((e.day || 1) - 1);
+  absDay({ year: e.year, month: e.month || 1, day: e.day || 1 });
 
 function fmtEventDate(e: TimelineEvent): string {
   const pre = e.approx ? 'attorno al ' : '';
@@ -85,7 +85,7 @@ export function TimelinePopup({ s, update, campaignId, onClose }: {
   }, [all, s.dmMode, catFilter]);
 
   // Posizione del segnalino "oggi": l'indice davanti al quale inserirlo.
-  const todayKey = today ? ((today.year * MONTHS_PER_YEAR) + today.month - 1) * DAYS_PER_MONTH + (today.day - 1) : null;
+  const todayKey = today ? absDay(today) : null;
   const todayIdx = todayKey === null ? -1 : events.findIndex(e => sortKey(e) > todayKey);
   const todayAt = todayKey === null ? -1 : (todayIdx < 0 ? events.length : todayIdx);
 

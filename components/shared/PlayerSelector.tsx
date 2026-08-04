@@ -275,21 +275,26 @@ export function PlayerSelector({ s, update, p, campaignId }: { s:CampaignState; 
           };
 
           const longRest = () => {
-            if (!confirm('Riposo lungo: PF al massimo, slot incantesimo ripristinati, recupero di metà dei dadi vita, −1 indebolimento. Confermare?')) return;
+            if (!confirm('Riposo lungo: PF al massimo, slot incantesimo ripristinati, dadi vita recuperati per intero, −1 indebolimento. Confermare?')) return;
             update(prev => ({
               players: prev.players.map(pl => {
                 if (pl.id !== p.id) return pl;
-                const lvl = getLevelInfo(pl.xp || 0).level;
-                const recovered = Math.max(1, Math.floor(lvl / 2));
                 return { ...pl,
                   hp: pl.maxHp ?? pl.hp ?? 0,
                   slotsUsed: {},
-                  hitDiceUsed: Math.max(0, ((pl as any).hitDiceUsed || 0) - recovered),
+                  // Regola della casa: recupero integrale dei dadi vita.
+                  // Il regolamento 2024 ne restituirebbe metà.
+                  hitDiceUsed: 0,
                   exhaustion: Math.max(0, ((pl as any).exhaustion || 0) - 1),
                   resources: (pl.resources || []).map((r:any) => r.recovery === 'none' ? r : { ...r, current: r.max }),
                 } as any;
               }),
-              combatants: prev.combatants.map(c => c.id === 'pc-' + p.id ? { ...c, hp: c.maxHp } : c),
+              combatants: prev.combatants.map(c => {
+                if (c.id !== 'pc-' + p.id) return c;
+                const next: any = { ...c, hp: c.maxHp };
+                delete next.ds;   // in piedi e riposato: i TS contro morte non hanno più corso
+                return next;
+              }),
             }));
             setLastHd(null);
           };

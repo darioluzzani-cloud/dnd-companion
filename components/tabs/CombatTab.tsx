@@ -28,35 +28,50 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
   const [lastRoll,setLastRoll]=useState<{die:number;value:number;t:number}|null>(null);
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
 
-  // HP change con sync bidirezionale combattente ↔ giocatore/companion
+  // ── PUNTI FERITA: UNA SOLA FONTE DI VERITÀ ────────────────
+  // Per i personaggi giocanti e per i loro companion i punti ferita vivono
+  // nella scheda del giocatore, non nella riga di iniziativa. La copia in
+  // `combatants` resta scritta per compatibilità con i dati già salvati, ma
+  // non viene MAI letta: `liveHp` risale sempre al proprietario. È il
+  // rimedio strutturale al caso di Ysdra — prima la battaglia riscriveva
+  // nella scheda anche il massimale, prendendolo da un combattente che
+  // poteva essere vecchio di sessioni, e la correzione fatta in inventario
+  // veniva silenziosamente annullata al primo colpo incassato.
+  const ownerOf = (c:any) => c.id.startsWith('pc-') ? s.players.find(pl => pl.id === c.id.slice(3)) : undefined;
+  const companionOf = (c:any) => c.id.startsWith('comp-') ? (s.players.find(pl => pl.id === c.id.slice(5)) as any)?.companion : undefined;
+  const liveHp = (c:any): {hp:number; maxHp:number} => {
+    const o:any = ownerOf(c);
+    if (o) return { hp: o.hp ?? o.maxHp ?? 0, maxHp: o.maxHp ?? 0 };
+    const comp:any = companionOf(c);
+    if (comp) return { hp: comp.hp ?? 0, maxHp: comp.maxHp ?? 0 };
+    return { hp: c.hp, maxHp: c.maxHp };
+  };
+
   const changeHp = (kId:string, delta:number) => {
     update(prev => {
+      // Il valore di partenza è quello della scheda, non quello del combattente
+      const cur = prev.combatants.find(c => c.id === kId);
+      if (!cur) return {};
+      let base = { hp: cur.hp, maxHp: cur.maxHp };
+      const pcId = kId.startsWith('pc-') ? kId.slice(3) : null;
+      const compId = kId.startsWith('comp-') ? kId.slice(5) : null;
+      if (pcId) { const o:any = prev.players.find(pl=>pl.id===pcId); if (o) base = { hp: o.hp ?? o.maxHp ?? 0, maxHp: o.maxHp ?? 0 }; }
+      if (compId) { const o:any = prev.players.find(pl=>pl.id===compId); if (o?.companion) base = { hp: o.companion.hp ?? 0, maxHp: o.companion.maxHp ?? 0 }; }
+
+      const hp = Math.max(0, Math.min(base.maxHp, base.hp + delta));
+
       const newCombatants = prev.combatants.map(c => {
         if (c.id !== kId) return c;
-        const hp = Math.max(0, Math.min(c.maxHp, c.hp + delta));
-        const next: any = {...c, hp};
-        if (hp > 0 && next.ds) delete next.ds; // sopra lo zero i TS contro morte si azzerano
+        const next:any = { ...c, hp, maxHp: base.maxHp };
+        if (hp > 0 && next.ds) delete next.ds;   // sopra lo zero i TS contro morte si azzerano
         return next;
       });
+
       let newPlayers = prev.players;
-      // Sync verso player se è un PG
-      if (kId.startsWith('pc-')) {
-        const pId = kId.replace('pc-','');
-        const comb = newCombatants.find(c=>c.id===kId);
-        if (comb) {
-          newPlayers = prev.players.map(p => p.id===pId ? {...p, hp: comb.hp, maxHp: comb.maxHp} : p);
-        }
-      }
-      // Sync verso companion se è un companion
-      if (kId.startsWith('comp-')) {
-        const pId = kId.replace('comp-','');
-        const comb = newCombatants.find(c=>c.id===kId);
-        if (comb) {
-          newPlayers = prev.players.map(p => p.id===pId && (p as any).companion
-            ? {...p, companion: {...(p as any).companion, hp: comb.hp, maxHp: comb.maxHp}} as any
-            : p);
-        }
-      }
+      if (pcId)   newPlayers = prev.players.map(p => p.id===pcId ? {...p, hp} : p);
+      if (compId) newPlayers = prev.players.map(p => p.id===compId && (p as any).companion
+        ? {...p, companion: {...(p as any).companion, hp}} as any : p);
+
       return { combatants: newCombatants, players: newPlayers };
     });
   };
@@ -135,7 +150,7 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
             return (
               <div key={k.id} className="row" style={{padding:'5px 12px',marginBottom:4,borderRadius:6,border:'1px dashed var(--border)',opacity:.55,gap:8}}>
                 <span className="small" style={{fontStyle:'italic',flex:1}}>{k.name}</span>
-                <span className="small muted">{k.hp}/{k.maxHp} PF</span>
+                <span className="small muted">{liveHp(k).hp}/{liveHp(k).maxHp} PF</span>
                 <button className="btn btn-ghost" style={{padding:'1px 6px',fontSize:10}} title="Rivela in battaglia"
                   onClick={()=>update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,revealed:true}:c)}))}>◯</button>
                 <button className="btn btn-danger btn-ghost" style={{padding:'1px 6px',fontSize:10}} title="Rimuovi"
@@ -143,9 +158,11 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
               </div>
             );
           }
-          const pct = Math.round(((k.hp||0)/(k.maxHp||1))*100);
+          // PF sempre derivati: per i PG e i companion la scheda è la fonte
+          const kh = liveHp(k);
+          const pct = Math.round(((kh.hp||0)/(kh.maxHp||1))*100);
           return (
-            <div key={k.id} className={(k.side==='enemy' && k.hp===0 ? 'enemy-dead ' : k.side==='enemy' && k.hp>0 && k.hp<=Math.max(1,Math.ceil(k.maxHp*0.05)) ? 'enemy-critical ' : '') + ('card'+(isCurrent?' turn-indicator':''))}>
+            <div key={k.id} className={(k.side==='enemy' && kh.hp===0 ? 'enemy-dead ' : k.side==='enemy' && kh.hp>0 && kh.hp<=Math.max(1,Math.ceil(kh.maxHp*0.05)) ? 'enemy-critical ' : '') + ('card'+(isCurrent?' turn-indicator':''))}>
               <div className="row">
                 {/* Ritratto rettangolare verticale — per tutti i combattenti */}
                 <div style={{width:44,height:60,flexShrink:0,marginRight:4,overflow:'hidden',borderRadius:6,cursor:'pointer'}}
@@ -184,12 +201,26 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
                     {(k.side==='ally'||s.dmMode) ? (
                       s.dmMode ? (
                         <div className="row" style={{gap:2}}>
-                          <span style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/</span>
-                          <NumberInput value={k.maxHp||0} onChange={v=>{update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c)}));}}
+                          <span style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{kh.hp}/</span>
+                          {/* Il massimale di un PG o di un companion si corregge
+                              sulla scheda; qui la battaglia lo riporta lì. */}
+                          <NumberInput value={kh.maxHp||0} onChange={v=>{update(prev=>{
+                            const pcId = k.id.startsWith('pc-') ? k.id.slice(3) : null;
+                            const compId = k.id.startsWith('comp-') ? k.id.slice(5) : null;
+                            const players = pcId
+                              ? prev.players.map(pl=>pl.id===pcId?{...pl,maxHp:v,hp:Math.min(pl.hp??v,v)}:pl)
+                              : compId
+                                ? prev.players.map((pl:any)=>pl.id===compId&&pl.companion?{...pl,companion:{...pl.companion,maxHp:v,hp:Math.min(pl.companion.hp??v,v)}}:pl)
+                                : prev.players;
+                            return {
+                              players,
+                              combatants: prev.combatants.map(c=>c.id===k.id?{...c,maxHp:v,hp:Math.min(c.hp,v)}:c),
+                            };
+                          });}}
                             style={{width:40,textAlign:'center',background:'transparent',border:'1px solid var(--border)',fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)',padding:'2px 4px'}} />
                         </div>
                       ) : (
-                        <div style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{k.hp}/{k.maxHp}</div>
+                        <div style={{fontFamily:'var(--font-display)',fontSize:13,color:'var(--gray-purple)'}}>{kh.hp}/{kh.maxHp}</div>
                       )
                     ) : (
                       <div className="pill" style={{fontSize:9,padding:'2px 8px',color:'var(--red)',borderColor:'var(--pink-border)'}}>Nemico</div>
@@ -203,7 +234,7 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
                     <button className="hp-btn hp-btn-pos" onClick={()=>changeHp(k.id,1)}>+1</button>
                     <button className="hp-btn hp-btn-pos" onClick={()=>changeHp(k.id,5)}>+5</button>
                   </div>
-                  {k.id.startsWith('pc-') && (k.hp||0) === 0 && (() => {
+                  {k.id.startsWith('pc-') && (kh.hp||0) === 0 && (() => {
                     const ds = (k as any).ds || { s: 0, f: 0 };
                     const setDs = (ns:number, nf:number) => update(prev=>({combatants:prev.combatants.map(c=>c.id===k.id?({...c, ds:{s:ns,f:nf}} as any):c)}));
                     const dead = ds.f >= 3, stable = ds.s >= 3;

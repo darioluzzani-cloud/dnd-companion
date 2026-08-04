@@ -3,8 +3,11 @@ import { useState } from 'react';
 import { ITEM_TYPES, computeAC } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { ItemDetailBody } from '@/components/shared/ItemDetail';
-import { ATTUNE_MAX, attunedCount, subtypesFor, itemGradient } from '@/lib/dnd/equipment';
+import { ATTUNE_MAX, attunedCount, subtypesFor, itemGradient, ammoApplies } from '@/lib/dnd/equipment';
+import { isPerishable, daysLeft } from '@/lib/dnd/perishables';
 import { NumberInput } from '@/components/shared/textUtils';
+import { absDay, addDays, formatDate } from '@/lib/dnd/calendar';
+import { PERISH_DAYS } from '@/lib/dnd/perishables';
 
 // ─── GRIGLIA DELL'INVENTARIO ─────────────────────────────────
 // Una fascia per categoria, disposte in verticale; dentro ogni fascia le
@@ -25,11 +28,13 @@ const shortCat = (c: string) => CAT_SHORT[c] || c;
 const TILE = 74;
 const ROW_MIN = 104;
 
-export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor, onEnlarge, setItemField }: {
+export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor, onEnlarge, setItemField, players, onTransfer }: {
   s: any; p: any; updPlayer: (fn: (pl: any) => any) => void; campaignId: string | null;
   items: any[]; gradientFor: (it: any) => string | undefined;
   onEnlarge: (src: string) => void;
   setItemField: (id: string, field: string, value: any) => void;
+  players?: any[];
+  onTransfer?: (item: any, targetId: string) => void;
 }) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const accent = p?.color || 'var(--gold)';
@@ -77,6 +82,14 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
           {(it.upgrades || []).length > 0 && (
             <span style={{ position: 'absolute', top: 1, right: 3, fontSize: 9, color: 'var(--ember)', textShadow: '0 1px 3px #000' }}>⚒</span>
           )}
+          {(() => {
+            const left = s.calendar?.date && isPerishable(it) ? daysLeft(it, s.calendar.date) : null;
+            return left === null ? null : (
+              <span title={left <= 1 ? 'Scade entro domani' : `Ancora buono per ${left} giorni`}
+                style={{ position: 'absolute', top: 1, right: (it.upgrades || []).length > 0 ? 14 : 3, fontSize: 9,
+                  color: left <= 1 ? 'var(--red)' : 'var(--gray-purple)', textShadow: '0 1px 3px #000' }}>⧖</span>
+            );
+          })()}
           {(qty > 1 || spent) && (
             <span style={{ position: 'absolute', bottom: 1, right: 3, fontSize: 9, fontWeight: 700,
               color: spent ? 'var(--red)' : '#fff', textShadow: '0 1px 3px #000' }}>×{qty}</span>
@@ -134,7 +147,12 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
 
             <ItemDetailBody item={detail} inventory={p.inventory} campaignId={campaignId} accent={accent}
               onAttune={() => toggleAttune(detail)} onEnlarge={onEnlarge} slotPrefix="invgrid"
-              onImgPos={s.dmMode ? (v: number) => setItemField(detail.id, 'imgPos', v) : undefined} />
+              onImgPos={s.dmMode ? (v: number) => setItemField(detail.id, 'imgPos', v) : undefined}
+              dmMode={s.dmMode} today={s.calendar?.date}
+              onQty={n => setItemField(detail.id, 'qty', n)}
+              onPu={n => setItemField(detail.id, 'pu', n)}
+              players={players}
+              onTransfer={onTransfer ? (target: string) => { onTransfer(detail, target); setDetailId(null); } : undefined} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow"
@@ -191,6 +209,40 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
                     <input type="checkbox" checked={!!detail.attunement} onChange={e => setItemField(detail.id, 'attunement', e.target.checked || undefined)} />
                     <span className="small" style={{ color: detail.attunement ? 'var(--blue)' : 'var(--gray-purple)' }}>◈ Richiede sintonia</span>
                   </label>
+                )}
+
+                {/* Munizione: apre la quantità al giocatore su ciò che di norma
+                    non la avrebbe libera (frecce, verrettoni, pietre da fionda). */}
+                {ammoApplies(detail) && (
+                  <label className="row" style={{ gap: 5, alignItems: 'center', marginBottom: 4, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={!!detail.ammo} onChange={e => setItemField(detail.id, 'ammo', e.target.checked || undefined)} />
+                    <span className="small" style={{ color: detail.ammo ? 'var(--gold)' : 'var(--gray-purple)' }}>⁂ Munizione — quantità libera al giocatore</span>
+                  </label>
+                )}
+
+                {/* Deperibile: la data di preparazione si imprime alla creazione;
+                    qui il DM può correggerla o dichiararla su un oggetto nato altrove. */}
+                <label className="row" style={{ gap: 5, alignItems: 'center', marginBottom: 4, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!!detail.perishable} onChange={e => {
+                    const on = e.target.checked;
+                    setItemField(detail.id, 'perishable', on || undefined);
+                    if (on && typeof detail.madeOn !== 'number' && s.calendar?.date) {
+                      setItemField(detail.id, 'madeOn', absDay(s.calendar.date));
+                    }
+                  }} />
+                  <span className="small" style={{ color: detail.perishable ? 'var(--red)' : 'var(--gray-purple)' }}>⧖ Deperibile — scade dopo {PERISH_DAYS} giorni</span>
+                </label>
+                {detail.perishable && s.calendar?.date && (
+                  <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4 }}>
+                    <span className="label" style={{ fontSize: 8 }}>Preparato il</span>
+                    <button className="btn btn-ghost" style={{ padding: '1px 6px', fontSize: 10 }}
+                      onClick={() => setItemField(detail.id, 'madeOn', (detail.madeOn ?? absDay(s.calendar.date)) - 1)}>−</button>
+                    <span className="small muted" style={{ fontSize: 10 }}>
+                      {formatDate(addDays({ year: 0, month: 1, day: 1 }, detail.madeOn ?? absDay(s.calendar.date)))}
+                    </span>
+                    <button className="btn btn-ghost" style={{ padding: '1px 6px', fontSize: 10 }}
+                      onClick={() => setItemField(detail.id, 'madeOn', (detail.madeOn ?? absDay(s.calendar.date)) + 1)}>+</button>
+                  </div>
                 )}
 
                 {['arma', 'armatura', 'magico', 'unico'].includes(detail.type) && (

@@ -6,6 +6,8 @@ import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { sfxComplete } from '@/lib/dnd/sounds';
 import { U, ITEM_TYPES } from '@/components/shared/common';
 import { copyRecipeImage } from '@/components/shared/imageCopy';
+import { absDay } from '@/lib/dnd/calendar';
+import { PERISH_DAYS } from '@/lib/dnd/perishables';
 
 
 export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: { s:CampaignState; update:U; p:any; updPlayer:any; campaignId:string|null; onClose:()=>void }) {
@@ -24,6 +26,7 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
   const [rEffect, setREffect] = useState('');
   const [rDesc, setRDesc] = useState('');
   const [rQty, setRQty] = useState(1);
+  const [rPerish, setRPerish] = useState(false);
   const [editingId, setEditingId] = useState<string|null>(null);
 
   const recipes: any[] = (s as any).alchemyRecipes || [];
@@ -72,19 +75,29 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
       });
       if (matched) {
         const res = matched.result;
-        const existing = inv.find((i:any) => i.name === res.name);
+        // I preparati deperibili non si accumulano fra giornate diverse: una
+        // partita fatta oggi e una fatta domani sono due voci con due
+        // scadenze. Solo lo stesso giorno il conteggio si somma.
+        const perish = !!res.perishable;
+        const today = s.calendar?.date ? absDay(s.calendar.date) : undefined;
+        const existing = inv.find((i:any) => i.name === res.name
+          && (!perish || (i.perishable && i.madeOn === today)));
         if (existing) {
           inv = inv.map((i:any) => i.id === existing.id ? { ...i, qty: (i.qty||0) + (res.qty||1), revealed: true } : i);
         } else {
           inv = [...inv, { id:newItemId, name:res.name, type:res.type||'consumabile', qty:res.qty||1,
-            effect:res.effect||'', desc:res.desc||'', equipped:false, expanded:false, pu:0, revealed:true }];
+            effect:res.effect||'', desc:res.desc||'', equipped:false, expanded:false, pu:0, revealed:true,
+            ...(perish ? { perishable:true, madeOn: today } : {}) }];
         }
       }
       return { ...pl, inventory: inv };
     });
 
     if (matched) {
-      const existing = (p.inventory||[]).find((i:any) => i.name === matched.result.name);
+      const perish = !!matched.result.perishable;
+      const today = s.calendar?.date ? absDay(s.calendar.date) : undefined;
+      const existing = (p.inventory||[]).find((i:any) => i.name === matched.result.name
+        && (!perish || (i.perishable && i.madeOn === today)));
       if (!existing && campaignId) copyRecipeImage(campaignId, matched.id, newItemId);
       setResult({ success:true, recipe:matched });
       sfxComplete();
@@ -121,18 +134,18 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
     if (ingredients.length < 2) return;
     if (editingId) {
       update(prev => ({ alchemyRecipes: ((prev as any).alchemyRecipes||[]).map((r:any) =>
-        r.id === editingId ? { ...r, tool:rTool.trim(), ingredients, result:{ name:rName.trim(), type:rType, effect:rEffect, desc:rDesc, qty:rQty||1 } } : r
+        r.id === editingId ? { ...r, tool:rTool.trim(), ingredients, result:{ name:rName.trim(), type:rType, effect:rEffect, desc:rDesc, qty:rQty||1, perishable:rPerish||undefined } } : r
       ) } as any));
     } else {
       const id = uid('alc');
       update(prev => ({ alchemyRecipes: [...((prev as any).alchemyRecipes||[]), {
-        id, tool:rTool.trim(), ingredients, result:{ name:rName.trim(), type:rType, effect:rEffect, desc:rDesc, qty:rQty||1 }
+        id, tool:rTool.trim(), ingredients, result:{ name:rName.trim(), type:rType, effect:rEffect, desc:rDesc, qty:rQty||1, perishable:rPerish||undefined }
       }] } as any));
     }
     clearRecipeForm();
   };
-  const clearRecipeForm = () => { setRTool(''); setRIngr(['','','']); setRName(''); setRType('consumabile'); setREffect(''); setRDesc(''); setRQty(1); setEditingId(null); setShowRecipeForm(false); };
-  const editRecipe = (r:any) => { setRTool(r.tool); setRIngr([r.ingredients[0]||'',r.ingredients[1]||'',r.ingredients[2]||'']); setRName(r.result.name); setRType(r.result.type||'consumabile'); setREffect(r.result.effect||''); setRDesc(r.result.desc||''); setRQty(r.result.qty||1); setEditingId(r.id); setShowRecipeForm(true); };
+  const clearRecipeForm = () => { setRTool(''); setRIngr(['','','']); setRName(''); setRType('consumabile'); setREffect(''); setRDesc(''); setRQty(1); setRPerish(false); setEditingId(null); setShowRecipeForm(false); };
+  const editRecipe = (r:any) => { setRTool(r.tool); setRIngr([r.ingredients[0]||'',r.ingredients[1]||'',r.ingredients[2]||'']); setRName(r.result.name); setRType(r.result.type||'consumabile'); setREffect(r.result.effect||''); setRDesc(r.result.desc||''); setRQty(r.result.qty||1); setRPerish(!!r.result.perishable); setEditingId(r.id); setShowRecipeForm(true); };
   const delRecipe = (id:string) => { if(confirm('Eliminare questa ricetta?')) update(prev=>({alchemyRecipes:((prev as any).alchemyRecipes||[]).filter((r:any)=>r.id!==id)} as any)); };
 
   // Collect all known alchemic names for recipe dropdown suggestions
@@ -389,6 +402,12 @@ export function AlchemyPopup({ s, update, p, updPlayer, campaignId, onClose }: {
                       style={{width:40,fontSize:11,padding:'3px 4px',textAlign:'center'}} />
                   </div>
                 </div>
+                {/* Deperibile: il prodotto nasce datato al giorno corrente e
+                    svanisce dopo due giorni se non viene consumato. */}
+                <label className="row" style={{gap:5,alignItems:'center',marginBottom:6,cursor:'pointer'}}>
+                  <input type="checkbox" checked={rPerish} onChange={e=>setRPerish(e.target.checked)} />
+                  <span className="small" style={{color:rPerish?'var(--red)':'var(--gray-purple)'}}>⧖ Deperibile — svanisce dopo {PERISH_DAYS} giorni</span>
+                </label>
                 <input value={rEffect} placeholder="Effetto (es. Recupera 2d4+2 PF)" onChange={e=>setREffect(e.target.value)}
                   style={{fontSize:12,padding:'5px 8px',marginBottom:4}} />
                 <textarea value={rDesc} placeholder="Descrizione…" onChange={e=>setRDesc(e.target.value)}

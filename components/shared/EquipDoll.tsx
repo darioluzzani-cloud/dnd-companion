@@ -27,8 +27,11 @@ const DIM = {
 
 const SIDE_OFFSET = 58;
 
-export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
+export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTransfer, setItemField }: {
   s: any; p: any; updPlayer: (fn: (pl: any) => any) => void; campaignId: string | null; accent: string;
+  players?: any[];
+  onTransfer?: (item: any, targetId: string) => void;
+  setItemField?: (id: string, field: string, value: any) => void;
 }) {
   const [picking, setPicking] = useState<SlotId | null>(null);
   const [detail, setDetail] = useState<SlotId | null>(null);
@@ -247,7 +250,12 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent }: {
 
             <ItemDetailBody item={detailItem} inventory={inv} campaignId={campaignId} accent={accent}
               onAttune={() => toggleAttune(detailItem.id)} imageHeight={160} slotPrefix="dolldetail"
-              onImgPos={s?.dmMode ? (v: number) => updPlayer(pl => ({ ...pl, inventory: (pl.inventory || []).map((x: any) => x.id === detailItem.id ? { ...x, imgPos: v } : x) })) : undefined} />
+              onImgPos={s?.dmMode ? (v: number) => updPlayer(pl => ({ ...pl, inventory: (pl.inventory || []).map((x: any) => x.id === detailItem.id ? { ...x, imgPos: v } : x) })) : undefined}
+              dmMode={s?.dmMode} today={s?.calendar?.date}
+              onQty={n => setQty(detailItem.id, n)}
+              onPu={setItemField ? (n: number) => setItemField(detailItem.id, 'pu', n) : undefined}
+              players={players}
+              onTransfer={onTransfer ? (target: string) => { onTransfer(detailItem, target); setDetail(null); } : undefined} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow" style={{ fontSize: 11 }} onClick={() => { const sl = detail; setDetail(null); setPicking(sl); }}>Cambia oggetto</button>

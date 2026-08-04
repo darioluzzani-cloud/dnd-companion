@@ -59,6 +59,17 @@ export interface InventoryItem {
   attuned?: boolean;     // il personaggio è attualmente sintonizzato
   slot?: string;    // alloggiamento occupato sulla sagoma dell'equipaggiamento
   upgrades?: { name: string; desc: string }[];  // lavori di fucina applicati
+  pu?: number;      // Punti Usura accumulati
+  /** Munizione: il DM lo dichiara su armi ed equipaggiamento perché il
+   *  giocatore possa regolarne la quantità da sé, come già fa con i
+   *  consumabili. Sulle categorie di consumo la spunta non serve. */
+  ammo?: boolean;
+  /** Deperibile: decotti e impacchi svaniscono dopo PERISH_DAYS giorni. */
+  perishable?: boolean;
+  /** Giorno assoluto del calendario in cui è stato preparato. È qui, e non
+   *  in un registro del calendario, che vive la scadenza: due preparati
+   *  omonimi fatti in giorni diversi restano due voci separate. */
+  madeOn?: number;
 }
 
 export interface ItemSet {
@@ -102,6 +113,10 @@ export interface Player {
   spellAbility?: string; // caratteristica da incantatore ('int' | 'wis' | 'cha'); se assente, dedotta dalla classe
   saveProf?: Record<string, boolean>;
   skillProf?: Record<string, number>;
+  /** Competenze in armi, armature e strumenti: chiave = etichetta, valore =
+   *  posseduta. Le voci non canoniche aggiunte a mano restano nella mappa
+   *  anche da spente, così l'elenco personale del PG non si perde. */
+  profGear?: Record<string, boolean>;
   profNotes?: string;
   spells: Spell[];
   inventory: InventoryItem[];
@@ -171,6 +186,7 @@ export interface AlchemyRecipe {
     effect: string;
     desc: string;
     qty: number;
+    perishable?: boolean;   // il prodotto scade dopo PERISH_DAYS giorni
   };
 }
 

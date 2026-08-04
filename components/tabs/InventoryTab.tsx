@@ -53,31 +53,26 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
   const [openItems, setOpenItems] = useState<Set<string>>(new Set());
   const toggleExpand = (iid:string) => setOpenItems(prev=>{const n=new Set(prev);n.has(iid)?n.delete(iid):n.add(iid);return n;});
 
-  // Sposta oggetto a un altro PG
+  // ── Passa a… ──────────────────────────────────────────────
+  // Un solo comando, disponibile anche ai giocatori: l'oggetto lascia lo
+  // zaino di chi lo cede e compare in quello del destinatario. Arriva
+  // sempre riposto — sfilato dalla sagoma e non equipaggiato — perché una
+  // spada che cambia mano non resta impugnata da sola, e perché lasciare
+  // l'alloggiamento occupato produrrebbe due oggetti nella stessa casella.
+  // La sintonia decade per la stessa ragione: appartiene a chi la stringe.
   const moveItem = (item:any, targetId:string) => {
     const newId = uid('i');
     update(prev => ({
       players: prev.players.map(pl => {
         if (pl.id === p.id) return {...pl, inventory: pl.inventory.filter((i:any)=>i.id!==item.id)};
-        if (pl.id === targetId) return {...pl, inventory: [...pl.inventory, {...item, id:newId}]};
+        if (pl.id === targetId) return {...pl, inventory: [...pl.inventory,
+          {...item, id:newId, slot:undefined, equipped:false, attuned:undefined}]};
         return pl;
       })
     }));
     if (campaignId) copyItemImage(campaignId, item.id, newId);
   };
-  // Copia oggetto a un altro PG (duplica nome, effetto, desc, tipo)
-  const copyItem = (item:any, targetId:string) => {
-    const newId = uid('i');
-    update(prev => ({
-      players: prev.players.map(pl => {
-        if (pl.id === targetId) return {...pl, inventory: [...pl.inventory, {
-          ...item, id:newId, qty:1, equipped:false, expanded:false, enhUsed:0
-        }]};
-        return pl;
-      })
-    }));
-    if (campaignId) copyItemImage(campaignId, item.id, newId);
-  };
+  const otherPlayers = s.players.filter(pl => pl.id !== p.id);
   // Calcola gradiente per potenziamento
   const getEnhGradient = (it:any) => {
     const enh = it.enhUsed || 0;
@@ -157,7 +152,8 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
 
         {filter==='indossato' && (
           <>
-            <EquipDoll s={s} p={p} updPlayer={updPlayer} campaignId={campaignId} accent={p.color||'var(--gold)'} />
+            <EquipDoll s={s} p={p} updPlayer={updPlayer} campaignId={campaignId} accent={p.color||'var(--gold)'}
+              players={otherPlayers} onTransfer={moveItem} setItemField={setItemField} />
             {filtered.length>0 && <div className="label" style={{margin:'12px 0 6px'}}>Equipaggiati senza alloggiamento</div>}
           </>
         )}
@@ -165,7 +161,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
         {filter==='inventario' && (
           <InventoryGrid s={s} p={p} updPlayer={updPlayer} campaignId={campaignId}
             items={visibleItems} gradientFor={getEnhGradient} onEnlarge={setEnlargedImg}
-            setItemField={setItemField} />
+            setItemField={setItemField} players={otherPlayers} onTransfer={moveItem} />
         )}
 
         {filtered.map((it:any) => (
@@ -343,16 +339,14 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                     )}
                   </div>
                 )}
-                {/* Sposta / Copia a un altro PG */}
-                {s.dmMode && (
-                  <div className="row" style={{gap:6,marginTop:8,flexWrap:'wrap'}}>
-                    <select style={{flex:1,fontSize:11,padding:'4px 6px'}} defaultValue="" onChange={e=>{if(e.target.value){moveItem(it,e.target.value);} e.target.value='';}}>
-                      <option value="" disabled>Sposta a…</option>
-                      {s.players.filter(pl=>pl.id!==p.id).map(pl=><option key={pl.id} value={pl.id}>{pl.name}</option>)}
-                    </select>
-                    <select style={{flex:1,fontSize:11,padding:'4px 6px'}} defaultValue="" onChange={e=>{if(e.target.value){copyItem(it,e.target.value);} e.target.value='';}}>
-                      <option value="" disabled>Copia a…</option>
-                      {s.players.filter(pl=>pl.id!==p.id).map(pl=><option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                {/* Passa a… — visibile anche ai giocatori */}
+                {otherPlayers.length > 0 && (
+                  <div className="row" style={{gap:8,marginTop:8,alignItems:'center'}}>
+                    <span className="label" style={{fontSize:9,flexShrink:0}}>Passa a</span>
+                    <select className="grow" style={{fontSize:12,padding:'4px 6px'}} defaultValue=""
+                      onChange={e=>{const v=e.target.value; e.target.value=''; if(v) moveItem(it,v);}}>
+                      <option value="">— scegli il destinatario —</option>
+                      {otherPlayers.map(pl=><option key={pl.id} value={pl.id}>{pl.name}</option>)}
                     </select>
                   </div>
                 )}

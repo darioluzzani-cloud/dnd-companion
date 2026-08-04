@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { CampaignState } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { sfxDice } from '@/lib/dnd/sounds';
+import { sweepExpired } from '@/lib/dnd/perishables';
 import { COND, DT, WEATHER_MAP, WEATHER_DETAILS, BIOMES, SEASONS, EFFECT_CATS, INTENSITY_COLORS } from '@/lib/dnd/weather';
 import {
   CalendarState, DEFAULT_CALENDAR, MONTHS, addDays, seasonForMonth,
@@ -49,8 +50,27 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
   const [catFilter, setCatFilter] = useState('all');
   const [intFilter, setIntFilter] = useState('all');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [swept, setSwept] = useState<string | null>(null);   // preparati scartati all'ultimo cambio data
 
   const setCal = (next: CalendarState) => update({ calendar: next });
+
+  /**
+   * Ogni cambio di data scarta i preparati guasti da tutti gli inventari.
+   * La spazzata vive qui perché il calendario è l'unico punto in cui il
+   * tempo avanza davvero, e perché così c'è un solo scrittore: un decotto
+   * non può sparire due volte da due dispositivi diversi. Ciò che viene
+   * tolto viene detto, mai fatto svanire in silenzio.
+   */
+  const setCalAndSweep = (next: CalendarState) => {
+    update(prev => {
+      const { players, removed } = sweepExpired(prev.players, next.date);
+      if (removed.length) {
+        const detail = removed.map(r => `${r.name} (${r.player})`).join(', ');
+        setTimeout(() => setSwept(detail), 0);
+      }
+      return { calendar: next, players };
+    });
+  };
 
   // ── Giornata: avanzamento ──
   const advance = (n: number) => {
@@ -58,9 +78,9 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
     if (n > 0) {
       const { key, roll } = rollDailyWeather(cal.biome || 'temperato', seasonForMonth(date.month));
       sfxDice();
-      setCal({ ...cal, date, weatherKey: key, weatherRoll: roll });
+      setCalAndSweep({ ...cal, date, weatherKey: key, weatherRoll: roll });
     } else {
-      setCal({ ...cal, date });
+      setCalAndSweep({ ...cal, date });
     }
   };
 
@@ -75,7 +95,7 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
     date.year = Math.max(0, date.year || 0);
     date.month = Math.min(12, Math.max(1, date.month || 1));
     date.day = Math.min(30, Math.max(1, date.day || 1));
-    setCal({ ...cal, date, weatherKey: undefined, weatherRoll: undefined });
+    setCalAndSweep({ ...cal, date, weatherKey: undefined, weatherRoll: undefined });
   };
 
   const upcoming = nextFestivities(cal.date, 3);
@@ -217,6 +237,20 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
               <button className="btn btn-primary cal-adv" onClick={()=>advance(1)}>+1 giorno</button>
               <button className="btn cal-adv" onClick={()=>advance(6)}>+1 settimana</button>
             </div>
+
+            {/* Preparati guasti scartati al cambio di data */}
+            {swept && (
+              <div className="card" style={{borderColor:'var(--red)',padding:'8px 10px',marginBottom:10}}>
+                <div className="row" style={{gap:6,alignItems:'flex-start'}}>
+                  <span style={{color:'var(--red)',fontSize:13}}>⧖</span>
+                  <div className="grow">
+                    <div className="label" style={{fontSize:8,color:'var(--red)',marginBottom:2}}>Preparati guasti</div>
+                    <div className="small muted" style={{fontSize:11,lineHeight:1.5}}>{swept}</div>
+                  </div>
+                  <button className="btn btn-ghost" style={{padding:'1px 6px',fontSize:10}} onClick={()=>setSwept(null)}>✕</button>
+                </div>
+              </div>
+            )}
 
             {/* Impostazione diretta */}
             <div className="card">

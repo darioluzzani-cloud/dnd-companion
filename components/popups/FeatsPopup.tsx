@@ -13,6 +13,27 @@ const KINDS = [
 ];
 const kindOf = (id: string) => KINDS.find(k => k.id === id) || KINDS[3];
 
+// ─── Competenze in armi, armature e strumenti ────────────────
+// Elenco canonico della 5.5 in italiano, con la possibilità di aggiungere
+// voci proprie: gli strumenti da artigiano e le padronanze regionali non
+// stanno in nessuna lista chiusa. La spunta segue lo stesso gesto delle
+// abilità nella Scheda.
+const PROF_GROUPS: { id: string; label: string; color: string; items: string[] }[] = [
+  { id: 'armi', label: 'Armi', color: 'var(--red)', items: [
+    'Armi semplici', 'Armi da guerra', 'Armi da fuoco',
+    'Balestra a mano', 'Spada lunga', 'Spada corta', 'Stocco', 'Arco lungo', 'Arco corto',
+  ] },
+  { id: 'armature', label: 'Armature', color: 'var(--blue)', items: [
+    'Armature leggere', 'Armature medie', 'Armature pesanti', 'Scudi',
+  ] },
+  { id: 'strumenti', label: 'Strumenti', color: 'var(--gold)', items: [
+    'Arnesi da scasso', 'Kit da erborista', 'Attrezzi da fabbro', 'Attrezzi da falegname',
+    'Attrezzi da conciapelli', 'Attrezzi da alchimista', 'Attrezzi da calligrafo',
+    'Attrezzi da gioielliere', 'Strumenti musicali', 'Kit da camuffamento',
+    'Kit da falsario', 'Kit da avvelenatore', 'Utensili da cuoco', 'Veicoli terrestri', 'Veicoli acquatici',
+  ] },
+];
+
 export interface FeatEntry {
   id: string;
   name: string;
@@ -41,6 +62,22 @@ export function FeatsPopup({ s, update, p, campaignId, onClose }: { s: CampaignS
   const patchFeat = (id: string, patch: Partial<FeatEntry>) => setFeats(feats.map(f => f.id === id ? { ...f, ...patch } : f));
 
   const toggle = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  // ── Competenze ──
+  const profGear: Record<string, boolean> = (p as any).profGear || {};
+  const setProfGear = (next: Record<string, boolean>) =>
+    update(prev => ({ players: prev.players.map(pl => pl.id === p.id ? ({ ...pl, profGear: next } as any) : pl) }));
+  const toggleProf = (key: string) => setProfGear({ ...profGear, [key]: !profGear[key] });
+  /** Voci mostrate per un gruppo: il canone, più ciò che è stato aggiunto a mano. */
+  const itemsOf = (g: typeof PROF_GROUPS[0]) => {
+    const custom = Object.keys(profGear).filter(k => k.startsWith(g.id + ':')).map(k => k.slice(g.id.length + 1));
+    return [...g.items, ...custom.filter(c => !g.items.includes(c))];
+  };
+  const addCustomProf = (gid: string) => {
+    const name = prompt('Nuova competenza da aggiungere all\'elenco:');
+    if (!name || !name.trim()) return;
+    setProfGear({ ...profGear, [gid + ':' + name.trim()]: true });
+  };
 
   // Ordino per categoria mantenendo l'ordine di inserimento interno
   const ordered = KINDS.flatMap(k => feats.filter(f => f.kind === k.id));
@@ -101,6 +138,47 @@ export function FeatsPopup({ s, update, p, campaignId, onClose }: { s: CampaignS
               </div>
             );
           })}
+
+          {/* Competenze in armi, armature e strumenti */}
+          <div className="card" style={{ marginTop: 8 }}>
+            <div className="label" style={{ marginBottom: 8 }}>Competenze</div>
+            {PROF_GROUPS.map(g => {
+              const list = itemsOf(g);
+              const active = list.filter(i => profGear[g.id + ':' + i]);
+              return (
+                <div key={g.id} style={{ marginBottom: 10 }}>
+                  <div className="row" style={{ gap: 6, alignItems: 'baseline', marginBottom: 5 }}>
+                    <span className="label" style={{ fontSize: 8, color: g.color, letterSpacing: 1.4 }}>{g.label}</span>
+                    <span className="small muted" style={{ fontSize: 9 }}>{active.length}</span>
+                    <div className="grow" />
+                    <button className="btn btn-ghost" style={{ padding: '1px 7px', fontSize: 9 }}
+                      title="Aggiungi una voce non in elenco" onClick={() => addCustomProf(g.id)}>+ voce</button>
+                  </div>
+                  <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+                    {list.map(i => {
+                      const key = g.id + ':' + i;
+                      const on = !!profGear[key];
+                      const custom = !g.items.includes(i);
+                      return (
+                        <button key={key} className="pill" onClick={() => toggleProf(key)}
+                          title={custom ? 'Voce aggiunta a mano — spegnendola resta in elenco' : undefined}
+                          style={{ padding: '3px 9px', fontSize: 9, cursor: 'pointer',
+                            color: on ? g.color : 'var(--gray-purple-deep)',
+                            borderColor: on ? g.color : 'var(--border)',
+                            borderStyle: custom ? 'dashed' : 'solid',
+                            background: on ? 'var(--bg-active)' : 'transparent' }}>
+                          {on ? '◆' : '◇'} {i}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="small muted" style={{ fontSize: 9, fontStyle: 'italic' }}>
+              Le voci tratteggiate sono aggiunte proprie del personaggio e restano in elenco anche da spente.
+            </div>
+          </div>
 
           {/* Aggiunta nuova voce */}
           <div className="card" style={{ marginTop: 8, marginBottom: s.dmMode ? 10 : 0 }}>
