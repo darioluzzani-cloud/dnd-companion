@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
+import { masteryById, normWeapon } from '@/lib/dnd/mastery';
 
 // ─── Categorie delle voci ────────────────────────────────────
 const KINDS = [
@@ -73,6 +74,23 @@ export function FeatsPopup({ s, update, p, campaignId, onClose }: { s: CampaignS
     const custom = Object.keys(profGear).filter(k => k.startsWith(g.id + ':')).map(k => k.slice(g.id.length + 1));
     return [...g.items, ...custom.filter(c => !g.items.includes(c))];
   };
+  // ── Padronanze d'arma ──
+  // Il personaggio dichiara con quali armi ha padronanza; l'elenco proposto
+  // è quello delle armi che possiede, perché è là che la scelta ha effetto.
+  // Da qui si accende o si spegne la pastiglia nella scheda dell'oggetto.
+  const masteryWeapons: string[] = (p as any).masteryWeapons || [];
+  const ownedWeapons: any[] = (p.inventory || []).filter((i: any) =>
+    ['arma', 'magico', 'unico'].includes(i.type) && i.mastery);
+  const setMasteryWeapons = (list: string[]) =>
+    update(prev => ({ players: prev.players.map(pl => pl.id === p.id ? ({ ...pl, masteryWeapons: list } as any) : pl) }));
+  const toggleMasteryWeapon = (name: string) => {
+    const k = normWeapon(name);
+    setMasteryWeapons(masteryWeapons.some(w => normWeapon(w) === k)
+      ? masteryWeapons.filter(w => normWeapon(w) !== k)
+      : [...masteryWeapons, name]);
+  };
+  const hasMastery = (name: string) => masteryWeapons.some(w => normWeapon(w) === normWeapon(name));
+
   const addCustomProf = (gid: string) => {
     const name = prompt('Nuova competenza da aggiungere all\'elenco:');
     if (!name || !name.trim()) return;
@@ -138,6 +156,42 @@ export function FeatsPopup({ s, update, p, campaignId, onClose }: { s: CampaignS
               </div>
             );
           })}
+
+          {/* Padronanze d'arma */}
+          <div className="card" style={{ marginTop: 8 }}>
+            <div className="row" style={{ gap: 6, alignItems: 'baseline', marginBottom: 6 }}>
+              <div className="label" style={{ color: 'var(--ember)' }}>Padronanze d'arma</div>
+              <span className="small muted" style={{ fontSize: 9 }}>{masteryWeapons.length} scelte</span>
+            </div>
+            {ownedWeapons.length === 0 ? (
+              <div className="small muted" style={{ fontSize: 10.5, fontStyle: 'italic' }}>
+                Nessuna arma con padronanza nell'inventario. La padronanza si assegna all'arma dal catalogo dell'Armeria.
+              </div>
+            ) : (
+              <>
+                <div className="small muted" style={{ fontSize: 10, marginBottom: 6, lineHeight: 1.5 }}>
+                  Accendi le armi di cui il personaggio sa sfruttare la padronanza: nella scheda dell'oggetto l'effetto comparirà attivo, altrimenti resterà spento.
+                </div>
+                <div className="row" style={{ gap: 4, flexWrap: 'wrap' }}>
+                  {ownedWeapons.map((w: any) => {
+                    const on = hasMastery(w.name);
+                    const mast = masteryById(s, w.mastery);
+                    return (
+                      <button key={w.id} className="pill" onClick={() => toggleMasteryWeapon(w.name)}
+                        title={mast ? mast.name : undefined}
+                        style={{ padding: '4px 10px', fontSize: 9.5, cursor: 'pointer',
+                          color: on ? 'var(--ember)' : 'var(--gray-purple-deep)',
+                          borderColor: on ? 'var(--ember)' : 'var(--border)',
+                          background: on ? 'var(--bg-active)' : 'transparent' }}>
+                        {on ? '◆' : '◇'} {w.name}
+                        {mast && <span style={{ opacity: .75 }}> · {mast.name}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* Competenze in armi, armature e strumenti */}
           <div className="card" style={{ marginTop: 8 }}>

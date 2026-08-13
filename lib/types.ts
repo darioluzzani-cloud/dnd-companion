@@ -64,6 +64,8 @@ export interface InventoryItem {
    *  giocatore possa regolarne la quantità da sé, come già fa con i
    *  consumabili. Sulle categorie di consumo la spunta non serve. */
   ammo?: boolean;
+  /** Padronanza d'arma: riferimento a una voce del catalogo `masteries`. */
+  mastery?: string;
   /** Deperibile: decotti e impacchi svaniscono dopo PERISH_DAYS giorni. */
   perishable?: boolean;
   /** Giorno assoluto del calendario in cui è stato preparato. È qui, e non
@@ -117,6 +119,8 @@ export interface Player {
    *  posseduta. Le voci non canoniche aggiunte a mano restano nella mappa
    *  anche da spente, così l'elenco personale del PG non si perde. */
   profGear?: Record<string, boolean>;
+  /** Armi con cui il personaggio ha padronanza (nomi, confronto tollerante). */
+  masteryWeapons?: string[];
   profNotes?: string;
   spells: Spell[];
   inventory: InventoryItem[];
@@ -231,6 +235,7 @@ export interface CampaignState {
   bestiary?: BestiaryEntry[];
   journal?: JournalEntry[];
   timeline?: TimelineEvent[];   // Le Cronache della Marca
+  masteries?: { id: string; name: string; desc: string; custom?: boolean }[];
   baseRations?: number;  // razioni giornaliere nel magazzino del villaggio
   smithUpgrades?: { id: string; name: string; desc: string; material?: string; cat?: 'base'|'avanzato'|'nanico'; materials?: { name: string; qty: number }[] }[];  // catalogo della fucina
   marketBuildingId?: string;      // edificio (di norma la Piazza) che governa il livello del mercato

@@ -5,6 +5,7 @@ import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { ItemDetailBody } from '@/components/shared/ItemDetail';
 import { computeAC } from '@/components/shared/common';
 import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, ATTUNE_MAX, attunedCount, itemGradient } from '@/lib/dnd/equipment';
+import { masteryById, canUseMastery } from '@/lib/dnd/mastery';
 
 // ─── SAGOMA DELL'EQUIPAGGIAMENTO ─────────────────────────────
 // Caselle fisse secondo lo schema: elmo e mantello in cima, parabracci e
@@ -257,7 +258,8 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTran
               onPu={setItemField ? (n: number) => setItemField(detailItem.id, 'pu', n) : undefined}
               players={players}
               onTransfer={onTransfer ? (target: string) => { onTransfer(detailItem, target); setDetail(null); } : undefined}
-              onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detailItem.id, madeOn, n) : undefined} />
+              onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detailItem.id, madeOn, n) : undefined}
+              mastery={masteryById(s, detailItem.mastery)} masteryActive={canUseMastery(p, detailItem)} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow" style={{ fontSize: 11 }} onClick={() => { const sl = detail; setDetail(null); setPicking(sl); }}>Cambia oggetto</button>

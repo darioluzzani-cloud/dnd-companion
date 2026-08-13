@@ -5,6 +5,7 @@ import { U, ITEM_TYPES } from '@/components/shared/common';
 import { subtypesFor } from '@/lib/dnd/equipment';
 import { ImageSlot } from '@/components/ImageSlot';
 import { copyItemImage } from '@/components/shared/imageCopy';
+import { MasteryEntry, DEFAULT_MASTERIES, masteriesOf } from '@/lib/dnd/mastery';
 
 // ─── POPUP: ARMERIA — catalogo oggetti preparati dal DM ─────
 // Speculare al Bestiario: il DM prepara gli oggetti prima della sessione
@@ -12,7 +13,7 @@ import { copyItemImage } from '@/components/shared/imageCopy';
 // Le voci usano lo slot immagine item-<id>, lo stesso schema degli oggetti
 // d'inventario: la consegna copia l'immagine sul nuovo oggetto (copyItemImage).
 
-export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; attunement?: boolean; }
+export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; attunement?: boolean; mastery?: string; }
 
 export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignState; update: U; campaignId: string | null; onClose: () => void }) {
   const [filter, setFilter] = useState<string>(ITEM_TYPES[0]);
@@ -20,7 +21,19 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
   const [editingId, setEditingId] = useState<string | null>(null);
   const [given, setGiven] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [showMast, setShowMast] = useState(false);          // catalogo padronanze aperto
+  const [editMastId, setEditMastId] = useState<string | null>(null);
   const toggleExp = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  // ── Catalogo delle padronanze ──
+  // Vive nello stato della campagna; se non è mai stato toccato si parte
+  // dalle otto canoniche, che vengono materializzate alla prima modifica.
+  const masteries: MasteryEntry[] = masteriesOf(s);
+  const setMasteries = (list: MasteryEntry[]) => update({ masteries: list } as any);
+  const patchMastery = (id: string, patch: Partial<MasteryEntry>) =>
+    setMasteries(masteries.map(m => m.id === id ? { ...m, ...patch } : m));
+  const addMastery = () => setMasteries([...masteries, { id: uid('mst'), name: 'Nuova padronanza', desc: '', custom: true }]);
+  const resetMasteries = () => { if (confirm('Ripristinare le otto padronanze canoniche? Le voci aggiunte a mano andranno perdute.')) setMasteries(DEFAULT_MASTERIES); };
 
   const armory: ArmoryEntry[] = (s as any).armory || [];
   const setArmory = (list: ArmoryEntry[]) => update({ armory: list } as any);
@@ -40,7 +53,7 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
     const newId = uid('it');
     update(prev => ({
       players: prev.players.map(pl => pl.id === playerId
-        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', armorType: e.armorType, armorCA: e.armorCA, enhSlots: e.enhSlots, setId: e.setId, subtype: e.subtype, attunement: e.attunement, equipped: false, expanded: false } as any] }
+        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', armorType: e.armorType, armorCA: e.armorCA, enhSlots: e.enhSlots, setId: e.setId, subtype: e.subtype, attunement: e.attunement, mastery: e.mastery, equipped: false, expanded: false } as any] }
         : pl),
     }));
     if (campaignId) copyItemImage(campaignId, e.id, newId);
@@ -57,6 +70,55 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
             <div className="h2" style={{ color: 'var(--gold)' }}>Armeria</div>
           </div>
           <button className="btn btn-ghost" onClick={onClose} style={{ fontSize: 16, padding: '2px 8px' }}>✕</button>
+        </div>
+
+        {/* ── Catalogo delle padronanze ──────────────────────
+            Redatto qui una volta sola: le armi vi fanno riferimento, quindi
+            correggere un testo lo corregge in ogni inventario. */}
+        <div className="card" style={{ padding: '9px 11px', marginBottom: 10, borderColor: showMast ? 'var(--ember)' : 'var(--border)' }}>
+          <div className="row" style={{ gap: 8, alignItems: 'center', cursor: 'pointer' }} onClick={() => setShowMast(v => !v)}>
+            <span style={{ color: 'var(--ember)', fontSize: 13 }}>⚔</span>
+            <div className="label" style={{ color: 'var(--ember)' }}>Padronanze d'arma</div>
+            <div className="grow" />
+            <span className="small muted" style={{ fontSize: 10 }}>{masteries.length}</span>
+            <span style={{ fontSize: 13, color: 'var(--ember)', transition: 'transform .2s', display: 'inline-block', transform: showMast ? 'rotate(180deg)' : '' }}>▾</span>
+          </div>
+          {showMast && (
+            <div style={{ marginTop: 8 }}>
+              {masteries.map(m => (
+                <div key={m.id} className="card" style={{ padding: '7px 9px', marginBottom: 4,
+                  borderLeft: '2px solid ' + (m.custom ? 'var(--gold)' : 'var(--ember)') }}>
+                  {editMastId === m.id ? (
+                    <>
+                      <input value={m.name} onChange={ev => patchMastery(m.id, { name: ev.target.value })}
+                        style={{ width: '100%', fontSize: 12, fontWeight: 600, padding: '3px 7px', marginBottom: 4 }} />
+                      <textarea value={m.desc} placeholder="Effetto della padronanza…" onChange={ev => patchMastery(m.id, { desc: ev.target.value })}
+                        style={{ width: '100%', fontSize: 11.5, padding: '5px 7px', minHeight: 62 }} />
+                      <div className="row" style={{ gap: 5, marginTop: 5 }}>
+                        <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 9 }} onClick={() => setEditMastId(null)}>Fine</button>
+                        <div className="grow" />
+                        <button className="btn btn-danger btn-ghost" style={{ padding: '2px 8px', fontSize: 9 }}
+                          onClick={() => { if (confirm('Eliminare «' + m.name + '» dal catalogo? Le armi che vi fanno riferimento resteranno senza padronanza.')) { setMasteries(masteries.filter(x => x.id !== m.id)); setEditMastId(null); } }}>Elimina</button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="row" style={{ gap: 6, alignItems: 'flex-start' }}>
+                      <div className="grow" style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: m.custom ? 'var(--gold)' : 'var(--ember)' }}>{m.name}</div>
+                        <div className="small muted" style={{ fontSize: 10.5, lineHeight: 1.5, marginTop: 2 }}>{m.desc || '(nessuna descrizione)'}</div>
+                      </div>
+                      <button className="btn btn-ghost" style={{ padding: '1px 7px', fontSize: 9, flexShrink: 0 }} onClick={() => setEditMastId(m.id)}>✎</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div className="row" style={{ gap: 6, marginTop: 6 }}>
+                <button className="btn btn-ghost" style={{ fontSize: 10, padding: '3px 9px' }} onClick={addMastery}>+ padronanza</button>
+                <div className="grow" />
+                <button className="btn btn-ghost" style={{ fontSize: 9, padding: '3px 9px' }} onClick={resetMasteries}>Ripristina le canoniche</button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Filtro per categoria */}
@@ -126,6 +188,16 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                         <button className="btn btn-ghost" style={{ padding: '1px 6px', fontSize: 10 }} onClick={() => patchEntry(e.id, { enhSlots: Math.min(3, (e.enhSlots ?? 0) + 1) })}>+</button>
                       </div>
                     )}
+                    {(e.type === 'arma' || e.type === 'magico' || e.type === 'unico') && (
+                      <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 3 }}>
+                        <span className="label" style={{ fontSize: 8, flexShrink: 0 }}>Padronanza</span>
+                        <select className="grow" value={e.mastery || ''} style={{ fontSize: 11, padding: '3px 6px' }}
+                          onChange={ev => patchEntry(e.id, { mastery: ev.target.value || undefined })}>
+                          <option value="">— nessuna —</option>
+                          {masteries.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        </select>
+                      </div>
+                    )}
                     <label className="row" style={{ gap: 5, alignItems: 'center', marginBottom: 4, cursor: 'pointer' }}>
                       <input type="checkbox" checked={!!e.attunement} onChange={ev => patchEntry(e.id, { attunement: ev.target.checked })} />
                       <span className="small" style={{ color: e.attunement ? 'var(--blue)' : 'var(--gray-purple)' }}>◈ Richiede sintonia</span>
@@ -138,6 +210,9 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                   </div>
                 ) : (
                   <div style={{ marginTop: 6 }}>
+                    {e.mastery && (
+                      <div className="small" style={{ color: 'var(--ember)' }}>⚔ {masteries.find(m => m.id === e.mastery)?.name || '—'}</div>
+                    )}
                     {e.attunement && <div className="small" style={{ color: 'var(--blue)' }}>◈ Richiede sintonia</div>}
                     {e.effect && <div className="small" style={{ color: 'var(--gold-light)' }}>✦ {e.effect}</div>}
                     {e.desc && <div className="small muted" style={{ marginTop: 3, fontStyle: 'italic' }}>{e.desc}</div>}

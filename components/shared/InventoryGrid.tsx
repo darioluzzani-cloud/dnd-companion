@@ -5,6 +5,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { ItemDetailBody } from '@/components/shared/ItemDetail';
 import { ATTUNE_MAX, attunedCount, subtypesFor, itemGradient, ammoApplies } from '@/lib/dnd/equipment';
 import { isPerishable, soonestLeft, batchesOf, withBatches, addDose, PERISH_DAYS } from '@/lib/dnd/perishables';
+import { masteriesOf, masteryById, canUseMastery } from '@/lib/dnd/mastery';
 import { NumberInput } from '@/components/shared/textUtils';
 import { absDay, formatDate } from '@/lib/dnd/calendar';
 
@@ -153,7 +154,8 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
               onPu={n => setItemField(detail.id, 'pu', n)}
               players={players}
               onTransfer={onTransfer ? (target: string) => { onTransfer(detail, target); setDetailId(null); } : undefined}
-              onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detail.id, madeOn, n) : undefined} />
+              onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detail.id, madeOn, n) : undefined}
+              mastery={masteryById(s, detail.mastery)} masteryActive={canUseMastery(p, detail)} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow"
@@ -210,6 +212,20 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
                     <input type="checkbox" checked={!!detail.attunement} onChange={e => setItemField(detail.id, 'attunement', e.target.checked || undefined)} />
                     <span className="small" style={{ color: detail.attunement ? 'var(--blue)' : 'var(--gray-purple)' }}>◈ Richiede sintonia</span>
                   </label>
+                )}
+
+                {/* Padronanza: si assegna scegliendo dal catalogo redatto in
+                    Armeria; sull'arma resta il solo riferimento, così una
+                    correzione al testo si propaga a tutte le armi. */}
+                {(detail.type === 'arma' || detail.type === 'magico' || detail.type === 'unico') && (
+                  <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4 }}>
+                    <span className="label" style={{ fontSize: 8, flexShrink: 0 }}>Padronanza</span>
+                    <select className="grow" value={detail.mastery || ''} style={{ fontSize: 11, padding: '3px 6px' }}
+                      onChange={e => setItemField(detail.id, 'mastery', e.target.value || undefined)}>
+                      <option value="">— nessuna —</option>
+                      {masteriesOf(s).map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
                 )}
 
                 {/* Munizione: apre la quantità al giocatore su ciò che di norma

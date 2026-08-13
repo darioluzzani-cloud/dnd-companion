@@ -4,6 +4,8 @@ import { Markdown } from '@/components/shared/textUtils';
 import { NumberInput } from '@/components/shared/textUtils';
 import { ATTUNE_MAX, attunedCount, qtyEditable, hasWear } from '@/lib/dnd/equipment';
 import { isPerishable, batchesOf, batchLabel, BATCH_SLOTS, PERISH_DAYS } from '@/lib/dnd/perishables';
+import { MasteryEntry } from '@/lib/dnd/mastery';
+import { useState } from 'react';
 
 // ─── SCHEDA DELL'OGGETTO ─────────────────────────────────────
 // Corpo condiviso fra la sagoma dell'equipaggiamento e la griglia
@@ -11,7 +13,7 @@ import { isPerishable, batchesOf, batchLabel, BATCH_SLOTS, PERISH_DAYS } from '@
 // propri di ciascuna restano fuori, passati come contorno.
 
 export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, onEnlarge, onImgPos, imageHeight = 200, slotPrefix = 'itemdetail',
-  dmMode, onQty, onPu, players, onTransfer, today, onConsume }: {
+  dmMode, onQty, onPu, players, onTransfer, today, onConsume, mastery, masteryActive }: {
   item: any;
   inventory?: any[];
   campaignId: string | null;
@@ -28,7 +30,12 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
   onTransfer?: (targetId: string) => void;   // «Passa a…»
   today?: any;                      // data corrente, per la scadenza dei preparati
   onConsume?: (madeOn: number, n?: number) => void;   // muove le dosi di un lotto (n>0 consuma, n<0 restituisce)
+  mastery?: MasteryEntry;      // padronanza dell'arma, risolta dal catalogo
+  masteryActive?: boolean;     // il personaggio può sfruttarla?
 }) {
+  // L'hook precede l'uscita anticipata: gli hook vanno chiamati sempre,
+  // nello stesso ordine, a ogni render.
+  const [showMastery, setShowMastery] = useState(false);
   if (!item) return null;
   const qty = item.qty ?? 1;
   const anchor = `${slotPrefix}-${item.id}`;
@@ -36,6 +43,20 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
   const canQty = !!onQty && qtyEditable(item, dmMode);
   const perish = isPerishable(item);
   const batches = perish ? batchesOf(item) : [];
+
+  // Pastiglia della padronanza: nome breve leggibile a colpo d'occhio,
+  // spenta in grigio quando il personaggio non può sfruttarla.
+  const renderMasteryPill = () => mastery ? (
+    <button className="pill" onClick={() => setShowMastery(v => !v)}
+      title={masteryActive ? 'Mostra l\'effetto della padronanza' : 'Padronanza dell\'arma non disponibile a questo personaggio'}
+      style={{ padding: '3px 10px', fontSize: 9.5, cursor: 'pointer',
+        color: masteryActive ? 'var(--ember)' : 'var(--gray-purple-deep)',
+        borderColor: masteryActive ? 'var(--ember)' : 'var(--border)',
+        background: masteryActive ? 'var(--bg-active)' : 'transparent',
+        opacity: masteryActive ? 1 : .65 }}>
+      ⚔ {mastery.name} {showMastery ? '▴' : '▾'}
+    </button>
+  ) : null;
 
   return (
     <>
@@ -192,6 +213,41 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
               color: (item.pu ?? 0) > 0 ? 'var(--red)' : 'var(--gray-purple)', padding: '3px 4px' }} />
           <button className="btn" style={{ padding: '3px 12px', fontSize: 13 }} onClick={() => onPu((item.pu ?? 0) + 1)}>+</button>
           <span className="small muted" style={{ fontSize: 9 }}>PU</span>
+          <div className="grow" />
+          {renderMasteryPill()}
+        </div>
+      )}
+
+      {/* Se l'usura non è mostrata, la padronanza ha una riga propria */}
+      {mastery && !(onPu && hasWear(item)) && (
+        <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 8 }}>
+          <span className="label" style={{ fontSize: 9 }}>Padronanza</span>
+          <div className="grow" />
+          {renderMasteryPill()}
+        </div>
+      )}
+
+      {/* Spiegazione della padronanza, aperta dalla pastiglia */}
+      {mastery && showMastery && (
+        <div className="card" style={{ marginTop: 6, padding: '9px 11px',
+          borderColor: masteryActive ? 'var(--ember)' : 'var(--border-sec)' }}>
+          <div className="row" style={{ gap: 6, alignItems: 'baseline', marginBottom: 4 }}>
+            <span className="label" style={{ fontSize: 8, color: masteryActive ? 'var(--ember)' : 'var(--gray-purple-deep)', letterSpacing: 1.4 }}>
+              {mastery.name}
+            </span>
+            <div className="grow" />
+            {!masteryActive && (
+              <span className="small muted" style={{ fontSize: 8.5 }}>non disponibile a questo personaggio</span>
+            )}
+          </div>
+          <div style={{ fontSize: 12, lineHeight: 1.6, color: masteryActive ? 'var(--text-card)' : 'var(--gray-purple)' }}>
+            <Markdown text={mastery.desc} />
+          </div>
+          {!masteryActive && (
+            <div className="small muted" style={{ fontSize: 10, marginTop: 6, fontStyle: 'italic' }}>
+              L'arma possiede questa padronanza, ma il personaggio non l'ha scelta fra le proprie. Si dichiara nel riquadro Padronanze dei Talenti.
+            </div>
+          )}
         </div>
       )}
 
