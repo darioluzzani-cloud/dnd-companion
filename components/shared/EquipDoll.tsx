@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { ItemDetailBody } from '@/components/shared/ItemDetail';
 import { computeAC } from '@/components/shared/common';
-import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, isRanged, ammoIn, ATTUNE_MAX, attunedCount, itemGradient } from '@/lib/dnd/equipment';
+import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, isRanged, ammoIn, ATTUNE_MAX, attunedCount, itemGradient, isUpgraded, inSet, setNameOf } from '@/lib/dnd/equipment';
 
 // ─── SAGOMA DELL'EQUIPAGGIAMENTO ─────────────────────────────
 // Caselle fisse secondo lo schema: elmo e mantello in cima, parabracci e
@@ -157,6 +157,16 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTran
                     color: it.attuned ? 'var(--blue)' : 'var(--gray-purple)',
                     textShadow: it.attuned ? '0 0 6px var(--blue), 0 1px 3px #000' : '0 1px 3px #000',
                     opacity: it.attuned ? 1 : .8 }}>◈</span>
+              )}
+              {/* Potenziato all'incudine — lo stesso segno della griglia */}
+              {isUpgraded(it) && !mirrored && (
+                <span title={'Potenziato: ' + (it.upgrades || []).map((u: any) => u.name).join(', ')}
+                  style={{ position: 'absolute', top: 1, right: 3, fontSize: 9, color: 'var(--ember)', textShadow: '0 1px 3px #000' }}>⚒</span>
+              )}
+              {/* Appartiene a un corredo */}
+              {inSet(it) && !mirrored && (
+                <span title={'Corredo: ' + (setNameOf(s, it) || '—')}
+                  style={{ position: 'absolute', bottom: 1, left: 3, fontSize: 9, color: 'var(--purple-light)', textShadow: '0 0 5px var(--purple-light), 0 1px 3px #000' }}>❖</span>
               )}
               {mirrored && (
                 <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: accent, textShadow: '0 1px 4px #000' }}>⇄</span>

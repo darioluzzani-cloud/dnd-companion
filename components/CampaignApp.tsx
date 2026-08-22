@@ -4,6 +4,7 @@ import { useCampaignState } from '@/hooks/useCampaignState';
 import { CalendarPopup, CalendarBar } from '@/components/popups/CalendarPopup';
 import { JournalPopup } from '@/components/popups/JournalPopup';
 import { TimelinePopup } from '@/components/popups/TimelinePopup';
+import { SnapshotsPopup } from '@/components/popups/SnapshotsPopup';
 import { QuestsTab } from '@/components/tabs/QuestsTab';
 import { CharactersTab } from '@/components/tabs/CharactersTab';
 import { SpellsTab } from '@/components/tabs/SpellsTab';
@@ -40,6 +41,7 @@ export function CampaignApp({ slug }: { slug: string }) {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showJournal, setShowJournal] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
+  const [showSnapshots, setShowSnapshots] = useState(false);
   const [theme, setTheme] = useState<'dark'|'light'>('dark');
   useEffect(() => {
     const saved = (typeof window !== 'undefined' && window.localStorage.getItem('velmora-theme')) as 'dark'|'light'|null;
@@ -106,6 +108,7 @@ export function CampaignApp({ slug }: { slug: string }) {
 
       {showJournal && <JournalPopup s={s} update={update} campaignId={campaignId} onClose={()=>setShowJournal(false)} />}
       {showTimeline && <TimelinePopup s={s} update={update} campaignId={campaignId} onClose={()=>setShowTimeline(false)} />}
+      {showSnapshots && <SnapshotsPopup campaignId={campaignId} onClose={()=>setShowSnapshots(false)} />}
       <DiceOverlay />
       {showCalendar && s.dmMode && <CalendarPopup s={s} update={update} onClose={()=>setShowCalendar(false)} />}
 
@@ -133,6 +136,9 @@ export function CampaignApp({ slug }: { slug: string }) {
         <div className="frame" style={{marginTop:18}}>
           <div className="label" style={{marginBottom:8}}>Backup</div>
           <div className="row" style={{flexWrap:'wrap',gap:6}}>
+            <button className="btn" style={{borderColor:'var(--blue)',color:'var(--blue)'}} onClick={()=>setShowSnapshots(true)}>
+              Punti di ripristino
+            </button>
             <button className="btn" onClick={() => {
               const blob = new Blob([JSON.stringify(s,null,2)],{type:'application/json'});
               const a = document.createElement('a'); a.href = URL.createObjectURL(blob);

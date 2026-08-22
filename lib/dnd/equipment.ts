@@ -194,3 +194,21 @@ export function hasWear(item: { type?: string }): boolean {
 export function ammoApplies(item: { type?: string }): boolean {
   return !FREE_QTY_TYPES.includes(item?.type || '');
 }
+
+/**
+ * Marcatori dell'oggetto, comuni alla sagoma e alla griglia: due viste che
+ * mostrano le stesse cose devono mostrarle allo stesso modo, e finora la
+ * sagoma taceva sui potenziamenti di fucina che la griglia segnalava.
+ *
+ * ⚒ potenziato all'incudine · ❖ appartiene a un corredo
+ * La sintonia (◈) resta a sé perché occupa l'angolo opposto ed è l'unica
+ * il cui colore cambia a seconda che sia in atto o soltanto richiesta.
+ */
+export const isUpgraded = (item?: any) => ((item?.upgrades || []).length > 0);
+export const inSet = (item?: any) => !!item?.setId;
+
+/** Nome del corredo a cui l'oggetto appartiene, per le diciture. */
+export function setNameOf(s: any, item?: any): string | undefined {
+  if (!item?.setId) return undefined;
+  return ((s?.itemSets || []) as any[]).find(st => st.id === item.setId)?.name;
+}

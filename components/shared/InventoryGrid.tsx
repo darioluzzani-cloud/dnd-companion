@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ITEM_TYPES, computeAC } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { ItemDetailBody } from '@/components/shared/ItemDetail';
-import { ATTUNE_MAX, attunedCount, subtypesFor, itemGradient, ammoApplies } from '@/lib/dnd/equipment';
+import { ATTUNE_MAX, attunedCount, subtypesFor, itemGradient, ammoApplies, isUpgraded, inSet, setNameOf } from '@/lib/dnd/equipment';
 import { isPerishable, soonestLeft, batchesOf, withBatches, addDose, PERISH_DAYS } from '@/lib/dnd/perishables';
 import { masteriesOf, masteryById, canUseMastery } from '@/lib/dnd/mastery';
 import { NumberInput } from '@/components/shared/textUtils';
@@ -80,8 +80,15 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
               style={{ position: 'absolute', top: 1, left: 3, fontSize: 10, fontWeight: 700,
                 color: it.attuned ? 'var(--blue)' : 'var(--gray-purple)', textShadow: '0 1px 3px #000' }}>◈</span>
           )}
-          {(it.upgrades || []).length > 0 && (
-            <span style={{ position: 'absolute', top: 1, right: 3, fontSize: 9, color: 'var(--ember)', textShadow: '0 1px 3px #000' }}>⚒</span>
+          {isUpgraded(it) && (
+            <span title={'Potenziato: ' + (it.upgrades || []).map((u: any) => u.name).join(', ')}
+              style={{ position: 'absolute', top: 1, right: 3, fontSize: 9, color: 'var(--ember)', textShadow: '0 1px 3px #000' }}>⚒</span>
+          )}
+          {/* Corredo: in basso a sinistra, dove non incontra né la sintonia
+              né il conteggio. Cede il posto al segno del nascosto in DM. */}
+          {inSet(it) && !(s.dmMode && it.revealed === false) && (
+            <span title={'Corredo: ' + (setNameOf(s, it) || '—')}
+              style={{ position: 'absolute', bottom: 1, left: 3, fontSize: 9, color: 'var(--purple-light)', textShadow: '0 0 5px var(--purple-light), 0 1px 3px #000' }}>❖</span>
           )}
           {(() => {
             const left = s.calendar?.date && isPerishable(it) ? soonestLeft(it, s.calendar.date) : null;
