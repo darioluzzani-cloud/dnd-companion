@@ -236,6 +236,10 @@ export interface CampaignState {
   journal?: JournalEntry[];
   timeline?: TimelineEvent[];   // Le Cronache della Marca
   masteries?: { id: string; name: string; desc: string; custom?: boolean }[];
+  /** Lavorazioni a tempo di fucina e conceria, e regime delle botteghe. */
+  craftJobs?: any[];
+  craftMode?: 'shop' | 'player';
+  tanneryRecipes?: { id: string; fromName: string; fromQty: number; toName: string; toQty: number; days: number; note?: string }[];
   baseRations?: number;  // razioni giornaliere nel magazzino del villaggio
   smithUpgrades?: { id: string; name: string; desc: string; material?: string; cat?: 'base'|'avanzato'|'nanico'; materials?: { name: string; qty: number }[] }[];  // catalogo della fucina
   marketBuildingId?: string;      // edificio (di norma la Piazza) che governa il livello del mercato

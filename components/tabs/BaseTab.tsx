@@ -6,6 +6,8 @@ import { NumberInput, Markdown } from '@/components/shared/textUtils';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 import { ForgeBox } from '@/components/shared/ForgeBox';
 import { MarketBox } from '@/components/shared/MarketBox';
+import { TanneryBox } from '@/components/shared/TanneryBox';
+import { PanelBox } from '@/components/shared/PanelBox';
 import { absDay } from '@/lib/dnd/calendar';
 
 
@@ -64,8 +66,9 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
         </div>
       )}
       {/* Magazzino del villaggio — razioni giornaliere condivise */}
-      <div className="frame">
-        <div className="label" style={{marginBottom:8}}>Magazzino di Olmobianco</div>
+      <PanelBox title="Magazzino" color="var(--green)" bgSlot="store-bg" campaignId={campaignId} dmMode={s.dmMode}
+        badge={<span className="pill" style={{padding:'2px 8px',fontSize:8.5,color:'var(--green)',borderColor:'var(--green)'}}>{(s as any).baseRations || 0} razioni</span>}
+        icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="1.5"><path d="M3 9l9-6 9 6v11a1 1 0 01-1 1H4a1 1 0 01-1-1V9z"/><path d="M9 21v-7h6v7"/></svg>}>
         {(() => {
           const rations = (s as any).baseRations || 0;
           const setRations = (n:number) => update({ baseRations: Math.max(0, n) } as any);
@@ -119,14 +122,18 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
             </div>
           );
         })()}
-      </div>
+      </PanelBox>
+
       <ForgeBox s={s} update={update} campaignId={campaignId} />
+      <TanneryBox s={s} update={update} campaignId={campaignId} />
       <MarketBox s={s} update={update} campaignId={campaignId} />
-      <div className="frame">
-        <div className="row" style={{justifyContent:'space-between',marginBottom:10}}>
-          <div className="h1" style={{fontSize:18}}>Olmobianco</div>
-          {s.dmMode && <div className="small muted">{buildings.length} edifici</div>}
-        </div>
+
+      {/* Il villaggio: gli edifici restano com'erano, ma vivono dentro un
+          riquadro come tutti gli altri, invece di essere l'unica sezione
+          sempre distesa in fondo alla tab. */}
+      <PanelBox title="Olmobianco" color="var(--gold)" bgSlot="village-bg" campaignId={campaignId} dmMode={s.dmMode}
+        badge={<span className="pill" style={{padding:'2px 8px',fontSize:8.5,color:'var(--gold)',borderColor:'var(--gold)'}}>{visible.length} edifici</span>}
+        icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.5"><path d="M3 21h18M5 21V10l4-3 4 3M13 21V13l3-2 3 2v8"/><path d="M8 21v-4h2v4"/></svg>}>
         {visible.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun edificio.</div>}
         {visible.map((b:any) => {
           const gate = GATE_TYPES.find(g=>g.id===b.gate) || GATE_TYPES[0];
@@ -319,7 +326,7 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
             <button className="btn btn-primary" onClick={addBuilding}>+</button>
           </div>
         )}
-      </div>
+      </PanelBox>
     </div>
   );
 }

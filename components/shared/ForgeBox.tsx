@@ -2,8 +2,10 @@
 import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
-import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
-import { supabase } from '@/lib/supabase';
+import { ImageSlot } from '@/components/ImageSlot';
+import { PanelBox, WorkBench, BenchEmpty } from '@/components/shared/PanelBox';
+import { CraftJob, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
+import { absDay } from '@/lib/dnd/calendar';
 import { sfxComplete } from '@/lib/dnd/sounds';
 
 const FORGEABLE_TYPES = ['arma', 'armatura', 'unico', 'magico'];
@@ -25,6 +27,7 @@ export interface SmithUpgrade {
   cat?: SmithCat;               // catalogo di appartenenza (assente = base)
   materials?: SmithMaterial[];  // fino a tre materiali, con quantità
   material?: string;            // forma antica a materiale singolo: conservata e letta
+  days?: number;                // giornate di lavorazione (assente = immediato)
 }
 
 /** Materiali richiesti in forma normalizzata, qualunque sia la stesura della voce. */
@@ -37,8 +40,6 @@ function reqMats(u?: SmithUpgrade): SmithMaterial[] {
 
 // ─── FUCINA DI DURNA — riquadro autonomo della tab Base ─────
 export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: U; campaignId: string | null }) {
-  const [open, setOpen] = useState(false);
-  const [bgTick, setBgTick] = useState(0);
   const [playerId, setPlayerId] = useState<string>(s.activePlayer || s.players[0]?.id || '');
   const [itemId, setItemId] = useState<string>('');
   const [upgradeId, setUpgradeId] = useState<string>('');
@@ -79,8 +80,72 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   const freeSlot = !!(item && ((item as any).enhUsed ?? 0) < ((item as any).enhSlots ?? 0));
   const ready = !!(player && item && upgrade && materialsOk && !alreadyApplied && freeSlot);
 
+  // ── Commesse in corso ──
+  const today = s.calendar?.date;
+  const jobs = jobsOf(s, 'forge');
+  const myJob = jobs.find(j => j.playerId === playerId) || null;
+  const blocking = shopBusy(s, 'forge', playerId);
+  const blockedByOther = !!blocking && blocking.playerId !== playerId;
+  const prog = myJob ? jobProgress(myJob, today) : null;
+  const jobDays = Math.max(0, upgrade?.days ?? 0);
+
+  /** Applica il potenziamento all'oggetto: passaggio comune fra il lavoro
+   *  immediato e il ritiro di una commessa a giornate. */
+  const applyUpgrade = (prev: any, plId: string, itId: string, upgName: string, upgDesc: string) =>
+    prev.players.map((pl: any) => {
+      if (pl.id !== plId) return pl;
+      return { ...pl, inventory: pl.inventory.map((it: any) =>
+        it.id === itId
+          ? { ...it, upgrades: [...(it.upgrades || []), { name: upgName, desc: upgDesc }],
+              enhUsed: Math.min((it.enhSlots ?? 0), (it.enhUsed ?? 0) + 1) }
+          : it) };
+    });
+
+  /** Avvio di una commessa a giornate: i materiali si consumano subito. */
+  const startJob = () => {
+    if (!ready || !player || !item || !upgrade || !today) return;
+    const consume = reqMats(upgrade);
+    update(prev => {
+      const players = prev.players.map(pl => {
+        if (pl.id !== player.id) return pl;
+        let inventory = pl.inventory;
+        for (const m of consume) {
+          inventory = inventory
+            .map((it: any) => it.name === m.name ? { ...it, qty: (it.qty || 0) - m.qty } : it)
+            .filter((it: any) => !(it.name === m.name && (it.qty || 0) <= 0));
+        }
+        return { ...pl, inventory };
+      });
+      const job: CraftJob = {
+        id: uid('job'), kind: 'forge', playerId: player.id,
+        startAbs: absDay(today), days: jobDays,
+        itemId: item.id, itemName: item.name,
+        upgradeId: upgrade.id, upgradeName: upgrade.name,
+      };
+      return { players, ...withJob(prev, job) } as any;
+    });
+    setItemId(''); setUpgradeId('');
+  };
+
+  /** Ritiro: l'oggetto esce dall'incudine quando qualcuno va a riprenderlo. */
+  const collectJob = (job: CraftJob) => {
+    const upg = upgrades.find(u => u.id === job.upgradeId);
+    update(prev => ({
+      players: applyUpgrade(prev, job.playerId, job.itemId!, job.upgradeName || upg?.name || '—', upg?.desc || ''),
+      ...withoutJob(prev, job.id),
+    } as any));
+    sfxComplete();
+    setDone({ itemId: job.itemId!, itemName: job.itemName || '', upgName: job.upgradeName || '' });
+  };
+
+  const cancelJob = (job: CraftJob) => {
+    if (!confirm('Annullare la commessa? I materiali già consumati non tornano indietro.')) return;
+    update(prev => withoutJob(prev, job.id) as any);
+  };
+
   const forge = () => {
     if (!ready || !player || !item || !upgrade) return;
+    if (jobDays > 0) { startJob(); return; }
     const consume = reqMats(upgrade);
     update(prev => ({
       players: prev.players.map(pl => {
@@ -107,25 +172,10 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   };
 
   return (
-    <div className="frame" style={{ position: 'relative', overflow: 'hidden', borderColor: 'var(--ember)', padding: 0, minHeight: open ? undefined : 76 }}>
-        <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <div data-slot="forge-bg" style={{ width: '100%', height: '100%' }}>
-            <ImageSlot key={(open ? 'o' : 'c') + bgTick} slotId="forge-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="Fucina di Durna" />
-          </div>
-        </div>
-        <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: open
-          ? 'linear-gradient(180deg, rgba(30,22,48,0) 0%, rgba(30,22,48,0.55) 25%, rgba(30,22,48,0.92) 50%, rgba(30,22,48,1) 70%)'
-          : 'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.4) 50%, rgba(11,8,20,0) 100%)' }} />
+    <PanelBox title="Fucina di Durna" color="var(--ember)" bgSlot="forge-bg" campaignId={campaignId} dmMode={s.dmMode}
+      badge={jobs.length > 0 ? <span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: 'var(--ember)', borderColor: 'var(--ember)' }}>{jobs.length} all'incudine</span> : undefined}
+      icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" strokeWidth="1.5"><path d="M14 4l6 6-2 2-2-1-6.5 6.5a2.1 2.1 0 11-3-3L13 8l-1-2 2-2zM3 21l3-3"/></svg>}>
 
-        <div style={{ position: 'relative', zIndex: 2, padding: 16 }}>
-          <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer', marginBottom: open ? 10 : 0 }} onClick={() => setOpen(!open)}>
-            <div className="row" style={{ gap: 8 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" strokeWidth="1.5"><path d="M14 4l6 6-2 2-2-1-6.5 6.5a2.1 2.1 0 11-3-3L13 8l-1-2 2-2zM3 21l3-3"/></svg>
-              <div className="h2" style={{ color: 'var(--ember)' }}>Fucina di Durna</div>
-            </div>
-            <span style={{ fontSize: 14, color: 'var(--ember)', transition: 'transform .2s', transform: open ? 'rotate(180deg)' : '' }}>▾</span>
-          </div>
-          {open && <>
 
           {/* 1 — Chi si presenta alla fucina */}
           <div className="card">
@@ -226,13 +276,64 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
             </div>
           )}
 
+          {/* Il banco: a sinistra l'oggetto, a destra ciò che ne uscirà */}
+          <div className="card">
+            <div className="label" style={{ marginBottom: 6 }}>Banco</div>
+            <WorkBench accent="var(--ember)" pct={prog?.pct ?? (ready ? 0 : 0)} done={!!prog?.done}
+              label={myJob
+                ? (prog?.done ? 'pronto al ritiro' : `${prog?.elapsed}/${myJob.days} giorni · ne mancano ${prog?.remaining}`)
+                : (jobDays > 0 ? `${jobDays} giorni all'incudine` : 'lavoro immediato')}
+              left={(myJob || item)
+                ? <ImageSlot slotId={'item-' + (myJob?.itemId || item!.id)} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder={(myJob?.itemName || item!.name).slice(0, 2)} alt={myJob?.itemName || item!.name} />
+                : <BenchEmpty mark="?" />}
+              right={(myJob || (item && upgrade))
+                ? <div style={{ width: '100%', height: '100%', position: 'relative', opacity: (myJob && !prog?.done) ? .45 : 1, filter: (myJob && !prog?.done) ? 'grayscale(.7)' : 'none' }}>
+                    <ImageSlot slotId={'item-' + (myJob?.itemId || item!.id)} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder={(myJob?.itemName || item!.name).slice(0, 2)} alt="" />
+                    <span style={{ position: 'absolute', bottom: 1, left: 3, right: 3, fontSize: 7.5, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px #000', textAlign: 'center', lineHeight: 1.15 }}>⚒ {myJob?.upgradeName || upgrade!.name}</span>
+                  </div>
+                : <BenchEmpty mark="⚒" />} />
+
+            {myJob && (
+              <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+                {prog?.done
+                  ? <button className="btn btn-primary" style={{ flex: 1, fontSize: 12, borderColor: 'var(--green)' }} onClick={() => collectJob(myJob)}>Ritira il lavoro</button>
+                  : <div className="small" style={{ flex: 1, color: 'var(--ember)' }}>Durna ci sta lavorando: ancora {prog?.remaining} {prog?.remaining === 1 ? 'giorno' : 'giorni'}.</div>}
+                <button className="btn btn-danger btn-ghost" style={{ fontSize: 9, padding: '3px 9px' }} onClick={() => cancelJob(myJob)}>Annulla</button>
+              </div>
+            )}
+          </div>
+
+          {/* Commesse altrui */}
+          {jobs.filter(j => j.playerId !== playerId).length > 0 && (
+            <div className="card">
+              <div className="label" style={{ marginBottom: 6 }}>All'incudine</div>
+              {jobs.filter(j => j.playerId !== playerId).map(j => {
+                const pr = jobProgress(j, today);
+                const who = s.players.find(pl => pl.id === j.playerId);
+                return (
+                  <div key={j.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '3px 0' }}>
+                    <span className="small" style={{ color: who?.color || 'var(--gray-purple)' }}>{who?.short || '—'}</span>
+                    <span className="small muted" style={{ fontSize: 10 }}>{j.itemName} · {j.upgradeName}</span>
+                    <div className="grow" style={{ height: 5, background: 'var(--bg-deep)', borderRadius: 3, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                      <div style={{ height: '100%', width: pr.pct + '%', background: pr.done ? 'var(--green)' : 'var(--ember)' }} />
+                    </div>
+                    <span className="small muted" style={{ fontSize: 9 }}>{pr.done ? 'pronto' : pr.remaining + ' gg'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Creazione */}
-          <button className="btn btn-primary" disabled={!ready}
+          {!myJob && <button className="btn btn-primary" disabled={!ready || blockedByOther}
             style={{ width: '100%', fontSize: 12, marginBottom: 10, opacity: ready ? 1 : 0.45,
               borderColor: 'var(--ember)', color: ready ? undefined : 'var(--gray-purple)' }}
             onClick={forge}>
-            {alreadyApplied ? 'Potenziamento già applicato' : (item && !freeSlot ? 'Nessuno slot di potenziamento libero' : 'Creazione')}
-          </button>
+            {blockedByOther ? 'Bottega occupata'
+              : alreadyApplied ? 'Potenziamento già applicato'
+              : (item && !freeSlot ? 'Nessuno slot di potenziamento libero'
+              : jobDays > 0 ? `Affida il lavoro · ${jobDays} gg` : 'Creazione')}
+          </button>}
 
           {/* Lavoro compiuto: l'oggetto esce dall'incudine ancora caldo */}
           {done && (
@@ -283,6 +384,13 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
                         <textarea value={u.desc} placeholder="Effetto testuale (comparirà sull'oggetto)…"
                           onChange={e => patchUpg(u.id, { desc: e.target.value })}
                           style={{ minHeight: 44, fontSize: 12, width: '100%', marginBottom: 4 }} />
+                        <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 5 }}>
+                          <span className="label" style={{ fontSize: 8 }}>Giornate di lavorazione</span>
+                          <input type="number" min={0} value={u.days ?? 0}
+                            onChange={e => patchUpg(u.id, { days: Math.max(0, parseInt(e.target.value) || 0) })}
+                            style={{ width: 56, textAlign: 'center', fontSize: 11, padding: '3px 4px' }} />
+                          <span className="small muted" style={{ fontSize: 8.5 }}>0 = lavoro immediato</span>
+                        </div>
                         <div className="label" style={{ fontSize: 8, marginBottom: 3 }}>Materiali (fino a tre)</div>
                         {[0, 1, 2].map(i => (
                           <div key={i} className="row" style={{ gap: 4, marginBottom: 3 }}>
@@ -318,34 +426,22 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
             </div>
           )}
 
-          {/* Sfondo — solo DM */}
+          {/* Modalità della bottega — solo DM */}
           {s.dmMode && (
-            <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-              <div className="label" style={{ fontSize: 9 }}>Sfondo</div>
-              <label className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 10, cursor: 'pointer', color: 'var(--ember)', borderColor: 'var(--ember)' }} title="Immagine della fucina (chiuso e aperto)">
-                📷 Carica sfondo
-                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
-                  const file = e.target.files?.[0]; if (!file || !campaignId) return;
-                  const ext = (file.name.split('.').pop() || 'png').toLowerCase();
-                  const folder = campaignId;
-                  const slotId = 'forge-bg';
-                  try {
-                    const { data: ex } = await supabase.storage.from('campaign-images').list(folder, { search: slotId });
-                    const rm = (ex || []).filter((f: any) => f.name.startsWith(slotId + '.')).map((f: any) => `${folder}/${f.name}`);
-                    if (rm.length) await supabase.storage.from('campaign-images').remove(rm);
-                    const vName = `${slotId}.${Date.now().toString(36)}.${ext}`;
-                    await supabase.storage.from('campaign-images').upload(`${folder}/${vName}`, file, { upsert: true, cacheControl: '31536000', contentType: file.type });
-                    await registerStorageFile(campaignId, vName);
-                    window.location.reload();
-                  } catch (err: any) { alert('Errore: ' + (err.message || err)); }
-                  e.target.value = '';
-                }} />
-              </label>
-              <span className="small muted">Un'unica immagine per il box chiuso e aperto.</span>
+            <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+              <div className="label" style={{ fontSize: 9 }}>Botteghe</div>
+              {([['shop', 'Una commessa alla volta'], ['player', 'Una per personaggio']] as const).map(([k, l]) => {
+                const on = (((s as any).craftMode as string) || 'shop') === k;
+                return (
+                  <button key={k} className="pill" style={{ padding: '3px 9px', fontSize: 8.5, cursor: 'pointer',
+                    color: on ? 'var(--ember)' : 'var(--gray-purple-deep)', borderColor: on ? 'var(--ember)' : 'var(--border)',
+                    background: on ? 'var(--bg-active)' : 'transparent' }}
+                    onClick={() => update({ craftMode: k } as any)}>{l}</button>
+                );
+              })}
+              <span className="small muted" style={{ fontSize: 8.5, flex: '1 1 100%' }}>Vale sia per la fucina sia per la conceria.</span>
             </div>
           )}
-          </>}
-        </div>
-    </div>
+    </PanelBox>
   );
 }
