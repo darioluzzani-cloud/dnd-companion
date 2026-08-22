@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
-import { ItemDetailBody } from '@/components/shared/ItemDetail';
+import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
 import { computeAC } from '@/components/shared/common';
 import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, isRanged, ammoIn, ATTUNE_MAX, attunedCount, itemGradient, isUpgraded, inSet, setNameOf } from '@/lib/dnd/equipment';
 
@@ -27,12 +27,13 @@ const DIM = {
 
 const SIDE_OFFSET = 58;
 
-export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTransfer, setItemField, onConsume }: {
+export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTransfer, setItemField, onConsume, onEnlarge }: {
   s: any; p: any; updPlayer: (fn: (pl: any) => any) => void; campaignId: string | null; accent: string;
   players?: any[];
   onTransfer?: (item: any, targetId: string) => void;
   setItemField?: (id: string, field: string, value: any) => void;
   onConsume?: (itemId: string, madeOn: number, n?: number) => void;
+  onEnlarge?: (src: string) => void;   // anche la sagoma ingrandisce l'immagine
 }) {
   const [picking, setPicking] = useState<SlotId | null>(null);
   const [detail, setDetail] = useState<SlotId | null>(null);
@@ -309,9 +310,9 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTran
             </div>
 
             <ItemDetailBody item={detailItem} inventory={inv} campaignId={campaignId} accent={accent}
-              onAttune={() => toggleAttune(detailItem.id)} imageHeight={160} slotPrefix="dolldetail"
+              onAttune={() => toggleAttune(detailItem.id)} imageHeight={160} slotPrefix="dolldetail" onEnlarge={onEnlarge}
               onImgPos={s?.dmMode ? (v: number) => updPlayer(pl => ({ ...pl, inventory: (pl.inventory || []).map((x: any) => x.id === detailItem.id ? { ...x, imgPos: v } : x) })) : undefined}
-              dmMode={s?.dmMode} today={s?.calendar?.date}
+              {...itemViewProps(s, p, detailItem)}
               onQty={n => setQty(detailItem.id, n)}
               onPu={setItemField ? (n: number) => setItemField(detailItem.id, 'pu', n) : undefined}
               players={players}

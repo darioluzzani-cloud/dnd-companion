@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { ITEM_TYPES, computeAC } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
-import { ItemDetailBody } from '@/components/shared/ItemDetail';
+import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
 import { ATTUNE_MAX, attunedCount, subtypesFor, itemGradient, ammoApplies, isUpgraded, inSet, setNameOf } from '@/lib/dnd/equipment';
 import { isPerishable, soonestLeft, batchesOf, withBatches, addDose, PERISH_DAYS } from '@/lib/dnd/perishables';
 import { masteriesOf, masteryById, canUseMastery } from '@/lib/dnd/mastery';
@@ -156,13 +156,12 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
             <ItemDetailBody item={detail} inventory={p.inventory} campaignId={campaignId} accent={accent}
               onAttune={() => toggleAttune(detail)} onEnlarge={onEnlarge} slotPrefix="invgrid"
               onImgPos={s.dmMode ? (v: number) => setItemField(detail.id, 'imgPos', v) : undefined}
-              dmMode={s.dmMode} today={s.calendar?.date}
+              {...itemViewProps(s, p, detail)}
               onQty={n => setItemField(detail.id, 'qty', n)}
               onPu={n => setItemField(detail.id, 'pu', n)}
               players={players}
               onTransfer={onTransfer ? (target: string) => { onTransfer(detail, target); setDetailId(null); } : undefined}
-              onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detail.id, madeOn, n) : undefined}
-              mastery={masteryById(s, detail.mastery)} masteryActive={canUseMastery(p, detail)} />
+              onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detail.id, madeOn, n) : undefined} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow"

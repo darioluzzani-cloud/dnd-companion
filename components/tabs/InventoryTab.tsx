@@ -161,7 +161,8 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
         {filter==='indossato' && (
           <>
             <EquipDoll s={s} p={p} updPlayer={updPlayer} campaignId={campaignId} accent={p.color||'var(--gold)'}
-              players={otherPlayers} onTransfer={moveItem} setItemField={setItemField} onConsume={consumeBatch} />
+              players={otherPlayers} onTransfer={moveItem} setItemField={setItemField} onConsume={consumeBatch}
+              onEnlarge={setEnlargedImg} />
             {filtered.length>0 && <div className="label" style={{margin:'12px 0 6px'}}>Equipaggiati senza alloggiamento</div>}
           </>
         )}

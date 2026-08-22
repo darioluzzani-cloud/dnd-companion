@@ -4,6 +4,7 @@ import { Markdown } from '@/components/shared/textUtils';
 import { NumberInput } from '@/components/shared/textUtils';
 import { ATTUNE_MAX, attunedCount, qtyEditable, hasWear } from '@/lib/dnd/equipment';
 import { isPerishable, batchesOf, batchLabel, BATCH_SLOTS, PERISH_DAYS } from '@/lib/dnd/perishables';
+import { masteryById, canUseMastery } from '@/lib/dnd/mastery';
 import { MasteryEntry } from '@/lib/dnd/mastery';
 import { useState } from 'react';
 
@@ -11,6 +12,25 @@ import { useState } from 'react';
 // Corpo condiviso fra la sagoma dell'equipaggiamento e la griglia
 // dell'inventario, così le due viste non divergono col tempo: i comandi
 // propri di ciascuna restano fuori, passati come contorno.
+//
+// Le informazioni sull'oggetto devono essere IDENTICHE nelle due viste. Il
+// corpo condiviso non bastava a garantirlo, perché ogni chiamante compilava
+// a mano il proprio elenco di proprietà e bastava dimenticarne una — la
+// padronanza è sparita dalla sagoma proprio così, in una riscrittura. Da
+// qui `itemViewProps`: le proprietà che dipendono solo da oggetto, stato e
+// personaggio si calcolano una volta sola, e le due viste la richiamano
+// invece di ricopiarla. Ciò che resta ai chiamanti sono i soli comandi, che
+// legittimamente differiscono.
+
+/** Proprietà informative della scheda, comuni a sagoma e griglia. */
+export function itemViewProps(s: any, player: any, item: any) {
+  return {
+    dmMode: !!s?.dmMode,
+    today: s?.calendar?.date,
+    mastery: masteryById(s, item?.mastery),
+    masteryActive: canUseMastery(player, item),
+  };
+}
 
 export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, onEnlarge, onImgPos, imageHeight = 200, slotPrefix = 'itemdetail',
   dmMode, onQty, onPu, players, onTransfer, today, onConsume, mastery, masteryActive }: {
