@@ -26,8 +26,18 @@ export interface SlotDef {
 /** Sottocategorie di `equipaggiamento` — governano gli alloggiamenti del corpo. */
 export const EQUIP_SUBTYPES = ['elmo', 'mantello', 'parabracci', 'vesti', 'stivali', 'anello'];
 
-/** Sottocategorie di `arma` — l'arma a due mani occupa entrambe le impugnature. */
-export const ARMA_SUBTYPES = ['a una mano', 'a due mani'];
+/**
+ * Sottocategorie di `arma`. Le prime due sono da mischia; le due a distanza
+ * si distinguono perché reggono la faretra: equipaggiandone una compare, sotto
+ * la mano secondaria, la casella delle munizioni.
+ */
+export const ARMA_SUBTYPES = ['a una mano', 'a due mani', 'a distanza a una mano', 'a distanza a due mani'];
+
+/** Sottocategorie che impegnano entrambe le mani, da mischia o a distanza. */
+const TWO_HANDED_SUBTYPES = ['a due mani', 'a distanza a due mani'];
+
+/** Sottocategorie che scoccano munizioni. */
+const RANGED_SUBTYPES = ['a distanza a una mano', 'a distanza a due mani'];
 
 /**
  * Foggie dell'armatura. Non compaiono fra le sottocategorie perché l'armatura
@@ -58,9 +68,26 @@ export function isShield(item: { type: string; subtype?: string; armorType?: str
   return item.type === 'equipaggiamento' && item.subtype === 'scudo';  // retrocompatibilità
 }
 
-/** Arma che richiede entrambe le mani. */
+/** Arma che richiede entrambe le mani, da mischia o a distanza. */
 export function isTwoHanded(item: { type: string; subtype?: string }): boolean {
-  return (item.type === 'arma' || item.type === 'unico' || item.type === 'magico') && item.subtype === 'a due mani';
+  return (item.type === 'arma' || item.type === 'unico' || item.type === 'magico')
+    && TWO_HANDED_SUBTYPES.includes(item.subtype || '');
+}
+
+/** Arma a distanza: è ciò che fa comparire la faretra sotto la mano secondaria. */
+export function isRanged(item?: { type?: string; subtype?: string }): boolean {
+  if (!item) return false;
+  return (item.type === 'arma' || item.type === 'unico' || item.type === 'magico')
+    && RANGED_SUBTYPES.includes(item.subtype || '');
+}
+
+/**
+ * Munizioni disponibili in un inventario: consumabili o oggetti dichiarati
+ * munizione dal DM. Sono queste che la faretra propone.
+ */
+export function ammoIn(inventory?: any[]): any[] {
+  return (inventory || []).filter((it: any) =>
+    it.ammo || (it.type === 'consumabile' && /frecc|quadrell|verrett|dardo|proiettil|pallottol|pietr/i.test(it.name || '')));
 }
 
 export const SLOTS: SlotDef[] = [

@@ -4,8 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { ItemDetailBody } from '@/components/shared/ItemDetail';
 import { computeAC } from '@/components/shared/common';
-import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, ATTUNE_MAX, attunedCount, itemGradient } from '@/lib/dnd/equipment';
-import { masteryById, canUseMastery } from '@/lib/dnd/mastery';
+import { SLOT_BY_ID, SlotId, slotAccepts, isTwoHanded, isRanged, ammoIn, ATTUNE_MAX, attunedCount, itemGradient } from '@/lib/dnd/equipment';
 
 // ─── SAGOMA DELL'EQUIPAGGIAMENTO ─────────────────────────────
 // Caselle fisse secondo lo schema: elmo e mantello in cima, parabracci e
@@ -48,6 +47,19 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTran
 
   // Oggetto mostrato in una casella (mano2 rispecchia l'arma a due mani)
   const shownIn = (id: string) => (id === 'mano2' && twoHandedActive) ? twoHandedActive : bySlot(id);
+
+  // ── Faretra ──
+  // Compare soltanto quando è impugnata un'arma a distanza, in una delle due
+  // mani: è un accessorio dell'arma, non un alloggiamento permanente della
+  // sagoma, e non deve occupare spazio quando non serve. La munizione scelta
+  // resta memorizzata sul personaggio, così riprendendo l'arco si ritrova la
+  // faretra di prima invece di doverla ridichiarare.
+  const rangedWeapon = [bySlot('mano1'), bySlot('mano2')].find(it => isRanged(it)) || null;
+  const ammoChoices = ammoIn(inv);
+  const ammoId: string | undefined = (p as any)?.ammoId;
+  const ammo = ammoId ? inv.find((it: any) => it.id === ammoId) : undefined;
+  const setAmmo = (id: string | undefined) => updPlayer(pl => ({ ...pl, ammoId: id } as any));
+  const [pickingAmmo, setPickingAmmo] = useState(false);
 
   const place = (slotId: SlotId, itemId: string) => {
     const item = inv.find(it => it.id === itemId);
@@ -214,6 +226,42 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTran
           <div style={{ ...col, paddingTop: SIDE_OFFSET }}>
             <Cell id="vesti" />
             <Cell id="mano2" />
+            {/* La faretra: piccola, centrata sotto la mano secondaria, e
+                presente solo finché un'arma a distanza resta impugnata. */}
+            {rangedWeapon && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                <div
+                  onClick={() => setPickingAmmo(true)}
+                  title={ammo ? `${ammo.name} ×${ammo.qty ?? 0}` : 'Scegli le munizioni'}
+                  style={{ width: 44, height: 44, borderRadius: 8, position: 'relative', cursor: 'pointer',
+                    border: ammo ? `2px solid ${(ammo.qty ?? 0) > 0 ? accent : 'var(--red)'}` : '1px dashed var(--border)',
+                    background: ammo ? 'var(--bg-input)' : 'rgba(11,8,20,.55)',
+                    boxShadow: ammo && (ammo.qty ?? 0) > 0 ? `0 0 10px ${accent}33` : 'none',
+                    overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s' }}>
+                  {ammo ? (
+                    <>
+                      <div style={{ position: 'absolute', inset: 0, opacity: (ammo.qty ?? 0) > 0 ? 1 : .3, filter: (ammo.qty ?? 0) > 0 ? 'none' : 'grayscale(1) brightness(.6)' }}>
+                        <ImageSlot slotId={'item-' + ammo.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
+                          dmMode={false} placeholder={ammo.name.slice(0, 2).toUpperCase()} alt={ammo.name} />
+                      </div>
+                      <span style={{ position: 'absolute', bottom: 1, right: 3, fontSize: 9, fontWeight: 700,
+                        color: (ammo.qty ?? 0) > 0 ? '#fff' : 'var(--red)', textShadow: '0 1px 3px #000, 0 0 4px #000' }}>×{ammo.qty ?? 0}</span>
+                    </>
+                  ) : <span style={{ fontSize: 15, color: 'var(--gray-purple-deep)' }}>⤢</span>}
+                </div>
+                {ammo && (
+                  <div className="row" style={{ gap: 3, alignItems: 'center' }}>
+                    <button onClick={e => { e.stopPropagation(); setQty(ammo.id, (ammo.qty ?? 0) - 1); }} disabled={(ammo.qty ?? 0) <= 0}
+                      style={{ width: 16, height: 16, lineHeight: 1, fontSize: 11, padding: 0, borderRadius: 3, border: '1px solid var(--border)', background: 'var(--bg-deep)', color: (ammo.qty ?? 0) <= 0 ? 'var(--gray-purple-deep)' : 'var(--text)', cursor: (ammo.qty ?? 0) <= 0 ? 'default' : 'pointer' }}>−</button>
+                    <button onClick={e => { e.stopPropagation(); setQty(ammo.id, (ammo.qty ?? 0) + 1); }}
+                      style={{ width: 16, height: 16, lineHeight: 1, fontSize: 11, padding: 0, borderRadius: 3, border: '1px solid var(--border)', background: 'var(--bg-deep)', color: 'var(--text)', cursor: 'pointer' }}>+</button>
+                  </div>
+                )}
+                <span style={{ fontSize: 8, letterSpacing: .3, color: ammo ? accent : 'var(--gray-purple-deep)', maxWidth: 60, textAlign: 'center', lineHeight: 1.2 }}>
+                  {ammo ? ammo.name : 'Munizioni'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -258,8 +306,7 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTran
               onPu={setItemField ? (n: number) => setItemField(detailItem.id, 'pu', n) : undefined}
               players={players}
               onTransfer={onTransfer ? (target: string) => { onTransfer(detailItem, target); setDetail(null); } : undefined}
-              onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detailItem.id, madeOn, n) : undefined}
-              mastery={masteryById(s, detailItem.mastery)} masteryActive={canUseMastery(p, detailItem)} />
+              onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detailItem.id, madeOn, n) : undefined} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn grow" style={{ fontSize: 11 }} onClick={() => { const sl = detail; setDetail(null); setPicking(sl); }}>Cambia oggetto</button>
@@ -270,6 +317,39 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTran
       )}
 
       {/* Selettore */}
+      {/* Scelta delle munizioni per la faretra */}
+      {pickingAmmo && (
+        <div className="alchemy-overlay" onClick={e => { if (e.target === e.currentTarget) setPickingAmmo(false); }}>
+          <div className="alchemy-popup" style={{ maxWidth: 380 }}>
+            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+              <div className="h2" style={{ fontSize: 15, color: accent }}>Munizioni</div>
+              <button className="btn btn-ghost" style={{ fontSize: 16, padding: '2px 8px' }} onClick={() => setPickingAmmo(false)}>✕</button>
+            </div>
+            {ammoChoices.length === 0 ? (
+              <div className="card small muted" style={{ textAlign: 'center', fontStyle: 'italic' }}>
+                Nessuna munizione nell'inventario. Un oggetto vale come munizione se è un consumabile dal nome riconoscibile — frecce, quadrelli, verrettoni — oppure se il DM lo ha dichiarato tale nella redazione.
+              </div>
+            ) : ammoChoices.map((it: any) => (
+              <div key={it.id} className="card" style={{ padding: '7px 9px', marginBottom: 4, cursor: 'pointer',
+                borderColor: ammoId === it.id ? accent : 'var(--border)' }}
+                onClick={() => { setAmmo(it.id); setPickingAmmo(false); }}>
+                <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+                    <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
+                  </div>
+                  <span className="grow" style={{ fontSize: 13, minWidth: 0 }}>{it.name}</span>
+                  <span className="small muted">×{it.qty ?? 0}</span>
+                </div>
+              </div>
+            ))}
+            {ammoId && (
+              <button className="btn btn-ghost" style={{ width: '100%', fontSize: 10, marginTop: 6 }}
+                onClick={() => { setAmmo(undefined); setPickingAmmo(false); }}>Svuota la faretra</button>
+            )}
+          </div>
+        </div>
+      )}
+
       {picking && (
         <div className="alchemy-overlay" onClick={e => { if (e.target === e.currentTarget) { setPicking(null); setShowAll(false); } }}>
           <div className="alchemy-popup" style={{ maxWidth: 420 }}>

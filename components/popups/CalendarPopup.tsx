@@ -4,6 +4,8 @@ import { CampaignState } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { sfxDice } from '@/lib/dnd/sounds';
 import { sweepExpired } from '@/lib/dnd/perishables';
+import { jobsOf, jobProgress } from '@/lib/dnd/crafting';
+import { absDay } from '@/lib/dnd/calendar';
 import { COND, DT, WEATHER_MAP, WEATHER_DETAILS, BIOMES, SEASONS, EFFECT_CATS, INTENSITY_COLORS } from '@/lib/dnd/weather';
 import {
   CalendarState, DEFAULT_CALENDAR, MONTHS, addDays, seasonForMonth,
@@ -50,7 +52,11 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
   const [catFilter, setCatFilter] = useState('all');
   const [intFilter, setIntFilter] = useState('all');
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [swept, setSwept] = useState<string | null>(null);   // preparati scartati all'ultimo cambio data
+  // Riepilogo di ciò che è maturato mentre il tempo passava: preparati
+  // guasti, cantieri conclusi, commesse pronte. Tre meccanismi diversi
+  // dipendono ormai dall'avanzare della data, e vederli in un punto solo
+  // evita di doverli cercare in tre riquadri della tab Base.
+  const [night, setNight] = useState<{ lost: string[]; ready: string[] } | null>(null);
 
   const setCal = (next: CalendarState) => update({ calendar: next });
 
@@ -64,10 +70,30 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
   const setCalAndSweep = (next: CalendarState) => {
     update(prev => {
       const { players, removed } = sweepExpired(prev.players, next.date);
-      if (removed.length) {
-        const detail = removed.map(r => `${r.name} ×${r.doses} (${r.player})`).join(', ');
-        setTimeout(() => setSwept(detail), 0);
+      const lost = removed.map(r => `${r.name} ×${r.doses} — ${r.player}`);
+
+      // Ciò che è giunto a termine: si annuncia, non si completa da sé. Il
+      // ritiro resta un gesto di chi gioca, com'era già per i cantieri.
+      const ready: string[] = [];
+      const nameOf = (id: string) => prev.players.find(pl => pl.id === id)?.short || prev.players.find(pl => pl.id === id)?.name || '—';
+      const wasDone = (start: number, days: number) => Math.max(0, absDay(prev.calendar!.date) - start) >= days;
+      const isDone = (start: number, days: number) => Math.max(0, absDay(next.date) - start) >= days;
+
+      for (const j of jobsOf(prev, 'forge')) {
+        if (!wasDone(j.startAbs, j.days) && isDone(j.startAbs, j.days))
+          ready.push(`Fucina · ${j.itemName} (${j.upgradeName}) — ${nameOf(j.playerId)}`);
       }
+      for (const j of jobsOf(prev, 'tannery')) {
+        if (!wasDone(j.startAbs, j.days) && isDone(j.startAbs, j.days))
+          ready.push(`Conceria · ${j.toName} ×${j.toQty} — ${nameOf(j.playerId)}`);
+      }
+      for (const b of (((prev as any).buildings || []) as any[])) {
+        const c = b.construction;
+        if (c && !wasDone(c.startAbs, c.days) && isDone(c.startAbs, c.days))
+          ready.push(`Cantiere · ${b.name} → livello ${c.targetLevel}`);
+      }
+
+      if (lost.length || ready.length) setTimeout(() => setNight({ lost, ready }), 0);
       return { calendar: next, players };
     });
   };
@@ -238,17 +264,31 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
               <button className="btn cal-adv" onClick={()=>advance(6)}>+1 settimana</button>
             </div>
 
-            {/* Preparati guasti scartati al cambio di data */}
-            {swept && (
-              <div className="card" style={{borderColor:'var(--red)',padding:'8px 10px',marginBottom:10}}>
-                <div className="row" style={{gap:6,alignItems:'flex-start'}}>
-                  <span style={{color:'var(--red)',fontSize:13}}>⧖</span>
-                  <div className="grow">
-                    <div className="label" style={{fontSize:8,color:'var(--red)',marginBottom:2}}>Partite guaste, scartate</div>
-                    <div className="small muted" style={{fontSize:11,lineHeight:1.5}}>{swept}</div>
-                  </div>
-                  <button className="btn btn-ghost" style={{padding:'1px 6px',fontSize:10}} onClick={()=>setSwept(null)}>✕</button>
+            {/* Ciò che è maturato mentre il tempo passava */}
+            {night && (
+              <div className="card" style={{borderColor:'var(--gold)',padding:'9px 11px',marginBottom:10}}>
+                <div className="row" style={{gap:6,alignItems:'baseline',marginBottom:6}}>
+                  <span style={{color:'var(--gold)',fontSize:13}}>☾</span>
+                  <div className="label" style={{fontSize:8,color:'var(--gold)'}}>Durante la notte</div>
+                  <div className="grow" />
+                  <button className="btn btn-ghost" style={{padding:'1px 6px',fontSize:10}} onClick={()=>setNight(null)}>✕</button>
                 </div>
+                {night.ready.length > 0 && (
+                  <div style={{marginBottom: night.lost.length ? 8 : 0}}>
+                    <div className="label" style={{fontSize:8,color:'var(--green)',marginBottom:3}}>Pronto al ritiro</div>
+                    {night.ready.map((r,i)=>(
+                      <div key={i} className="small" style={{fontSize:11,lineHeight:1.6,color:'var(--text-card)'}}>✓ {r}</div>
+                    ))}
+                  </div>
+                )}
+                {night.lost.length > 0 && (
+                  <div>
+                    <div className="label" style={{fontSize:8,color:'var(--red)',marginBottom:3}}>Partite guaste, scartate</div>
+                    {night.lost.map((r,i)=>(
+                      <div key={i} className="small" style={{fontSize:11,lineHeight:1.6,color:'var(--gray-purple)'}}>⧖ {r}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
