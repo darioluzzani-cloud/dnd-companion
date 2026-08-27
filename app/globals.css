@@ -486,26 +486,42 @@ html[data-theme='light'] { --ember: #9a6a12; }
   line-height: 1; text-shadow: 0 1px 3px #000; display: flex; align-items: center;
 }
 
-/* --- Companion: tondo più ampio, appoggiato sopra l'orbe --- */
+/* --- Companion: la salute corre lungo la circonferenza del ritratto --- */
 .comp-orb {
-  position: absolute; left: -4px; bottom: 40px; width: 40px; height: 40px; z-index: 6;
-  border-radius: 50%; overflow: hidden; cursor: pointer; border: 2px solid var(--green);
-  box-shadow: 0 2px 8px rgba(0,0,0,.65);
+  position: absolute; left: -6px; bottom: 42px; width: 48px; height: 48px; z-index: 6;
+  border-radius: 50%; cursor: pointer; filter: drop-shadow(0 2px 8px rgba(0,0,0,.7));
 }
+.comp-orb-img { position: absolute; inset: 5px; border-radius: 50%; overflow: hidden; border: 1px solid var(--bg-deep); }
+.comp-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
+.comp-ring-track { fill: none; stroke: var(--bg-deep); stroke-width: 5; opacity: .85; }
+.comp-ring-fill { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dasharray .3s, stroke .3s; }
 
-/* --- Meno e più: due rune quadre, non pulsanti generici --- */
-.hp-pad { display: flex; gap: 6px; margin-left: 48px; }
-.hp-rune {
-  flex: 1; aspect-ratio: 1 / 1; max-height: 30px;
+/* --- Meno e più: sfere incise, parenti dell'orbe d'iniziativa --- */
+.hp-pad { display: flex; gap: 8px; margin-left: 46px; justify-content: center; }
+.hp-orb {
+  flex: 0 0 auto; width: 34px; height: 34px; padding: 0; position: relative;
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-display); font-size: 17px; font-weight: 700; line-height: 1;
-  border-radius: 4px; cursor: pointer; transition: all .12s;
+  border: none; border-radius: 50%; cursor: pointer; transition: all .12s;
 }
-.hp-rune:active { transform: translateY(1px); }
-.hp-rune-neg { background: rgba(214,100,122,.16); color: var(--red); border: 1.5px solid rgba(214,100,122,.45); }
-.hp-rune-neg:hover { background: rgba(214,100,122,.3); box-shadow: 0 0 8px rgba(214,100,122,.3); }
-.hp-rune-pos { background: rgba(98,185,138,.16); color: var(--green); border: 1.5px solid rgba(98,185,138,.45); }
-.hp-rune-pos:hover { background: rgba(98,185,138,.3); box-shadow: 0 0 8px rgba(98,185,138,.3); }
+.hp-orb:active { transform: translateY(1px); }
+.hp-orb-ring { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.hp-orb-outer { fill: none; stroke-width: 3; }
+.hp-orb-inner { fill: none; stroke-width: 1; opacity: .5; stroke-dasharray: 3 4; }
+.hp-orb-glyph { font-family: var(--font-display); font-size: 17px; font-weight: 700; line-height: 1; text-shadow: 0 1px 3px #000; }
+
+.hp-orb-neg { background: radial-gradient(circle at 38% 32%, #4a2130, var(--bg-deep) 72%); box-shadow: 0 2px 8px rgba(0,0,0,.6), inset 0 0 8px rgba(214,100,122,.14); }
+.hp-orb-neg .hp-orb-ring path, .hp-orb-neg .hp-orb-outer { fill: rgba(214,100,122,.75); stroke: rgba(214,100,122,.75); }
+.hp-orb-neg .hp-orb-outer { fill: none; }
+.hp-orb-neg .hp-orb-inner { stroke: var(--red); }
+.hp-orb-neg .hp-orb-glyph { color: var(--red); }
+.hp-orb-neg:hover { box-shadow: 0 2px 12px rgba(214,100,122,.45), inset 0 0 10px rgba(214,100,122,.25); }
+
+.hp-orb-pos { background: radial-gradient(circle at 38% 32%, #1d4234, var(--bg-deep) 72%); box-shadow: 0 2px 8px rgba(0,0,0,.6), inset 0 0 8px rgba(98,185,138,.14); }
+.hp-orb-pos .hp-orb-ring path, .hp-orb-pos .hp-orb-outer { fill: rgba(98,185,138,.75); stroke: rgba(98,185,138,.75); }
+.hp-orb-pos .hp-orb-outer { fill: none; }
+.hp-orb-pos .hp-orb-inner { stroke: var(--green); }
+.hp-orb-pos .hp-orb-glyph { color: var(--green); }
+.hp-orb-pos:hover { box-shadow: 0 2px 12px rgba(98,185,138,.45), inset 0 0 10px rgba(98,185,138,.25); }
 
 @media (min-width: 600px) { .combat-card { flex-basis: 140px; width: 140px; } }
 @media (min-width: 1024px) { .combat-card { flex-basis: 154px; width: 154px; } }

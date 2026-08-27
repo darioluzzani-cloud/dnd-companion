@@ -14,6 +14,19 @@ import { rollDice } from '@/components/shared/DiceOverlay';
 // è quasi interamente lavoro da DM, vive nel pannello di dettaglio: nome,
 // massimale, assegnazione delle condizioni, fazione, rimozione.
 
+/** Corona a quattro punte delle sfere di cura e ferita. */
+function HpOrbRing() {
+  return (
+    <svg className="hp-orb-ring" viewBox="0 0 100 100" aria-hidden="true">
+      {[0, 90, 180, 270].map(a => (
+        <path key={a} d="M50 1 L55 15 L50 11.5 L45 15 Z" transform={`rotate(${a} 50 50)`} />
+      ))}
+      <circle cx="50" cy="50" r="40" className="hp-orb-outer" />
+      <circle cx="50" cy="50" r="33" className="hp-orb-inner" />
+    </svg>
+  );
+}
+
 /** Slot dell'immagine, secondo la natura del combattente. */
 export function slotOf(k: any): string {
   if (k.imgSlot) return k.imgSlot;
@@ -131,10 +144,10 @@ export function CombatCard({
         <div style={{ position: 'absolute', left: 46, right: 5, bottom: 6, pointerEvents: 'none' }}>
           {seesNumbers ? (
             <>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 9.5, color: '#fff', textShadow: '0 1px 3px #000', textAlign: 'right', lineHeight: 1.1 }}>
-                {hp}/{maxHp} <span style={{ opacity: .7 }}>PF</span>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 13, fontWeight: 600, color: '#fff', textShadow: '0 1px 4px #000, 0 0 6px #000', textAlign: 'right', lineHeight: 1.1 }}>
+                {hp}/{maxHp} <span style={{ opacity: .7, fontSize: 9 }}>PF</span>
               </div>
-              <div className="hp-bar" style={{ marginTop: 2 }}>
+              <div className="hp-bar" style={{ marginTop: 3, height: 8 }}>
                 <div className="hp-fill" style={{ width: pct + '%', background: `hsl(${Math.round(pct * 1.2)},65%,55%)` }} />
               </div>
             </>
@@ -142,12 +155,13 @@ export function CombatCard({
             <>
               {/* Barra qualitativa: quanto un occhio esperto vedrebbe guardando
                   l'avversario, senza svelare le cifre. */}
-              <div style={{ fontSize: 8, color: step.color, textShadow: '0 1px 3px #000', textAlign: 'right', lineHeight: 1.1 }}>{step.label}</div>
-              <div className="row" style={{ gap: 2, marginTop: 2 }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 600, color: step.color, textShadow: '0 1px 4px #000, 0 0 6px #000', textAlign: 'right', lineHeight: 1.1 }}>{step.label}</div>
+              <div className="row" style={{ gap: 3, marginTop: 3 }}>
                 {[1, 2, 3, 4].map(i => (
                   <div key={i} style={{
-                    flex: 1, height: 6, borderRadius: 2, border: '1px solid var(--border)',
+                    flex: 1, height: 9, borderRadius: 2, border: '1px solid var(--border)',
                     background: i <= step.i ? step.color : 'var(--bg-deep)',
+                    boxShadow: i <= step.i ? `0 0 5px ${step.color}66` : 'none',
                   }} />
                 ))}
               </div>
@@ -158,14 +172,27 @@ export function CombatCard({
       </div>
 
         {/* Companion: tondo sopra l'orbe, anch'esso sbordante */}
-        {comp && (
-          <div className="comp-orb" onClick={e => { e.stopPropagation(); setOpenComp(v => !v); }}
-            title={`${comp.name} · ${comp.hp}/${comp.maxHp} PF — tocca per curare o ferire`}
-            style={{ borderColor: compPct <= 0 ? 'var(--red)' : 'var(--green)' }}>
-            <ImageSlot slotId={'companion-' + owner.id} campaignId={campaignId} shape="circle" width="100%" height="100%"
-              dmMode={false} placeholder="🐾" alt={comp.name} />
-          </div>
-        )}
+        {comp && (() => {
+          // La salute del companion corre lungo la circonferenza del ritratto:
+          // un anello che si consuma è più immediato di una barra nascosta
+          // dietro un tocco, e non ruba spazio alla carta.
+          const R = 21, C = 2 * Math.PI * R;
+          const ringCol = compPct <= 0 ? 'var(--red)' : `hsl(${Math.round(compPct * 1.2)},65%,55%)`;
+          return (
+            <div className="comp-orb" onClick={e => { e.stopPropagation(); setOpenComp(v => !v); }}
+              title={`${comp.name} · ${comp.hp}/${comp.maxHp} PF — tocca per curare o ferire`}>
+              <div className="comp-orb-img">
+                <ImageSlot slotId={'companion-' + owner.id} campaignId={campaignId} shape="circle" width="100%" height="100%"
+                  dmMode={false} placeholder="🐾" alt={comp.name} />
+              </div>
+              <svg className="comp-ring" viewBox="0 0 48 48" aria-hidden="true">
+                <circle cx="24" cy="24" r={R} className="comp-ring-track" />
+                <circle cx="24" cy="24" r={R} className="comp-ring-fill"
+                  stroke={ringCol} strokeDasharray={`${(C * Math.max(0, compPct)) / 100} ${C}`} />
+              </svg>
+            </div>
+          );
+        })()}
 
         {/* Orbe dell'iniziativa: intero, sbordante, con la corona incisa */}
         <div className={'init-orb' + (canRoll ? ' rollable' : '')}
@@ -208,8 +235,15 @@ export function CombatCard({
       {/* ── Meno e più, a destra del cerchio ── */}
       {(!enemy || dm) && (
         <div className="hp-pad" style={{ marginTop: comp && openComp ? 6 : 24 }}>
-          <button className="hp-rune hp-rune-neg" title="Un punto ferita in meno" onClick={() => changeHp(k.id, -1)}>−</button>
-          <button className="hp-rune hp-rune-pos" title="Un punto ferita in più" onClick={() => changeHp(k.id, 1)}>+</button>
+          {/* Stessa famiglia dell'orbe d'iniziativa — sfera incisa e cerchiata —
+              ma corona a quattro punte invece di otto, perché siano parenti
+              e non gemelli. */}
+          <button className="hp-orb hp-orb-neg" title="Un punto ferita in meno" onClick={() => changeHp(k.id, -1)}>
+            <HpOrbRing /><span className="hp-orb-glyph">−</span>
+          </button>
+          <button className="hp-orb hp-orb-pos" title="Un punto ferita in più" onClick={() => changeHp(k.id, 1)}>
+            <HpOrbRing /><span className="hp-orb-glyph">+</span>
+          </button>
         </div>
       )}
       {enemy && !dm && <div style={{ height: 24 }} />}
