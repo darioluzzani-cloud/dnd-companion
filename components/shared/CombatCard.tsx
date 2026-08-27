@@ -92,7 +92,12 @@ export function CombatCard({
 
   return (
     <div ref={ref} className={cls} style={{ opacity: hidden ? .5 : 1, borderStyle: hidden ? 'dashed' : undefined }}>
-      {/* ── Ritratto ── */}
+      {/* Nome sopra la carta, come nello schema di progetto */}
+      <div className="combat-name" title={k.name}>{k.name}</div>
+
+      {/* La figura non ritaglia: è dentro di essa che l'orbe dell'iniziativa
+          e il tondo del companion sbordano. Il ritaglio vive nel ritratto. */}
+      <div className="combat-figure">
       <div className="combat-portrait" onClick={onOpen} title="Apri la scheda del combattente">
         <div data-slot={slotOf(k)} style={{ position: 'absolute', inset: 0 }}>
           <ImageSlot slotId={slotOf(k)} campaignId={campaignId} shape="rect" width="100%" height="100%"
@@ -122,16 +127,8 @@ export function CombatCard({
           </div>
         )}
 
-        {/* Nome, sopra la fascia inferiore */}
-        <div style={{ position: 'absolute', left: 5, right: 5, bottom: 34, pointerEvents: 'none' }}>
-          <div style={{
-            fontFamily: 'var(--font-display)', fontSize: 10.5, fontWeight: 600, lineHeight: 1.15,
-            color: '#fff', textShadow: '0 1px 4px #000, 0 0 8px #000',
-          }}>{k.name}</div>
-        </div>
-
         {/* Salute, alla stessa altezza del cerchio d'iniziativa */}
-        <div style={{ position: 'absolute', left: 40, right: 5, bottom: 6, pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', left: 46, right: 5, bottom: 6, pointerEvents: 'none' }}>
           {seesNumbers ? (
             <>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: 9.5, color: '#fff', textShadow: '0 1px 3px #000', textAlign: 'right', lineHeight: 1.1 }}>
@@ -158,38 +155,44 @@ export function CombatCard({
           )}
         </div>
 
-        {/* Companion: tondo più piccolo, appoggiato sopra il cerchio d'iniziativa */}
+      </div>
+
+        {/* Companion: tondo sopra l'orbe, anch'esso sbordante */}
         {comp && (
-          <div onClick={e => { e.stopPropagation(); setOpenComp(v => !v); }}
-            title={`${comp.name} · ${comp.hp}/${comp.maxHp} PF`}
-            style={{
-              position: 'absolute', left: 2, bottom: 40, width: 28, height: 28, borderRadius: '50%',
-              overflow: 'hidden', cursor: 'pointer', zIndex: 3,
-              border: '2px solid ' + (compPct <= 0 ? 'var(--red)' : 'var(--green)'),
-              boxShadow: '0 2px 6px rgba(0,0,0,.6)',
-            }}>
+          <div className="comp-orb" onClick={e => { e.stopPropagation(); setOpenComp(v => !v); }}
+            title={`${comp.name} · ${comp.hp}/${comp.maxHp} PF — tocca per curare o ferire`}
+            style={{ borderColor: compPct <= 0 ? 'var(--red)' : 'var(--green)' }}>
             <ImageSlot slotId={'companion-' + owner.id} campaignId={campaignId} shape="circle" width="100%" height="100%"
               dmMode={false} placeholder="🐾" alt={comp.name} />
           </div>
         )}
 
-        {/* Iniziativa: cerchio a cavallo del bordo inferiore */}
-        <div className="init-circle" style={{ position: 'absolute', left: 0, bottom: -16, width: 38, height: 38, zIndex: 4, boxShadow: '0 2px 8px rgba(0,0,0,.55)' }}
+        {/* Orbe dell'iniziativa: intero, sbordante, con la corona incisa */}
+        <div className={'init-orb' + (canRoll ? ' rollable' : '')}
           title={'Iniziativa' + (canRoll ? ' — tocca per tirare d20 + modificatore' : '')}
           onClick={e => { if (!canRoll) return; e.stopPropagation(); rollInit(); }}>
-          {k.init ? (
-            <span style={{ fontSize: 15, cursor: canRoll ? 'pointer' : 'default' }}>{k.init}</span>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.5" style={{ cursor: canRoll ? 'pointer' : 'default' }}>
-              <path d="M12 2l8.5 5v10L12 22 3.5 17V7L12 2z" /><circle cx="12" cy="12" r="1.7" fill="var(--gold)" />
-            </svg>
-          )}
+          <svg className="init-orb-ring" viewBox="0 0 100 100" aria-hidden="true">
+            {/* corona a otto punte: un rosone inciso, non una decorazione floreale
+                che a questa scala diventerebbe una macchia illeggibile */}
+            {Array.from({ length: 8 }).map((_, i) => (
+              <path key={i} d="M50 0.5 L55.5 14 L50 10.5 L44.5 14 Z" transform={`rotate(${i * 45} 50 50)`} />
+            ))}
+            <circle cx="50" cy="50" r="41" className="init-orb-outer" />
+            <circle cx="50" cy="50" r="35" className="init-orb-inner" />
+          </svg>
+          <span className="init-orb-value">
+            {k.init ? k.init : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 2l8.5 5v10L12 22 3.5 17V7L12 2z" /><circle cx="12" cy="12" r="1.7" fill="currentColor" />
+              </svg>
+            )}
+          </span>
         </div>
       </div>
 
       {/* ── Salute del companion, aperta dal tondo ── */}
       {comp && openComp && (
-        <div className="card" style={{ padding: '5px 6px', margin: '20px 0 0' }}>
+        <div className="card" style={{ padding: '5px 6px', margin: '24px 0 0' }}>
           <div style={{ fontSize: 9, color: 'var(--green)', fontFamily: 'var(--font-display)', lineHeight: 1.2 }}>{comp.name}</div>
           <div className="row" style={{ gap: 3, marginTop: 2 }}>
             <span style={{ fontSize: 9, fontFamily: 'var(--font-display)' }}>{comp.hp}/{comp.maxHp}</span>
@@ -204,12 +207,12 @@ export function CombatCard({
 
       {/* ── Meno e più, a destra del cerchio ── */}
       {(!enemy || dm) && (
-        <div className="row" style={{ gap: 4, marginLeft: 42, marginTop: comp && openComp ? 6 : 20 }}>
-          <button className="hp-btn hp-btn-neg" style={{ padding: '3px 0', fontSize: 12 }} onClick={() => changeHp(k.id, -1)}>−</button>
-          <button className="hp-btn hp-btn-pos" style={{ padding: '3px 0', fontSize: 12 }} onClick={() => changeHp(k.id, 1)}>+</button>
+        <div className="hp-pad" style={{ marginTop: comp && openComp ? 6 : 24 }}>
+          <button className="hp-rune hp-rune-neg" title="Un punto ferita in meno" onClick={() => changeHp(k.id, -1)}>−</button>
+          <button className="hp-rune hp-rune-pos" title="Un punto ferita in più" onClick={() => changeHp(k.id, 1)}>+</button>
         </div>
       )}
-      {enemy && !dm && <div style={{ height: 20 }} />}
+      {enemy && !dm && <div style={{ height: 24 }} />}
 
       {/* ── Tiri salvezza contro morte ── */}
       {isPc && hp === 0 && (() => {

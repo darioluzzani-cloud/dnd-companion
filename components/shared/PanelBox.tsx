@@ -59,7 +59,7 @@ export function PanelBox({ title, color, icon, bgSlot, campaignId, dmMode, badge
 }
 
 /** Caricamento dello sfondo — solo DM. Sostituisce la versione precedente. */
-function PanelBg({ slot, campaignId, color, onDone }: { slot: string; campaignId: string | null; color: string; onDone: () => void }) {
+export function PanelBg({ slot, campaignId, color, onDone }: { slot: string; campaignId: string | null; color: string; onDone: () => void }) {
   return (
     <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 4 }}>
       <div className="label" style={{ fontSize: 9 }}>Sfondo</div>

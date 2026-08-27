@@ -8,6 +8,7 @@ import { U } from '@/components/shared/common';
 import { BestiaryPopup } from '@/components/popups/BestiaryPopup';
 import { CombatCard } from '@/components/shared/CombatCard';
 import { CombatantPopup } from '@/components/popups/CombatantPopup';
+import { PanelBg } from '@/components/shared/PanelBox';
 
 
 // ─── TAB: COMBATTIMENTO ──────────────────────────────────────
@@ -28,6 +29,7 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
   const [lastRoll,setLastRoll]=useState<{die:number;value:number;t:number}|null>(null);
   const [enlargedImg, setEnlargedImg] = useState<string|null>(null);
   const [detailId, setDetailId] = useState<string|null>(null);   // carta aperta a pannello
+  const [bgTick, setBgTick] = useState(0);                       // ricarica lo sfondo dopo il caricamento
 
   // ── PUNTI FERITA: UNA SOLA FONTE DI VERITÀ ────────────────
   // Per i personaggi giocanti e per i loro companion i punti ferita vivono
@@ -120,18 +122,26 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
       </div>
       {/* Testata: round, turno e comandi, integrati sopra la fila delle carte
           invece di occupare un riquadro proprio come accadeva prima. */}
-      <div className="frame">
+      <div className="frame" style={{position:'relative',overflow:'hidden'}}>
+        {/* Sfondo del campo di battaglia, come negli altri riquadri dell'app */}
+        <div style={{position:'absolute',inset:0,zIndex:0}}>
+          <div data-slot="combat-bg" style={{width:'100%',height:'100%'}}>
+            <ImageSlot key={'cbg'+bgTick} slotId="combat-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="" />
+          </div>
+        </div>
+        <div style={{position:'absolute',inset:0,zIndex:1,pointerEvents:'none',
+          background:'linear-gradient(180deg, rgba(30,22,48,.88) 0%, rgba(30,22,48,.80) 55%, rgba(30,22,48,.94) 100%)'}} />
+        <div style={{position:'relative',zIndex:2}}>
         <div className="combat-head">
-          <div className="row" style={{gap:10,minWidth:0}}>
+          <div className="combat-round">
             <div style={{textAlign:'center',flexShrink:0}}>
-              <div className="label" style={{fontSize:8}}>Round</div>
-              <div style={{fontFamily:'var(--font-display)',fontSize:24,color:'var(--gold)',lineHeight:1}}>{s.round}</div>
+              <div className="combat-round-lbl">Round</div>
+              <div className="combat-round-num">{s.round}</div>
             </div>
+            <div className="combat-round-sep" />
             <div style={{minWidth:0}}>
-              <div className="label" style={{fontSize:8}}>Turno</div>
-              <div style={{fontFamily:'var(--font-display)',fontSize:14,color:'var(--gold)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
-                {current ? current.name : '—'}
-              </div>
+              <div className="combat-round-lbl">In azione</div>
+              <div className="combat-turn-name">{current ? current.name : '—'}</div>
             </div>
           </div>
           <div className="row" style={{gap:5,flexShrink:0}}>
@@ -167,8 +177,10 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
               <input placeholder="PF" value={hp} onChange={e=>setHp(e.target.value)} style={{width:52}} />
               <button className="btn btn-primary" onClick={()=>{if(name.trim()){update(prev=>({combatants:[...prev.combatants,{id:uid('k'),name:name.trim(),init:parseInt(init)||0,hp:parseInt(hp)||10,maxHp:parseInt(hp)||10,initMod:0,side:'enemy',scenarioId:combatScen} as any]}));setName('');setInit('');setHp('');}}}>+</button>
             </div>
+            <PanelBg slot="combat-bg" campaignId={campaignId} color="var(--gold)" onDone={()=>setBgTick(t=>t+1)} />
           </div>
         )}
+        </div>
       </div>
       <div className="frame">
         <div className="label" style={{marginBottom:8}}>Dado</div>
