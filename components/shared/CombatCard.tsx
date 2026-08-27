@@ -14,15 +14,21 @@ import { rollDice } from '@/components/shared/DiceOverlay';
 // è quasi interamente lavoro da DM, vive nel pannello di dettaglio: nome,
 // massimale, assegnazione delle condizioni, fazione, rimozione.
 
-/** Corona a quattro punte delle sfere di cura e ferita. */
+/**
+ * Cornice incisa delle piastre di cura e ferita. Stessa grammatica
+ * dell'orbe d'iniziativa — doppio filetto, quello interno tratteggiato, e
+ * quattro punte — ma su pianta quadra invece che circolare: le punte
+ * diventano borchie agli angoli.
+ */
 function HpOrbRing() {
   return (
     <svg className="hp-orb-ring" viewBox="0 0 100 100" aria-hidden="true">
-      {[0, 90, 180, 270].map(a => (
-        <path key={a} d="M50 1 L55 15 L50 11.5 L45 15 Z" transform={`rotate(${a} 50 50)`} />
+      <rect x="7" y="7" width="86" height="86" rx="9" className="hp-orb-outer" />
+      <rect x="17" y="17" width="66" height="66" rx="5" className="hp-orb-inner" />
+      {[[7, 7], [93, 7], [93, 93], [7, 93]].map(([x, y], i) => (
+        <rect key={i} x={x - 5} y={y - 5} width="10" height="10" rx="1.5"
+          transform={`rotate(45 ${x} ${y})`} className="hp-orb-stud" />
       ))}
-      <circle cx="50" cy="50" r="40" className="hp-orb-outer" />
-      <circle cx="50" cy="50" r="33" className="hp-orb-inner" />
     </svg>
   );
 }
@@ -235,9 +241,9 @@ export function CombatCard({
       {/* ── Meno e più, a destra del cerchio ── */}
       {(!enemy || dm) && (
         <div className="hp-pad" style={{ marginTop: comp && openComp ? 6 : 24 }}>
-          {/* Stessa famiglia dell'orbe d'iniziativa — sfera incisa e cerchiata —
-              ma corona a quattro punte invece di otto, perché siano parenti
-              e non gemelli. */}
+          {/* Stessa grammatica dell'orbe d'iniziativa — doppio filetto inciso,
+              quello interno tratteggiato — ma su pianta quadra: parenti,
+              non gemelli. */}
           <button className="hp-orb hp-orb-neg" title="Un punto ferita in meno" onClick={() => changeHp(k.id, -1)}>
             <HpOrbRing /><span className="hp-orb-glyph">−</span>
           </button>
