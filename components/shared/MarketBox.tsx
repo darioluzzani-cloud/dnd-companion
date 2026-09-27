@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { CampaignState } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
+import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
+import { lookupByName } from '@/lib/dnd/catalog';
 import { U } from '@/components/shared/common';
 import { isMarketDay, formatDateShort } from '@/lib/dnd/calendar';
 import { DEFAULT_STALLS, DEFAULT_RUMORS, MARKET_LEVELS, MarketStall, MarketRumor, marketLevelFromBuilding, rollMarket, drawItems } from '@/lib/dnd/market';
@@ -20,6 +22,12 @@ const NATURE_COLORS: Record<string, string> = {
 const natureColor = (n: string) => NATURE_COLORS[n] || (n.startsWith('Vera') ? 'var(--green)' : 'var(--gray-purple)');
 
 export function MarketBox({ s, update, campaignId }: { s: CampaignState; update: U; campaignId: string | null }) {
+  // Merce aperta in scheda. Le voci delle bancarelle sono testo scritto dal
+  // DM: dove quel testo coincide con una voce d'armeria — la dispensa
+  // canonica — la merce diventa un oggetto vero, con immagine, effetto e
+  // descrizione. Dove non coincide, e «Armi semplici» è una categoria e non
+  // un oggetto, resta testo semplice come prima.
+  const [detailName, setDetailName] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [bgTick, setBgTick] = useState(0);
   const [showCatalog, setShowCatalog] = useState(false);
@@ -152,9 +160,29 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                         <div style={{ fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 600, color: 'var(--gold-light)' }}>{st.name}</div>
                         <div className="small muted" style={{ marginTop: 3, fontStyle: 'italic' }}>{st.desc}</div>
                         {shownItems.length > 0 && (
-                          <ul style={{ margin: '6px 0 0', paddingLeft: 16, fontSize: 11, lineHeight: 1.5 }}>
-                            {shownItems.map((it, i) => <li key={i}>{it}</li>)}
-                          </ul>
+                          <div style={{ margin: '7px 0 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {shownItems.map((it, i) => {
+                              const found = lookupByName(s, it);
+                              if (!found) return (
+                                <div key={i} className="row" style={{ gap: 6, alignItems: 'center', paddingLeft: 2 }}>
+                                  <span style={{ color: 'var(--gray-purple-deep)', fontSize: 9 }}>·</span>
+                                  <span style={{ fontSize: 11, lineHeight: 1.4 }}>{it}</span>
+                                </div>
+                              );
+                              return (
+                                <button key={i} className="market-good" onClick={() => setDetailName(it)}
+                                  title="Esamina la merce">
+                                  <span className="market-good-img">
+                                    <ImageSlot slotId={'item-' + found.entry.id} campaignId={campaignId} shape="rect"
+                                      width="100%" height="100%" dmMode={false}
+                                      placeholder={it.slice(0, 2).toUpperCase()} alt={it} />
+                                  </span>
+                                  <span className="grow" style={{ fontSize: 11, lineHeight: 1.3, textAlign: 'left', minWidth: 0 }}>{it}</span>
+                                  <span style={{ fontSize: 9, color: 'var(--gold-dim)', flexShrink: 0 }}>esamina ▸</span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         )}
                         {s.dmMode && st.randomize && (
                           <button className="btn btn-ghost" style={{ fontSize: 9, marginTop: 6 }} onClick={() => rerollStallItems(st.id)}>⟳ ripesca oggetti</button>
@@ -244,6 +272,35 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
           </div>
         )}
       </div>
+    {/* Scheda della merce: la stessa che il giocatore vedrebbe se l'oggetto
+        fosse già suo, in sola lettura — nessun comando di quantità, usura,
+        trasferimento o consumo, perché la merce non è ancora di nessuno. */}
+    {detailName && (() => {
+      const found = lookupByName(s, detailName);
+      if (!found) return null;
+      const e = found.entry;
+      const shown = { ...e, qty: undefined };
+      return (
+        <div className="alchemy-overlay" onClick={ev => { if (ev.target === ev.currentTarget) setDetailName(null); }}>
+          <div className="alchemy-popup sheet-popup" style={{ borderColor: 'var(--gold-dim)' }}>
+            <div className="row" style={{ justifyContent: 'space-between', marginBottom: 10 }}>
+              <div className="row" style={{ gap: 8, minWidth: 0 }}>
+                <span style={{ color: 'var(--gold)', fontSize: 14 }}>🏪</span>
+                <div className="h2" style={{ fontSize: 15, color: 'var(--gold)', minWidth: 0 }}>{e.name}</div>
+              </div>
+              <button className="btn btn-ghost" onClick={() => setDetailName(null)} style={{ fontSize: 16, padding: '2px 8px' }}>✕</button>
+            </div>
+            <ItemDetailBody item={shown} campaignId={campaignId} accent="var(--gold)" slotPrefix="market"
+              {...itemViewProps(s, null, shown)} />
+            <div className="small muted" style={{ fontSize: 10, marginTop: 8, fontStyle: 'italic' }}>
+              {found.source === 'armory'
+                ? "Scheda dal catalogo dell'armeria."
+                : 'Scheda ricavata da un esemplare già in circolazione.'}
+            </div>
+          </div>
+        </div>
+      );
+    })()}
     </div>
   );
 }

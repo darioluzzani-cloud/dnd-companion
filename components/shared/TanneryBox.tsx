@@ -6,6 +6,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { PanelBox, WorkBench, BenchEmpty } from '@/components/shared/PanelBox';
 import { CraftJob, TanneryRecipe, tanneryRecipesOf, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
 import { absDay } from '@/lib/dnd/calendar';
+import { itemFromArmory, cloneImage, lookupByName, normName } from '@/lib/dnd/catalog';
 import { sfxComplete } from '@/lib/dnd/sounds';
 
 // ─── CONCERIA DI MEZZALUNA ───────────────────────────────────
@@ -22,6 +23,11 @@ const TAN_COLOR = 'var(--gold-light)';
 export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update: U; campaignId: string | null }) {
   const [playerId, setPlayerId] = useState<string>(s.activePlayer || s.players[0]?.id || '');
   const [recipeId, setRecipeId] = useState<string>('');
+  // Lotti da lavorare in una volta sola. Regola generale delle conversioni:
+  // la ricetta dichiara il rapporto, non il tetto. Se la regola dice «due
+  // pellicce fanno un cuoio» e nello zaino ce ne sono sei, la bottega deve
+  // proporre tre cuoi senza che nessuno faccia la divisione a mano.
+  const [batches, setBatches] = useState(0);   // 0 = «quanti ne consente la scorta»
   const [editId, setEditId] = useState<string | null>(null);
 
   const recipes: TanneryRecipe[] = tanneryRecipesOf(s);
@@ -38,17 +44,17 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
   const blockedByOther = !!blocking && blocking.playerId !== playerId;
 
   // Illustrazione di un materiale: si cerca fra gli inventari e in armeria
-  const findIllus = (name: string): any => {
-    for (const pl of s.players) {
-      const f = (pl.inventory || []).find((it: any) => it.name === name);
-      if (f) return f;
-    }
-    return ((s as any).armory || []).find((a: any) => a.name === name) || null;
-  };
+  const findIllus = (name: string): any => lookupByName(s, name)?.entry || null;
 
   const have = recipe ? (player?.inventory.find(it => it.name === recipe.fromName)?.qty || 0) : 0;
-  const enough = !!recipe && have >= recipe.fromQty;
-  const canStart = !!player && !!recipe && enough && !myJob && !blockedByOther && !!today;
+  const maxBatches = recipe ? Math.floor(have / Math.max(1, recipe.fromQty)) : 0;
+  // Zero significa «al massimo consentito»: la scelta segue la scorta se
+  // questa cambia, invece di restare inchiodata a un numero vecchio.
+  const nBatches = Math.min(batches || maxBatches, maxBatches);
+  const enough = !!recipe && maxBatches >= 1;
+  const canStart = !!player && !!recipe && enough && nBatches >= 1 && !myJob && !blockedByOther && !!today;
+  const inQty = recipe ? recipe.fromQty * nBatches : 0;
+  const outQty = recipe ? recipe.toQty * nBatches : 0;
 
   const start = () => {
     if (!canStart || !player || !recipe || !today) return;
@@ -56,33 +62,41 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
       const players = prev.players.map(pl => {
         if (pl.id !== player.id) return pl;
         const inventory = pl.inventory
-          .map((it: any) => it.name === recipe.fromName ? { ...it, qty: (it.qty || 0) - recipe.fromQty } : it)
+          .map((it: any) => it.name === recipe.fromName ? { ...it, qty: (it.qty || 0) - inQty } : it)
           .filter((it: any) => !(it.name === recipe.fromName && (it.qty || 0) <= 0));
         return { ...pl, inventory };
       });
       const job: CraftJob = {
         id: uid('job'), kind: 'tannery', playerId: player.id,
         startAbs: absDay(today), days: Math.max(1, recipe.days),
-        recipeId: recipe.id, fromName: recipe.fromName, fromQty: recipe.fromQty,
-        toName: recipe.toName, toQty: recipe.toQty,
+        recipeId: recipe.id, fromName: recipe.fromName, fromQty: inQty,
+        toName: recipe.toName, toQty: outQty,
       };
       return { players, ...withJob(prev, job) } as any;
     });
-    setRecipeId('');
+    setRecipeId(''); setBatches(0);
   };
 
   const collect = (job: CraftJob) => {
+    // Il prodotto non si fabbrica dal nulla: se l'armeria conosce quel nome,
+    // l'oggetto esce con la sua scheda — tipo, effetto, descrizione,
+    // illustrazione — invece di nascere come voce nuda destinata a
+    // convivere accanto all'originale senza somigliargli.
+    const built = itemFromArmory(s, job.toName!, job.toQty || 1);
     update(prev => {
       const players = prev.players.map(pl => {
         if (pl.id !== job.playerId) return pl;
-        const existing = pl.inventory.find((it: any) => it.name === job.toName);
+        const existing = pl.inventory.find((it: any) => normName(it.name) === normName(job.toName));
         const inventory = existing
-          ? pl.inventory.map((it: any) => it.name === job.toName ? { ...it, qty: (it.qty || 0) + (job.toQty || 1) } : it)
-          : [...pl.inventory, { id: uid('i'), name: job.toName!, qty: job.toQty || 1, type: 'altro', revealed: true } as any];
+          ? pl.inventory.map((it: any) => it.id === existing.id ? { ...it, qty: (it.qty || 0) + (job.toQty || 1) } : it)
+          : [...pl.inventory, built.item];
         return { ...pl, inventory };
       });
       return { players, ...withoutJob(prev, job.id) } as any;
     });
+    const already = (s.players.find(pl => pl.id === job.playerId)?.inventory || [])
+      .some((it: any) => normName(it.name) === normName(job.toName));
+    if (!already) cloneImage(campaignId, built.sourceId, built.item.id);
     sfxComplete();
   };
 
@@ -91,10 +105,10 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
     update(prev => {
       const players = prev.players.map(pl => {
         if (pl.id !== job.playerId) return pl;
-        const existing = pl.inventory.find((it: any) => it.name === job.fromName);
+        const existing = pl.inventory.find((it: any) => normName(it.name) === normName(job.fromName));
         const inventory = existing
-          ? pl.inventory.map((it: any) => it.name === job.fromName ? { ...it, qty: (it.qty || 0) + (job.fromQty || 1) } : it)
-          : [...pl.inventory, { id: uid('i'), name: job.fromName!, qty: job.fromQty || 1, type: 'altro', revealed: true } as any];
+          ? pl.inventory.map((it: any) => it.id === existing.id ? { ...it, qty: (it.qty || 0) + (job.fromQty || 1) } : it)
+          : [...pl.inventory, itemFromArmory(s, job.fromName!, job.fromQty || 1).item];
         return { ...pl, inventory };
       });
       return { players, ...withoutJob(prev, job.id) } as any;
@@ -103,7 +117,8 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
 
   // Ciò che il banco mostra: la commessa in corso, o l'anteprima della scelta
   const shown = myJob || (recipe ? {
-    fromName: recipe.fromName, fromQty: recipe.fromQty, toName: recipe.toName, toQty: recipe.toQty, days: recipe.days,
+    fromName: recipe.fromName, fromQty: inQty || recipe.fromQty,
+    toName: recipe.toName, toQty: outQty || recipe.toQty, days: recipe.days,
   } as any : null);
   const prog = myJob ? jobProgress(myJob, today) : null;
 
@@ -150,7 +165,7 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
       <div className="card">
         <div className="label" style={{ marginBottom: 6 }}>2 · Banco di concia</div>
         {!myJob && (
-          <select value={recipeId} onChange={e => setRecipeId(e.target.value)} style={{ fontSize: 13, marginBottom: 8, width: '100%' }}>
+          <select value={recipeId} onChange={e => { setRecipeId(e.target.value); setBatches(0); }} style={{ fontSize: 13, marginBottom: 8, width: '100%' }}>
             <option value="">— scegli la lavorazione —</option>
             {recipes.map(r => (
               <option key={r.id} value={r.id}>{r.fromName} ×{r.fromQty} → {r.toName} ×{r.toQty} · {r.days} gg</option>
@@ -164,6 +179,26 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
             : (recipe ? `${recipe.days} giorni di lavoro` : 'nessuna lavorazione scelta')}
           left={cell(shown?.fromName, shown?.fromQty)}
           right={cell(shown?.toName, shown?.toQty, !prog?.done)} />
+
+        {/* Quante volte applicare la regola: proposto il massimo consentito
+            dalla scorta, riducibile a piacere. */}
+        {recipe && !myJob && maxBatches >= 1 && (
+          <div className="row" style={{ gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+            <span className="label" style={{ fontSize: 9 }}>Lotti</span>
+            <button className="btn" style={{ padding: '2px 10px', fontSize: 12 }}
+              disabled={nBatches <= 1} onClick={() => setBatches(Math.max(1, nBatches - 1))}>−</button>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, minWidth: 22, textAlign: 'center', color: TAN_COLOR }}>{nBatches}</span>
+            <button className="btn" style={{ padding: '2px 10px', fontSize: 12 }}
+              disabled={nBatches >= maxBatches} onClick={() => setBatches(Math.min(maxBatches, nBatches + 1))}>+</button>
+            {nBatches < maxBatches && (
+              <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 9 }} onClick={() => setBatches(0)}>tutto ({maxBatches})</button>
+            )}
+            <div className="grow" />
+            <span className="small muted" style={{ fontSize: 10 }}>
+              {recipe.fromName} ×{inQty} → {recipe.toName} ×{outQty} · ne restano {have - inQty}
+            </span>
+          </div>
+        )}
 
         {recipe?.note && !myJob && (
           <div className="small muted" style={{ fontStyle: 'italic', fontSize: 10.5, marginBottom: 6 }}>{recipe.note}</div>
@@ -182,7 +217,11 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
             <button className="btn btn-primary" disabled={!canStart}
               style={{ width: '100%', fontSize: 12, opacity: canStart ? 1 : .45, borderColor: TAN_COLOR }}
               onClick={start}>
-              {blockedByOther ? 'Bottega occupata' : !recipe ? 'Scegli una lavorazione' : !enough ? `Serve ${recipe.fromName} ×${recipe.fromQty} (ne hai ${have})` : !today ? 'Serve il calendario' : 'Affida il lavoro'}
+              {blockedByOther ? 'Bottega occupata'
+                : !recipe ? 'Scegli una lavorazione'
+                : !enough ? `Serve ${recipe.fromName} ×${recipe.fromQty} (ne hai ${have})`
+                : !today ? 'Serve il calendario'
+                : `Affida il lavoro · ${outQty} ${recipe.toName}`}
             </button>
             {blockedByOther && (
               <div className="small muted" style={{ fontSize: 10, marginTop: 6, fontStyle: 'italic' }}>

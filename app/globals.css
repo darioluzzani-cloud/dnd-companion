@@ -529,3 +529,19 @@ html[data-theme='light'] { --ember: #9a6a12; }
 
 /* L'abbattimento resta leggibile anche su una carta stretta */
 .combat-card.enemy-dead::after { font-size: 9px; letter-spacing: 1px; padding: 0 4px; text-align: center; }
+
+/* === MERCE DEL MERCATO ====================================== */
+/* Le voci riconosciute nell'armeria diventano toccabili e portano la
+   propria illustrazione; quelle che restano categorie generiche restano
+   testo semplice, senza fingersi oggetti. */
+.market-good {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 4px 6px; border-radius: 7px; cursor: pointer;
+  background: transparent; border: 1px solid var(--border);
+  color: var(--text); transition: all .13s;
+}
+.market-good:hover { border-color: var(--gold-dim); background: var(--bg-input); }
+.market-good-img {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 5px;
+  overflow: hidden; border: 1px solid var(--border); display: block;
+}

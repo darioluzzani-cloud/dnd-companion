@@ -3,6 +3,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { NumberInput } from '@/components/shared/textUtils';
 import { CONDITIONS } from '@/lib/dnd/conditions';
 import { slotOf, woundStep } from '@/components/shared/CombatCard';
+import { QuickReference } from '@/components/shared/QuickReference';
 
 // ─── PANNELLO DEL COMBATTENTE ────────────────────────────────
 // Ciò che non entra nella carta e che quasi sempre è lavoro da DM: nome,
@@ -10,12 +11,13 @@ import { slotOf, woundStep } from '@/components/shared/CombatCard';
 // visibilità, rimozione. Al giocatore resta la lettura, più i comandi che
 // gli competono sui propri punti ferita.
 
-export function CombatantPopup({ s, k, campaignId, liveHp, changeHp, update, onClose, onEnlarge }: {
+export function CombatantPopup({ s, k, campaignId, liveHp, changeHp, update, onClose, onEnlarge, updPlayer }: {
   s: any; k: any; campaignId: string | null;
   liveHp: (c: any) => { hp: number; maxHp: number };
   changeHp: (id: string, d: number) => void;
   update: any; onClose: () => void;
   onEnlarge: (src: string) => void;
+  updPlayer?: (playerId: string, fn: (pl: any) => any) => void;
 }) {
   const dm = !!s.dmMode;
   const { hp, maxHp } = liveHp(k);
@@ -23,6 +25,7 @@ export function CombatantPopup({ s, k, campaignId, liveHp, changeHp, update, onC
   const enemy = k.side === 'enemy';
   const seesNumbers = !enemy || dm;
   const step = woundStep(pct);
+  const owner = k.id.startsWith('pc-') ? (s.players || []).find((pl: any) => pl.id === k.id.slice(3)) : undefined;
 
   const patch = (p: any) => update((prev: any) => ({ combatants: prev.combatants.map((c: any) => c.id === k.id ? { ...c, ...p } : c) }));
 
@@ -98,6 +101,15 @@ export function CombatantPopup({ s, k, campaignId, liveHp, changeHp, update, onC
             )}
           </div>
         </div>
+
+        {/* Riferimento rapido: solo per i personaggi giocanti, perché è su di
+            loro che si spendono slot e risorse durante il turno. Evita il
+            salto di scheda che i giocatori lamentavano. */}
+        {owner && updPlayer && (
+          <QuickReference s={s} p={owner}
+            updPlayer={fn => updPlayer(owner.id, fn)}
+            canAct={dm || s.activePlayer === owner.id} />
+        )}
 
         {/* Condizioni: al giocatore le sole attive, al DM tutta la tastiera */}
         <div className="card">
