@@ -545,3 +545,34 @@ html[data-theme='light'] { --ember: #9a6a12; }
   width: 30px; height: 30px; flex-shrink: 0; border-radius: 5px;
   overflow: hidden; border: 1px solid var(--border); display: block;
 }
+
+/* === FUCINA: SCELTA DELL'OGGETTO PER MINIATURE ============== */
+/* La tendina resta, ma un'arma si riconosce prima dall'immagine che dal
+   nome: la striscia scorre e la scelta si fa con un tocco. */
+.forge-picker {
+  display: flex; gap: 7px; overflow-x: auto; padding: 8px 2px 4px; margin: 0 -2px;
+  scrollbar-width: thin;
+}
+.forge-picker::-webkit-scrollbar { height: 5px; }
+.forge-picker::-webkit-scrollbar-thumb { background: var(--border-sec); border-radius: 3px; }
+.forge-pick {
+  flex: 0 0 58px; width: 58px; padding: 3px; position: relative;
+  background: transparent; border: 1.5px solid var(--border); border-radius: 8px;
+  cursor: pointer; transition: all .13s; color: var(--gray-purple);
+}
+.forge-pick:hover { border-color: var(--ember); }
+.forge-pick.on {
+  border-color: var(--ember); background: var(--bg-active);
+  box-shadow: 0 0 10px rgba(212,124,66,.35);
+}
+.forge-pick-img { display: block; width: 100%; aspect-ratio: 1 / 1; border-radius: 5px; overflow: hidden; }
+.forge-pick-name {
+  display: block; font-size: 7.5px; line-height: 1.15; margin-top: 3px;
+  max-height: 18px; overflow: hidden; text-align: center;
+}
+.forge-pick.on .forge-pick-name { color: var(--text); }
+.forge-pick-mark { position: absolute; top: 5px; right: 6px; font-size: 8px; color: var(--ember); text-shadow: 0 1px 3px #000; }
+.forge-pick-full {
+  position: absolute; left: 3px; right: 3px; top: 40%; font-size: 7px; text-align: center;
+  background: rgba(11,8,20,.8); color: var(--red); padding: 1px 0; border-radius: 2px;
+}

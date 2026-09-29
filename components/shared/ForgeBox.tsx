@@ -5,6 +5,8 @@ import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { PanelBox, WorkBench, BenchEmpty } from '@/components/shared/PanelBox';
 import { CraftJob, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
+import { armoryMaterials, missingMaterials } from '@/lib/dnd/smith-materials';
+import { normName } from '@/lib/dnd/catalog';
 import { absDay } from '@/lib/dnd/calendar';
 import { sfxComplete } from '@/lib/dnd/sounds';
 
@@ -70,8 +72,16 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   };
 
   const mats = reqMats(upgrade);
+  const forgeable = (player?.inventory || []).filter(it =>
+    FORGEABLE_TYPES.includes(it.type) && (s.dmMode || (it as any).revealed !== false));
+  const matChoices = armoryMaterials(s);
+  const missingMats = missingMaterials(s);
+  // Il confronto è tollerante a maiuscole e spazi: la ricetta «Bordi
+  // rinforzati» chiedeva «Lingotto di Acciaio» mentre l'armeria e gli
+  // inventari scrivono «Lingotto d'acciaio», e il lavoro risultava
+  // ineseguibile senza che nulla lo segnalasse.
   const matState = mats.map(m => {
-    const owned = player?.inventory.find(it => it.name === m.name);
+    const owned = player?.inventory.find(it => normName(it.name) === normName(m.name));
     const have = owned?.qty || 0;
     return { ...m, owned, have, ok: have >= m.qty, illus: owned || findMatIllustration(m.name) };
   });
@@ -111,8 +121,8 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
         let inventory = pl.inventory;
         for (const m of consume) {
           inventory = inventory
-            .map((it: any) => it.name === m.name ? { ...it, qty: (it.qty || 0) - m.qty } : it)
-            .filter((it: any) => !(it.name === m.name && (it.qty || 0) <= 0));
+            .map((it: any) => normName(it.name) === normName(m.name) ? { ...it, qty: (it.qty || 0) - m.qty } : it)
+            .filter((it: any) => !(normName(it.name) === normName(m.name) && (it.qty || 0) <= 0));
         }
         return { ...pl, inventory };
       });
@@ -206,11 +216,35 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
               </div>
               <select value={itemId} onChange={e => { setItemId(e.target.value); setDone(null); }} className="grow" style={{ fontSize: 13 }}>
                 <option value="">— scegli dall'inventario di {player?.short || '…'} —</option>
-                {(player?.inventory || []).filter(it => FORGEABLE_TYPES.includes(it.type) && (s.dmMode || (it as any).revealed !== false)).map(it => (
+                {forgeable.map(it => (
                   <option key={it.id} value={it.id}>{it.name}{((it as any).upgrades || []).length > 0 ? ' ⚒' : ''}</option>
                 ))}
               </select>
             </div>
+            {/* Scelta per miniature: la tendina resta, ma l'oggetto si
+                riconosce prima dall'immagine che dal nome. */}
+            {forgeable.length > 0 && (
+              <div className="forge-picker">
+                {forgeable.map(it => {
+                  const on = itemId === it.id;
+                  const full = ((it as any).enhUsed ?? 0) >= ((it as any).enhSlots ?? 0);
+                  return (
+                    <button key={it.id} className={'forge-pick' + (on ? ' on' : '')}
+                      title={it.name + (full ? ' — nessuno slot libero' : '')}
+                      onClick={() => { setItemId(on ? '' : it.id); setDone(null); }}>
+                      <span className="forge-pick-img">
+                        <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
+                          dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
+                      </span>
+                      {((it as any).upgrades || []).length > 0 && <span className="forge-pick-mark">⚒</span>}
+                      {full && <span className="forge-pick-full">pieno</span>}
+                      <span className="forge-pick-name">{it.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {item && (
               <div className="small muted" style={{ marginTop: 6 }}>
                 Slot: {((item as any).enhUsed ?? 0)} / {((item as any).enhSlots ?? 0)} occupati
@@ -353,6 +387,29 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
           {s.dmMode && (
             <div className="card" style={{ marginBottom: 10 }}>
               <div className="label" style={{ marginBottom: 6 }}>Catalogo della fucina (DM) · {SMITH_CATS.find(c => c.k === cat)?.l}</div>
+
+              {/* I materiali di fucina vivono in armeria: senza di loro le
+                  ricette non hanno da cosa pescare. Questa semina li deposita
+                  una volta sola, saltando quelli che già ci sono. */}
+              {missingMats.length > 0 && (
+                <div className="card" style={{ padding: '7px 9px', marginBottom: 6, borderColor: 'var(--gold-dim)' }}>
+                  <div className="small" style={{ fontSize: 10.5, lineHeight: 1.5, marginBottom: 5 }}>
+                    Mancano <b>{missingMats.length}</b> materiali di fucina dall'armeria: senza, le ricette non hanno da cosa attingere.
+                  </div>
+                  <div className="small muted" style={{ fontSize: 9.5, marginBottom: 6 }}>
+                    {missingMats.map(m => m.name).join(' · ')}
+                  </div>
+                  <button className="btn" style={{ fontSize: 10, width: '100%', borderColor: 'var(--gold-dim)', color: 'var(--gold)' }}
+                    onClick={() => {
+                      const list = ((s as any).armory || []) as any[];
+                      update({ armory: [...list, ...missingMats.map(m => ({
+                        id: uid('arm'), name: m.name, type: m.type, desc: m.desc, effect: '',
+                      }))] } as any);
+                    }}>
+                    ⌂ Deposita i materiali mancanti in armeria
+                  </button>
+                </div>
+              )}
               {inCat.map(u => {
                 const editing = editId === u.id;
                 const ms = u.materials && u.materials.length ? u.materials : reqMats(u);
@@ -392,21 +449,35 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
                           <span className="small muted" style={{ fontSize: 8.5 }}>0 = lavoro immediato</span>
                         </div>
                         <div className="label" style={{ fontSize: 8, marginBottom: 3 }}>Materiali (fino a tre)</div>
-                        {[0, 1, 2].map(i => (
-                          <div key={i} className="row" style={{ gap: 4, marginBottom: 3 }}>
-                            <input value={ms[i]?.name || ''} placeholder={`Materiale ${i + 1} (nome esatto)`}
-                              onChange={e => {
-                                const next = [...ms];
-                                while (next.length <= i) next.push({ name: '', qty: 1 });
-                                next[i] = { ...next[i], name: e.target.value };
-                                patchUpg(u.id, { materials: next.filter(x => x.name && x.name.trim()), material: undefined });
-                              }}
-                              style={{ flex: 1, fontSize: 11, padding: '3px 6px' }} />
-                            <input type="number" min={1} value={ms[i]?.qty || 1} disabled={!ms[i]?.name}
-                              onChange={e => setMat(i, { qty: Math.max(1, parseInt(e.target.value) || 1) })}
-                              style={{ width: 46, textAlign: 'center', fontSize: 11, padding: '3px 4px' }} />
-                          </div>
-                        ))}
+                        {/* Il materiale si sceglie dall'armeria, non si digita:
+                            un nome battuto a mano che non corrisponde a nulla
+                            rende la ricetta ineseguibile senza dirlo. Le voci
+                            fuori catalogo restano leggibili e conservate. */}
+                        {[0, 1, 2].map(i => {
+                          const cur = ms[i]?.name || '';
+                          const known = !cur || matChoices.some(m => m.name === cur);
+                          return (
+                            <div key={i} className="row" style={{ gap: 4, marginBottom: 3 }}>
+                              <select value={known ? cur : '__extra'} style={{ flex: 1, fontSize: 11, padding: '3px 6px' }}
+                                onChange={e => {
+                                  const v = e.target.value === '__extra' ? cur : e.target.value;
+                                  const next = [...ms];
+                                  while (next.length <= i) next.push({ name: '', qty: 1 });
+                                  next[i] = { ...next[i], name: v };
+                                  patchUpg(u.id, { materials: next.filter(x => x.name && x.name.trim()), material: undefined });
+                                }}>
+                                <option value="">— materiale {i + 1} —</option>
+                                {!known && <option value="__extra">{cur} (fuori armeria)</option>}
+                                {matChoices.map(m => (
+                                  <option key={m.id} value={m.name}>{m.name}{m.type === 'alchemico' ? ' · alch.' : ''}</option>
+                                ))}
+                              </select>
+                              <input type="number" min={1} value={ms[i]?.qty || 1} disabled={!ms[i]?.name}
+                                onChange={e => setMat(i, { qty: Math.max(1, parseInt(e.target.value) || 1) })}
+                                style={{ width: 46, textAlign: 'center', fontSize: 11, padding: '3px 4px' }} />
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -430,8 +501,8 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
           {s.dmMode && (
             <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
               <div className="label" style={{ fontSize: 9 }}>Botteghe</div>
-              {([['shop', 'Una commessa alla volta'], ['player', 'Una per personaggio']] as const).map(([k, l]) => {
-                const on = (((s as any).craftMode as string) || 'shop') === k;
+              {([['player', 'Una per personaggio'], ['shop', 'Una per bottega']] as const).map(([k, l]) => {
+                const on = (((s as any).craftMode as string) || 'player') === k;
                 return (
                   <button key={k} className="pill" style={{ padding: '3px 9px', fontSize: 8.5, cursor: 'pointer',
                     color: on ? 'var(--ember)' : 'var(--gray-purple-deep)', borderColor: on ? 'var(--ember)' : 'var(--border)',

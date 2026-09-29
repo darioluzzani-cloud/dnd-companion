@@ -47,11 +47,13 @@ export function jobProgress(job: CraftJob, today: any) {
 
 /**
  * La bottega accetta un nuovo lavoro?
- * `mode` 'shop' = una commessa alla volta per l'intera bottega (predefinito:
- * un artigiano, un banco); 'player' = una commessa per personaggio.
+ * `mode` 'player' (predefinito) = una commessa per personaggio, che è la
+ * regola del tavolo: ciascuno affida a Durna un lavoro alla volta, e non
+ * si fa la fila. 'shop' = una sola commessa per l'intera bottega, più
+ * verosimile ma più scomodo, resta disponibile dall'interruttore del DM.
  */
 export function shopBusy(s: any, kind: CraftJob['kind'], playerId: string): CraftJob | null {
-  const mode = (s?.craftMode as 'shop' | 'player') || 'shop';
+  const mode = (s?.craftMode as 'shop' | 'player') || 'player';
   const list = jobsOf(s, kind);
   if (mode === 'player') return list.find(j => j.playerId === playerId) || null;
   return list[0] || null;
