@@ -170,7 +170,8 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
         {filter==='inventario' && (
           <InventoryGrid s={s} p={p} updPlayer={updPlayer} campaignId={campaignId}
             items={visibleItems} gradientFor={getEnhGradient} onEnlarge={setEnlargedImg}
-            setItemField={setItemField} players={otherPlayers} onTransfer={moveItem} onConsume={consumeBatch} />
+            setItemField={setItemField} players={otherPlayers} onTransfer={moveItem} onConsume={consumeBatch}
+            update={update} />
         )}
 
         {filtered.map((it:any) => (

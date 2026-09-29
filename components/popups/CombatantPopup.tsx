@@ -11,13 +11,14 @@ import { QuickReference } from '@/components/shared/QuickReference';
 // visibilità, rimozione. Al giocatore resta la lettura, più i comandi che
 // gli competono sui propri punti ferita.
 
-export function CombatantPopup({ s, k, campaignId, liveHp, changeHp, update, onClose, onEnlarge, updPlayer }: {
+export function CombatantPopup({ s, k, campaignId, liveHp, changeHp, update, onClose, onEnlarge, updPlayer, isCurrentTurn }: {
   s: any; k: any; campaignId: string | null;
   liveHp: (c: any) => { hp: number; maxHp: number };
   changeHp: (id: string, d: number) => void;
   update: any; onClose: () => void;
   onEnlarge: (src: string) => void;
   updPlayer?: (playerId: string, fn: (pl: any) => any) => void;
+  isCurrentTurn?: boolean;
 }) {
   const dm = !!s.dmMode;
   const { hp, maxHp } = liveHp(k);
@@ -105,10 +106,13 @@ export function CombatantPopup({ s, k, campaignId, liveHp, changeHp, update, onC
         {/* Riferimento rapido: solo per i personaggi giocanti, perché è su di
             loro che si spendono slot e risorse durante il turno. Evita il
             salto di scheda che i giocatori lamentavano. */}
+        {/* Il permesso di spendere segue il TURNO, non il personaggio
+            selezionato sul dispositivo: legarlo a `activePlayer` abilitava
+            chi capitava di avere in vista, non chi stava agendo. */}
         {owner && updPlayer && (
-          <QuickReference s={s} p={owner}
+          <QuickReference s={s} p={owner} campaignId={campaignId}
             updPlayer={fn => updPlayer(owner.id, fn)}
-            canAct={dm || s.activePlayer === owner.id} />
+            canAct={dm || !!isCurrentTurn} />
         )}
 
         {/* Condizioni: al giocatore le sole attive, al DM tutta la tastiera */}

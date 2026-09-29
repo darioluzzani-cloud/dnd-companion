@@ -4,6 +4,8 @@ import { getLevelInfo } from '@/lib/dnd/xp-table';
 import { getSlotTotals, CasterType } from '@/lib/dnd/spell-slots';
 import { CONDITIONS } from '@/lib/dnd/conditions';
 import { masteryById, canUseMastery } from '@/lib/dnd/mastery';
+import { ImageSlot } from '@/components/ImageSlot';
+import { isPerishable, batchesOf, consumeDose } from '@/lib/dnd/perishables';
 
 // ─── RIFERIMENTO RAPIDO DEL PERSONAGGIO ──────────────────────
 // Ciò che serve sapere — e spendere — durante il proprio turno, senza
@@ -15,10 +17,11 @@ import { masteryById, canUseMastery } from '@/lib/dnd/mastery';
 // risolve il problema per cui è nato. I comandi di consumo restano però al
 // proprietario del personaggio e al DM: nessuno spende gli slot altrui.
 
-export function QuickReference({ s, p, updPlayer, canAct }: {
+export function QuickReference({ s, p, updPlayer, canAct, campaignId }: {
   s: any; p: any; updPlayer: (fn: (pl: any) => any) => void; canAct: boolean;
+  campaignId?: string | null;
 }) {
-  const [tab, setTab] = useState<'magie' | 'risorse' | 'armi'>('magie');
+  const [tab, setTab] = useState<'magie' | 'portata' | 'armi'>('magie');
   const [openSpell, setOpenSpell] = useState<string | null>(null);
 
   const info = getLevelInfo(p.xp || 0);
@@ -31,7 +34,31 @@ export function QuickReference({ s, p, updPlayer, canAct }: {
 
   const spells = (p.spells || []).filter((sp: any) => sp.revealed !== false);
   const prepared = spells.filter((sp: any) => sp.prepared || sp.level === 0);
-  const resources = (p.resources || []) as any[];
+  // Consumabili a portata: gli stessi tre alloggiamenti della sagoma, non
+  // un secondo elenco. Consumare di qui scala la scorta nell'inventario,
+  // perché è lo stesso oggetto — non una copia.
+  const HANDY = ['consum1', 'consum2', 'consum3'];
+  const handy = HANDY
+    .map(sl => (p.inventory || []).find((it: any) => it.slot === sl))
+    .filter(Boolean) as any[];
+
+  /** Consuma una dose: dal lotto più vecchio se il preparato è deperibile. */
+  const consume = (it: any) => updPlayer((pl: any) => ({
+    ...pl,
+    inventory: (pl.inventory || []).map((x: any) => {
+      if (x.id !== it.id) return x;
+      if (isPerishable(x)) {
+        const oldest = batchesOf(x)[0];
+        return oldest ? consumeDose(x, oldest.madeOn, 1) : x;
+      }
+      return { ...x, qty: Math.max(0, (x.qty ?? 0) - 1) };
+    }),
+  }));
+  const restore = (it: any) => updPlayer((pl: any) => ({
+    ...pl,
+    inventory: (pl.inventory || []).map((x: any) => x.id === it.id && !isPerishable(x)
+      ? { ...x, qty: (x.qty ?? 0) + 1 } : x),
+  }));
   const weapons = (p.inventory || []).filter((it: any) =>
     it.equipped && ['arma', 'magico', 'unico'].includes(it.type));
 
@@ -39,15 +66,10 @@ export function QuickReference({ s, p, updPlayer, canAct }: {
     ...pl,
     slotsUsed: { ...(pl.slotsUsed || {}), [lv]: Math.max(0, Math.min(slots[lv] ?? 0, (pl.slotsUsed?.[lv] || 0) + delta)) },
   }));
-  const spendRes = (rid: string, delta: number) => updPlayer((pl: any) => ({
-    ...pl,
-    resources: (pl.resources || []).map((r: any) => r.id === rid
-      ? { ...r, current: Math.max(0, Math.min(r.max ?? 0, (r.current ?? 0) + delta)) } : r),
-  }));
 
   const TABS: [typeof tab, string, number][] = [
     ['magie', 'Magie', prepared.length],
-    ['risorse', 'Risorse', resources.length],
+    ['portata', 'A portata', handy.length],
     ['armi', 'Armi', weapons.length],
   ];
 
@@ -130,26 +152,41 @@ export function QuickReference({ s, p, updPlayer, canAct }: {
         )
       )}
 
-      {/* ── Risorse di classe ── */}
-      {tab === 'risorse' && (
-        resources.length === 0
-          ? <div className="small muted" style={{ fontStyle: 'italic', fontSize: 10.5 }}>Nessuna risorsa registrata.</div>
-          : resources.map(r => (
-            <div key={r.id} className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 5 }}>
-              <span className="grow" style={{ fontSize: 12, minWidth: 0 }}>{r.name}</span>
-              {canAct && (
-                <button className="btn btn-ghost" style={{ padding: '1px 8px', fontSize: 11 }}
-                  disabled={(r.current ?? 0) <= 0} onClick={() => spendRes(r.id, -1)}>−</button>
-              )}
-              <span style={{ fontFamily: 'var(--font-display)', fontSize: 13, minWidth: 34, textAlign: 'center', color: (r.current ?? 0) > 0 ? 'var(--gold)' : 'var(--gray-purple-deep)' }}>
-                {r.current ?? 0}/{r.max ?? 0}
-              </span>
-              {canAct && (
-                <button className="btn btn-ghost" style={{ padding: '1px 8px', fontSize: 11 }}
-                  disabled={(r.current ?? 0) >= (r.max ?? 0)} onClick={() => spendRes(r.id, 1)}>+</button>
-              )}
+      {/* ── Consumabili a portata ── */}
+      {tab === 'portata' && (
+        handy.length === 0
+          ? <div className="small muted" style={{ fontStyle: 'italic', fontSize: 10.5 }}>
+              Nessun consumabile negli alloggiamenti rapidi. Si assegnano dalla sagoma, in inventario.
             </div>
-          ))
+          : handy.map((it: any) => {
+            const qty = it.qty ?? 0;
+            return (
+              <div key={it.id} className="card" style={{ padding: '6px 8px', marginBottom: 4, opacity: qty > 0 ? 1 : .55 }}>
+                <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+                  <div style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 5, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <ImageSlot slotId={'item-' + it.id} campaignId={campaignId ?? null} shape="rect" width="100%" height="100%"
+                      dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
+                  </div>
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, lineHeight: 1.2 }}>{it.name}</div>
+                    {it.effect && <div className="small" style={{ fontSize: 10, color: 'var(--gold-light)', lineHeight: 1.35 }}>{it.effect}</div>}
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 14, color: qty > 0 ? 'var(--gold)' : 'var(--gray-purple-deep)', flexShrink: 0 }}>×{qty}</span>
+                  {canAct && (
+                    <div className="row" style={{ gap: 3, flexShrink: 0 }}>
+                      {!isPerishable(it) && (
+                        <button className="btn btn-ghost" style={{ padding: '1px 7px', fontSize: 11 }}
+                          title="Restituisci una dose" onClick={() => restore(it)}>+</button>
+                      )}
+                      <button className="btn" style={{ padding: '2px 9px', fontSize: 9.5, borderColor: 'var(--green)', color: 'var(--green)' }}
+                        disabled={qty <= 0} title="Usa una dose: la scorta cala nell'inventario"
+                        onClick={() => consume(it)}>usa</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })
       )}
 
       {/* ── Armi impugnate ── */}
@@ -161,16 +198,24 @@ export function QuickReference({ s, p, updPlayer, canAct }: {
             const active = canUseMastery(p, w);
             return (
               <div key={w.id} className="card" style={{ padding: '6px 9px', marginBottom: 3 }}>
-                <div className="row" style={{ gap: 6, alignItems: 'baseline' }}>
-                  <span className="grow" style={{ fontSize: 12, fontWeight: 500, minWidth: 0 }}>{w.name}</span>
-                  {w.subtype && <span className="small muted" style={{ fontSize: 9 }}>{w.subtype}</span>}
-                </div>
-                {w.effect && <div className="small" style={{ fontSize: 10.5, color: 'var(--gold-light)', marginTop: 2 }}>✦ {w.effect}</div>}
-                {mast && (
-                  <div className="small" style={{ fontSize: 10, marginTop: 3, color: active ? 'var(--ember)' : 'var(--gray-purple-deep)' }}>
-                    ⚔ {mast.name}{!active && ' (non disponibile)'}
+                <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+                  <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 5, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                    <ImageSlot slotId={'item-' + w.id} campaignId={campaignId ?? null} shape="rect" width="100%" height="100%"
+                      dmMode={false} placeholder={w.name.slice(0, 2).toUpperCase()} alt={w.name} />
                   </div>
-                )}
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div className="row" style={{ gap: 6, alignItems: 'baseline' }}>
+                      <span className="grow" style={{ fontSize: 12, fontWeight: 500, minWidth: 0 }}>{w.name}</span>
+                      {w.subtype && <span className="small muted" style={{ fontSize: 9 }}>{w.subtype}</span>}
+                    </div>
+                    {w.effect && <div className="small" style={{ fontSize: 10.5, color: 'var(--gold-light)', marginTop: 2 }}>✦ {w.effect}</div>}
+                    {mast && (
+                      <div className="small" style={{ fontSize: 10, marginTop: 3, color: active ? 'var(--ember)' : 'var(--gray-purple-deep)' }}>
+                        ⚔ {mast.name}{!active && ' (non disponibile)'}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })

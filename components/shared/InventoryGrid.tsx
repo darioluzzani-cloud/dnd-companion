@@ -8,6 +8,9 @@ import { isPerishable, soonestLeft, batchesOf, withBatches, addDose, PERISH_DAYS
 import { masteriesOf, masteryById, canUseMastery } from '@/lib/dnd/mastery';
 import { NumberInput } from '@/components/shared/textUtils';
 import { absDay, formatDate } from '@/lib/dnd/calendar';
+import { normName } from '@/lib/dnd/catalog';
+import { copyItemImage as copyItemImage2 } from '@/components/shared/imageCopy';
+import { uid } from '@/lib/types';
 
 // ─── GRIGLIA DELL'INVENTARIO ─────────────────────────────────
 // Una fascia per categoria, disposte in verticale; dentro ogni fascia le
@@ -28,7 +31,7 @@ const shortCat = (c: string) => CAT_SHORT[c] || c;
 const TILE = 74;
 const ROW_MIN = 104;
 
-export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor, onEnlarge, setItemField, players, onTransfer, onConsume }: {
+export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor, onEnlarge, setItemField, players, onTransfer, onConsume, update }: {
   s: any; p: any; updPlayer: (fn: (pl: any) => any) => void; campaignId: string | null;
   items: any[]; gradientFor: (it: any) => string | undefined;
   onEnlarge: (src: string) => void;
@@ -36,6 +39,7 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
   players?: any[];
   onTransfer?: (item: any, targetId: string) => void;
   onConsume?: (itemId: string, madeOn: number, n?: number) => void;
+  update?: (patch: any) => void;      // per depositare una voce in armeria
 }) {
   const [detailId, setDetailId] = useState<string | null>(null);
   const accent = p?.color || 'var(--gold)';
@@ -264,6 +268,32 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
                   }} />
                   <span className="small" style={{ color: detail.perishable ? 'var(--red)' : 'var(--gray-purple)' }}>⧖ Deperibile — {PERISH_DAYS} giorni per partita</span>
                 </label>
+                {/* Archiviazione in armeria: l'inventario è stato composto a
+                    mano prima che l'armeria esistesse, quindi molti oggetti
+                    vivono solo nello zaino di qualcuno. Questo comando ne
+                    deposita una copia nel catalogo — scheda e illustrazione —
+                    così da poterlo riconsegnare a chiunque, e così che
+                    conceria e mercato lo riconoscano per nome. */}
+                {update && <button className="btn btn-ghost" style={{ width: '100%', fontSize: 10, margin: '6px 0 4px', borderColor: 'var(--gold-dim)', color: 'var(--gold)' }}
+                  onClick={() => {
+                    const list = ((s as any).armory || []) as any[];
+                    const dup = list.find(e => normName(e.name) === normName(detail.name));
+                    if (dup && !confirm(`«${detail.name}» è già in armeria. Sovrascrivere la scheda esistente?`)) return;
+                    const newId = dup ? dup.id : uid('arm');
+                    const entry = {
+                      id: newId, name: detail.name, type: detail.type || 'altro',
+                      desc: detail.desc || '', effect: detail.effect || '',
+                      subtype: detail.subtype, armorType: detail.armorType, armorCA: detail.armorCA,
+                      enhSlots: detail.enhSlots, setId: detail.setId,
+                      attunement: detail.attunement, mastery: detail.mastery, ammo: detail.ammo,
+                    };
+                    update?.({ armory: dup ? list.map(e => e.id === newId ? entry : e) : [...list, entry] } as any);
+                    if (campaignId) copyItemImage2(campaignId, detail.id, newId);
+                    alert(dup ? `Scheda di «${detail.name}» aggiornata in armeria.` : `«${detail.name}» archiviato in armeria.`);
+                  }}>
+                  ⌂ Archivia in armeria
+                </button>}
+
                 {detail.perishable && s.calendar?.date && (
                   <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
                     <span className="label" style={{ fontSize: 8 }}>Nuova partita</span>

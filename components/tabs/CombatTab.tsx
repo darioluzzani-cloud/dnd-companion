@@ -201,6 +201,7 @@ export function CombatTab({ s, update, campaignId }: { s:CampaignState; update:U
         const k = (s.combatants||[]).find((c:any)=>c.id===detailId);
         return k ? <CombatantPopup s={s} k={k} campaignId={campaignId} liveHp={liveHp} changeHp={changeHp}
           update={update} onEnlarge={setEnlargedImg} onClose={()=>setDetailId(null)}
+          isCurrentTurn={current?.id === k.id}
           updPlayer={(pid:string, fn:any)=>update(prev=>({players:prev.players.map(pl=>pl.id===pid?fn(pl):pl)}))} /> : null;
       })()}
       {showBestiary && <BestiaryPopup s={s} update={update} campaignId={campaignId} combatScen={combatScen} onClose={()=>setShowBestiary(false)} />}
