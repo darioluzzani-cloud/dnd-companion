@@ -19,10 +19,12 @@ export interface MarketGood {
   min: number;       // quantità minima quando compare
   max: number;       // quantità massima
   chance: number;    // probabilità di comparsa, 1-100
+  /** Prezzo di questo banco, se diverso da quello dichiarato in armeria. */
+  price?: number;
 }
 
 /** Merce effettivamente esposta oggi, con la quantità già tirata. */
-export interface DrawnGood { name: string; qty: number; }
+export interface DrawnGood { name: string; qty: number; price?: number }
 
 export interface MarketStall {
   id: string;
@@ -183,7 +185,7 @@ export function drawGoods(stall: MarketStall): DrawnGood[] | undefined {
     if (chance < 100 && Math.floor(Math.random() * 100) + 1 > chance) continue;
     const lo = Math.max(1, Math.min(g.min || 1, g.max || 1));
     const hi = Math.max(lo, g.max || lo);
-    out.push({ name: g.name, qty: lo + Math.floor(Math.random() * (hi - lo + 1)) });
+    out.push({ name: g.name, qty: lo + Math.floor(Math.random() * (hi - lo + 1)), price: g.price });
   }
   // Oltre la capienza del banco si mescola e si tronca: a essere tagliate
   // devono essere voci a caso, non le ultime dell'elenco, altrimenti ciò

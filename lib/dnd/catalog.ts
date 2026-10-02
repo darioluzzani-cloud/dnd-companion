@@ -86,3 +86,39 @@ export function itemFromArmory(s: any, name: string, qty: number, fallbackType =
 export function cloneImage(campaignId: string | null, sourceId?: string, targetId?: string) {
   if (campaignId && sourceId && targetId) copyItemImage(campaignId, sourceId, targetId);
 }
+
+// ─── DENARO E PREZZI ─────────────────────────────────────────
+// Nella Marca il denaro non è un contatore della scheda ma un oggetto
+// d'inventario — «Monete d'oro», categoria tesoro — che si pesa, si perde e
+// si può rubare. L'acquisto quindi non decrementa un campo: scala la pila
+// di monete, esattamente come farebbe una borsa.
+
+export const GOLD_NAME = "Monete d'oro";
+
+export function goldItem(player: any): any | undefined {
+  return (player?.inventory || []).find((it: any) => normName(it.name) === normName(GOLD_NAME));
+}
+
+export function goldOf(player: any): number {
+  return goldItem(player)?.qty ?? 0;
+}
+
+/** Prezzo in monete d'oro di una voce d'armeria, se dichiarato. */
+export function priceOf(s: any, name?: string): number | undefined {
+  const e = armoryByName(s, name);
+  const p = e?.price;
+  return typeof p === 'number' && p > 0 ? p : undefined;
+}
+
+/**
+ * Toglie `amount` monete d'oro dall'inventario del personaggio.
+ * Restituisce il nuovo inventario, o null se la somma non basta: così il
+ * chiamante non può spendere per sbaglio ciò che non c'è.
+ */
+export function paysGold(player: any, amount: number): any[] | null {
+  const coin = goldItem(player);
+  const have = coin?.qty ?? 0;
+  if (!coin || have < amount) return null;
+  return (player.inventory || []).map((it: any) =>
+    it.id === coin.id ? { ...it, qty: have - amount } : it);
+}

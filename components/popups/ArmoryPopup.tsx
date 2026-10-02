@@ -14,7 +14,7 @@ import { ammoApplies } from '@/lib/dnd/equipment';
 // Le voci usano lo slot immagine item-<id>, lo stesso schema degli oggetti
 // d'inventario: la consegna copia l'immagine sul nuovo oggetto (copyItemImage).
 
-export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; attunement?: boolean; mastery?: string; ammo?: boolean; }
+export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; attunement?: boolean; mastery?: string; ammo?: boolean; price?: number; }
 
 export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignState; update: U; campaignId: string | null; onClose: () => void }) {
   const [filter, setFilter] = useState<string>(ITEM_TYPES[0]);
@@ -199,6 +199,15 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                         </select>
                       </div>
                     )}
+                    {/* Prezzo di listino, in monete d'oro: è il valore che il
+                        mercato mostra e che l'acquisto scala dalla borsa. */}
+                    <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4 }}>
+                      <span className="label" style={{ fontSize: 8 }}>Prezzo</span>
+                      <input type="number" min={0} value={e.price ?? ''} placeholder="—"
+                        onChange={ev => patchEntry(e.id, { price: ev.target.value === '' ? undefined : Math.max(0, parseInt(ev.target.value) || 0) })}
+                        style={{ width: 66, textAlign: 'center', fontSize: 11, padding: '3px 5px' }} />
+                      <span className="small muted" style={{ fontSize: 9 }}>mo · vuoto = non in vendita</span>
+                    </div>
                     <label className="row" style={{ gap: 5, alignItems: 'center', marginBottom: 4, cursor: 'pointer' }}>
                       <input type="checkbox" checked={!!e.attunement} onChange={ev => patchEntry(e.id, { attunement: ev.target.checked })} />
                       <span className="small" style={{ color: e.attunement ? 'var(--blue)' : 'var(--gray-purple)' }}>◈ Richiede sintonia</span>
@@ -227,6 +236,9 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                     )}
                     {e.attunement && <div className="small" style={{ color: 'var(--blue)' }}>◈ Richiede sintonia</div>}
                     {e.ammo && <div className="small" style={{ color: 'var(--gold)' }}>⁂ Munizione</div>}
+                    {typeof e.price === 'number' && e.price > 0 && (
+                      <div className="small" style={{ color: 'var(--gold-light)' }}>◉ {e.price} mo</div>
+                    )}
                     {e.effect && <div className="small" style={{ color: 'var(--gold-light)' }}>✦ {e.effect}</div>}
                     {e.desc && <div className="small muted" style={{ marginTop: 3, fontStyle: 'italic' }}>{e.desc}</div>}
                     {!e.effect && !e.desc && <div className="small muted">(nessun dettaglio)</div>}

@@ -4,7 +4,7 @@ import { CampaignState } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
-import { lookupByName } from '@/lib/dnd/catalog';
+import { lookupByName, priceOf, goldOf, paysGold, itemFromArmory, cloneImage, normName, GOLD_NAME } from '@/lib/dnd/catalog';
 import { U } from '@/components/shared/common';
 import { isMarketDay, formatDateShort } from '@/lib/dnd/calendar';
 import { DEFAULT_STALLS, DEFAULT_RUMORS, MARKET_LEVELS, MarketStall, MarketRumor, marketLevelFromBuilding, rollMarket, drawItems, drawGoods, MarketGood, DrawnGood, DEFAULT_MAX_SHOWN } from '@/lib/dnd/market';
@@ -33,6 +33,9 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
   const [pickFor, setPickFor] = useState<string | null>(null);
   const [pickQ, setPickQ] = useState('');
   const [pickType, setPickType] = useState('');
+  // Chi compra: di norma il personaggio attivo sul dispositivo, ma il DM
+  // deve poter acquistare per conto di chiunque.
+  const [buyerId, setBuyerId] = useState<string>('');
   const [bgTick, setBgTick] = useState(0);
   const [showCatalog, setShowCatalog] = useState(false);
   const [showRumors, setShowRumors] = useState(false);
@@ -55,6 +58,86 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
 
   // Copy-on-write: la prima modifica al catalogo materializza i default nello stato
   const setStalls = (next: MarketStall[]) => update({ marketStalls: next } as any);
+
+  // ── Acquisto ──────────────────────────────────────────────
+  // Il denaro è l'oggetto «Monete d'oro» nello zaino, non un contatore:
+  // comprare scala quella pila. Se non basta, il pulsante resta spento —
+  // il controllo sta in `paysGold`, che restituisce null invece di
+  // permettere una spesa impossibile.
+  const buyer = s.players.find(pl => pl.id === (buyerId || s.activePlayer)) || s.players[0];
+
+  /** Trova la merce esposta oggi, per sapere prezzo e scorta residua. */
+  const drawnOf = (name: string): { stallId: string; good: DrawnGood } | null => {
+    for (const ms of (market?.stalls || [])) {
+      const g = (ms.goods || []).find(x => normName(x.name) === normName(name));
+      if (g) return { stallId: ms.stallId, good: g };
+    }
+    return null;
+  };
+
+  const buy = (name: string) => {
+    const d = drawnOf(name);
+    const price = d?.good.price ?? priceOf(s, name);
+    if (!buyer || !price || !d || d.good.qty <= 0 || !market) return;
+    const paid = paysGold(buyer, price);
+    if (!paid) return;
+    const built = itemFromArmory(s, name, 1);
+    const already = paid.some((it: any) => normName(it.name) === normName(name));
+    update(prev => ({
+      players: prev.players.map(pl => {
+        if (pl.id !== buyer.id) return pl;
+        const inv = already
+          ? paid.map((it: any) => normName(it.name) === normName(name) ? { ...it, qty: (it.qty || 0) + 1 } : it)
+          : [...paid, built.item];
+        return { ...pl, inventory: inv };
+      }),
+      // La scorta del banco cala: comprato l'ultimo esemplare, la merce
+      // sparisce dal banco fino al prossimo giorno di mercato.
+      market: { ...market, stalls: market.stalls.map(ms => ms.stallId === d.stallId
+        ? { ...ms, goods: (ms.goods || []).map(x => normName(x.name) === normName(name) ? { ...x, qty: x.qty - 1 } : x).filter(x => x.qty > 0) }
+        : ms) },
+    } as any));
+    if (!already) cloneImage(campaignId, built.sourceId, built.item.id);
+  };
+
+  const renderBuy = (name: string) => {
+    const d = drawnOf(name);
+    const price = d?.good.price ?? priceOf(s, name);
+    if (!price) return (
+      <div className="small muted" style={{ fontSize: 10.5, marginTop: 10, fontStyle: 'italic' }}>
+        Prezzo non dichiarato: va contrattato al banco.
+      </div>
+    );
+    const gold = goldOf(buyer);
+    const stock = d?.good.qty ?? 0;
+    const can = !!buyer && gold >= price && stock > 0;
+    return (
+      <div className="card" style={{ marginTop: 10, padding: '9px 10px', borderColor: 'var(--gold-dim)' }}>
+        <div className="row" style={{ gap: 8, alignItems: 'baseline', marginBottom: 6, flexWrap: 'wrap' }}>
+          <span className="label" style={{ fontSize: 8 }}>Prezzo</span>
+          <span style={{ fontFamily: 'var(--font-display)', fontSize: 17, color: 'var(--gold)' }}>{price}</span>
+          <span className="small muted" style={{ fontSize: 10 }}>mo</span>
+          <div className="grow" />
+          {stock > 0
+            ? <span className="small muted" style={{ fontSize: 10 }}>{stock} al banco</span>
+            : <span className="small" style={{ fontSize: 10, color: 'var(--red)' }}>esaurito</span>}
+        </div>
+        <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <select value={buyer?.id || ''} onChange={e => setBuyerId(e.target.value)}
+            style={{ fontSize: 11, padding: '3px 6px', flex: '1 1 110px' }}>
+            {s.players.map(pl => <option key={pl.id} value={pl.id}>{pl.short || pl.name}</option>)}
+          </select>
+          <span className="small" style={{ fontSize: 10.5, color: gold >= price ? 'var(--gold-light)' : 'var(--red)' }}>
+            {gold} mo in borsa
+          </span>
+          <button className="btn btn-primary" disabled={!can} style={{ fontSize: 11, padding: '4px 14px', opacity: can ? 1 : .45 }}
+            onClick={() => buy(name)}>
+            {stock <= 0 ? 'Esaurito' : gold < price ? 'Oro insufficiente' : 'Compra'}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const armory: any[] = ((s as any).armory || []);
   const ARMORY_TYPES = Array.from(new Set(armory.map(e => e.type))).sort();
@@ -189,7 +272,11 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                                           placeholder={g.name.slice(0, 2).toUpperCase()} alt={g.name} />
                                       : <span className="img-empty" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 9 }}>{g.name.slice(0, 2).toUpperCase()}</span>}
                                   </span>
-                                  <span className="grow" style={{ fontSize: 11, lineHeight: 1.3, textAlign: 'left', minWidth: 0 }}>{g.name}</span>
+                                  <span className="grow" style={{ fontSize: 11, lineHeight: 1.3, textAlign: 'left', minWidth: 0 }}>
+                                    {g.name}
+                                    {(() => { const pr = g.price ?? priceOf(s, g.name); return pr
+                                      ? <span className="small" style={{ display: 'block', fontSize: 9, color: 'var(--gold-light)' }}>{pr} mo</span> : null; })()}
+                                  </span>
                                   <span style={{ fontFamily: 'var(--font-display)', fontSize: 12, color: 'var(--gold)', flexShrink: 0 }}>×{g.qty}</span>
                                 </button>
                               );
@@ -311,6 +398,11 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                           <input type="number" min={1} max={100} value={g.chance} title="Probabilità di comparsa"
                             onChange={e => setGood({ chance: Math.max(1, Math.min(100, parseInt(e.target.value) || 100)) })}
                             style={{ width: 46, textAlign: 'center', fontSize: 11, padding: '2px 3px' }} />
+                          <span className="small muted" style={{ fontSize: 8 }}>mo</span>
+                          <input type="number" min={0} value={g.price ?? ''} placeholder={String(priceOf(s, g.name) ?? '—')}
+                            title="Prezzo di questo banco; vuoto = prezzo di listino dell'armeria"
+                            onChange={e => setGood({ price: e.target.value === '' ? undefined : Math.max(0, parseInt(e.target.value) || 0) })}
+                            style={{ width: 52, textAlign: 'center', fontSize: 11, padding: '2px 3px' }} />
                           <button className="btn btn-danger btn-ghost" style={{ padding: '0 6px', fontSize: 10 }}
                             onClick={() => setStalls(stalls.map(x => x.id === st.id ? { ...x, goods: (x.goods || []).filter((_, j) => j !== gi) } : x))}>&times;</button>
                         </div>
@@ -413,6 +505,7 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
             </div>
             <ItemDetailBody item={shown} campaignId={campaignId} accent="var(--gold)" slotPrefix="market"
               {...itemViewProps(s, null, shown)} />
+            {renderBuy(detailName)}
             <div className="small muted" style={{ fontSize: 10, marginTop: 8, fontStyle: 'italic' }}>
               {found.source === 'armory'
                 ? "Scheda dal catalogo dell'armeria."
