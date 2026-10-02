@@ -7,7 +7,7 @@ import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
 import { lookupByName } from '@/lib/dnd/catalog';
 import { U } from '@/components/shared/common';
 import { isMarketDay, formatDateShort } from '@/lib/dnd/calendar';
-import { DEFAULT_STALLS, DEFAULT_RUMORS, MARKET_LEVELS, MarketStall, MarketRumor, marketLevelFromBuilding, rollMarket, drawItems } from '@/lib/dnd/market';
+import { DEFAULT_STALLS, DEFAULT_RUMORS, MARKET_LEVELS, MarketStall, MarketRumor, marketLevelFromBuilding, rollMarket, drawItems, drawGoods, MarketGood, DrawnGood } from '@/lib/dnd/market';
 
 // ─── MERCATO DI OLMOBIANCO ───────────────────────────────────
 // Box ripiegabile sul modello della Fucina. Sempre visibile al DM;
@@ -29,6 +29,10 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
   // un oggetto, resta testo semplice come prima.
   const [detailName, setDetailName] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  // Scelta delle merci: quale bancarella sta pescando, con ricerca e filtro.
+  const [pickFor, setPickFor] = useState<string | null>(null);
+  const [pickQ, setPickQ] = useState('');
+  const [pickType, setPickType] = useState('');
   const [bgTick, setBgTick] = useState(0);
   const [showCatalog, setShowCatalog] = useState(false);
   const [showRumors, setShowRumors] = useState(false);
@@ -51,6 +55,13 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
 
   // Copy-on-write: la prima modifica al catalogo materializza i default nello stato
   const setStalls = (next: MarketStall[]) => update({ marketStalls: next } as any);
+
+  const armory: any[] = ((s as any).armory || []);
+  const ARMORY_TYPES = Array.from(new Set(armory.map(e => e.type))).sort();
+  const pickResults = armory
+    .filter(e => (!pickType || e.type === pickType)
+      && (!pickQ.trim() || (e.name || '').toLowerCase().includes(pickQ.trim().toLowerCase())))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const setRumors = (next: MarketRumor[]) => update({ marketRumors: next } as any);
 
   const doRoll = () => {
@@ -59,7 +70,7 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
   };
   const rerollStallItems = (stallId: string) => {
     const st = stalls.find(x => x.id === stallId); if (!st || !market) return;
-    update({ market: { ...market, stalls: market.stalls.map(ms => ms.stallId === stallId ? { ...ms, items: drawItems(st) } : ms) } } as any);
+    update({ market: { ...market, stalls: market.stalls.map(ms => ms.stallId === stallId ? { ...ms, items: drawItems(st), goods: drawGoods(st) } : ms) } } as any);
   };
   const rollRumor = () => {
     if (!market) return;
@@ -142,6 +153,9 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10 }}>
                 {market.stalls.map(ms => {
                   const st = stalls.find(x => x.id === ms.stallId); if (!st) return null;
+                  // Le merci legate all'armeria hanno la precedenza sulle
+                  // stringhe della vecchia stesura, che restano come didascalie.
+                  const drawnGoods: DrawnGood[] = (ms.goods ?? (st.goods ? drawGoods(st) : undefined)) ?? [];
                   const shownItems = (ms.items ?? st.items).slice(0, 5);
                   const isTales = st.kind === 'tales';
                   return (
@@ -159,6 +173,29 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                       <div style={{ padding: '8px 10px', flex: 1 }}>
                         <div style={{ fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 600, color: 'var(--gold-light)' }}>{st.name}</div>
                         <div className="small muted" style={{ marginTop: 3, fontStyle: 'italic' }}>{st.desc}</div>
+                        {drawnGoods.length > 0 && (
+                          <div style={{ margin: '7px 0 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {drawnGoods.map((g, i) => {
+                              const found = lookupByName(s, g.name);
+                              return (
+                                <button key={i} className="market-good" onClick={() => found && setDetailName(g.name)}
+                                  title={found ? 'Esamina la merce' : 'Voce non presente in armeria'}
+                                  style={{ cursor: found ? 'pointer' : 'default' }}>
+                                  <span className="market-good-img">
+                                    {found
+                                      ? <ImageSlot slotId={'item-' + found.entry.id} campaignId={campaignId} shape="rect"
+                                          width="100%" height="100%" dmMode={false}
+                                          placeholder={g.name.slice(0, 2).toUpperCase()} alt={g.name} />
+                                      : <span className="img-empty" style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center', fontSize: 9 }}>{g.name.slice(0, 2).toUpperCase()}</span>}
+                                  </span>
+                                  <span className="grow" style={{ fontSize: 11, lineHeight: 1.3, textAlign: 'left', minWidth: 0 }}>{g.name}</span>
+                                  <span style={{ fontFamily: 'var(--font-display)', fontSize: 12, color: 'var(--gold)', flexShrink: 0 }}>×{g.qty}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
                         {shownItems.length > 0 && (
                           <div style={{ margin: '7px 0 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
                             {shownItems.map((it, i) => {
@@ -232,7 +269,84 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                     </div>
                     <textarea value={st.desc} style={{ fontSize: 11, marginTop: 4, minHeight: 26, width: '100%' }}
                       onChange={e => setStalls(stalls.map(x => x.id === st.id ? { ...x, desc: e.target.value } : x))} />
-                    <textarea value={st.items.join('\n')} placeholder="Un oggetto per riga (a schermo max 5)…" style={{ fontSize: 11, marginTop: 3, minHeight: 34, width: '100%' }}
+                    {/* Merci legate all'armeria: griglia di miniature, con
+                        intervallo di quantità e probabilità di comparsa per
+                        ciascuna. È questo che rende il banco diverso ogni
+                        giorno di mercato senza riscrivere il catalogo. */}
+                    <div className="label" style={{ fontSize: 8, margin: '7px 0 4px' }}>Merci d'armeria</div>
+                    {(st.goods || []).length === 0 && (
+                      <div className="small muted" style={{ fontSize: 10, fontStyle: 'italic', marginBottom: 4 }}>
+                        Nessuna merce agganciata. Scegline qui sotto: ogni voce compare con la sua probabilità e in quantità variabile.
+                      </div>
+                    )}
+                    {(st.goods || []).map((g, gi) => {
+                      const found = lookupByName(s, g.name);
+                      const setGood = (patch: Partial<MarketGood>) => setStalls(stalls.map(x => x.id === st.id
+                        ? { ...x, goods: (x.goods || []).map((y, j) => j === gi ? { ...y, ...patch } : y) } : x));
+                      return (
+                        <div key={gi} className="row" style={{ gap: 5, alignItems: 'center', marginBottom: 3, flexWrap: 'wrap' }}>
+                          <span className="market-good-img" style={{ width: 26, height: 26 }}>
+                            {found && <ImageSlot slotId={'item-' + found.entry.id} campaignId={campaignId} shape="rect"
+                              width="100%" height="100%" dmMode={false} placeholder={g.name.slice(0, 2).toUpperCase()} alt={g.name} />}
+                          </span>
+                          <span className="grow" style={{ fontSize: 11, minWidth: 70, color: found ? 'var(--text)' : 'var(--gray-purple-deep)' }}>
+                            {g.name}{!found && ' (fuori armeria)'}
+                          </span>
+                          <span className="small muted" style={{ fontSize: 8 }}>q.tà</span>
+                          <input type="number" min={1} value={g.min} title="Quantità minima"
+                            onChange={e => setGood({ min: Math.max(1, parseInt(e.target.value) || 1) })}
+                            style={{ width: 40, textAlign: 'center', fontSize: 11, padding: '2px 3px' }} />
+                          <span className="small muted" style={{ fontSize: 9 }}>–</span>
+                          <input type="number" min={1} value={g.max} title="Quantità massima"
+                            onChange={e => setGood({ max: Math.max(1, parseInt(e.target.value) || 1) })}
+                            style={{ width: 40, textAlign: 'center', fontSize: 11, padding: '2px 3px' }} />
+                          <span className="small muted" style={{ fontSize: 8 }}>%</span>
+                          <input type="number" min={1} max={100} value={g.chance} title="Probabilità di comparsa"
+                            onChange={e => setGood({ chance: Math.max(1, Math.min(100, parseInt(e.target.value) || 100)) })}
+                            style={{ width: 46, textAlign: 'center', fontSize: 11, padding: '2px 3px' }} />
+                          <button className="btn btn-danger btn-ghost" style={{ padding: '0 6px', fontSize: 10 }}
+                            onClick={() => setStalls(stalls.map(x => x.id === st.id ? { ...x, goods: (x.goods || []).filter((_, j) => j !== gi) } : x))}>&times;</button>
+                        </div>
+                      );
+                    })}
+
+                    {/* Aggiunta: ricerca e filtro sull'armeria, scelta per miniatura */}
+                    {pickFor === st.id ? (
+                      <div className="card" style={{ padding: '7px 8px', marginTop: 5 }}>
+                        <div className="row" style={{ gap: 5, marginBottom: 6, flexWrap: 'wrap' }}>
+                          <input className="grow" value={pickQ} placeholder="Cerca in armeria…" autoFocus
+                            onChange={e => setPickQ(e.target.value)} style={{ fontSize: 11, padding: '3px 7px', minWidth: 100 }} />
+                          <select value={pickType} onChange={e => setPickType(e.target.value)} style={{ fontSize: 10, padding: '3px 5px' }}>
+                            <option value="">tutte</option>
+                            {ARMORY_TYPES.map(ty => <option key={ty} value={ty}>{ty}</option>)}
+                          </select>
+                          <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 10 }} onClick={() => setPickFor(null)}>chiudi</button>
+                        </div>
+                        <div className="market-pick-grid">
+                          {pickResults.slice(0, 48).map((e: any) => (
+                            <button key={e.id} className="market-pick" title={e.name}
+                              onClick={() => setStalls(stalls.map(x => x.id === st.id
+                                ? { ...x, goods: [...(x.goods || []), { name: e.name, min: 1, max: 1, chance: 100 }] } : x))}>
+                              <span className="market-pick-img">
+                                <ImageSlot slotId={'item-' + e.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
+                                  dmMode={false} placeholder={e.name.slice(0, 2).toUpperCase()} alt={e.name} />
+                              </span>
+                              <span className="market-pick-name">{e.name}</span>
+                            </button>
+                          ))}
+                          {pickResults.length === 0 && (
+                            <div className="small muted" style={{ fontStyle: 'italic', fontSize: 10 }}>Nessuna voce corrisponde.</div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="btn btn-ghost" style={{ fontSize: 10, marginTop: 5, borderColor: 'var(--gold-dim)', color: 'var(--gold)' }}
+                        onClick={() => { setPickFor(st.id); setPickQ(''); setPickType(''); }}>+ merce dall'armeria</button>
+                    )}
+
+                    {/* Voci libere della vecchia stesura: didascalie, non oggetti */}
+                    <div className="label" style={{ fontSize: 8, margin: '8px 0 3px' }}>Voci libere (didascalie)</div>
+                    <textarea value={st.items.join('\n')} placeholder="Una per riga — testo che non corrisponde a un oggetto…" style={{ fontSize: 11, minHeight: 30, width: '100%' }}
                       onChange={e => setStalls(stalls.map(x => x.id === st.id ? { ...x, items: e.target.value.split('\n').filter(v => v.trim() !== '') } : x))} />
                   </div>
                 ))}

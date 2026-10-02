@@ -6,11 +6,17 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { PanelBox, WorkBench, BenchEmpty } from '@/components/shared/PanelBox';
 import { CraftJob, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
 import { armoryMaterials, missingMaterials } from '@/lib/dnd/smith-materials';
+import { UpgradeScope, UPGRADE_SCOPES, scopeAllows, scopeOfItem } from '@/lib/dnd/equipment';
 import { normName } from '@/lib/dnd/catalog';
 import { absDay } from '@/lib/dnd/calendar';
 import { sfxComplete } from '@/lib/dnd/sounds';
 
 const FORGEABLE_TYPES = ['arma', 'armatura', 'unico', 'magico'];
+
+/** Dicitura con cui nominare la famiglia dell'oggetto nelle spiegazioni. */
+const SCOPE_WORD: Record<string, string> = {
+  tutte: 'questo oggetto', arma: "un'arma", armatura: "un'armatura", scudo: 'uno scudo',
+};
 
 export type SmithCat = 'base' | 'avanzato' | 'nanico';
 
@@ -30,6 +36,7 @@ export interface SmithUpgrade {
   materials?: SmithMaterial[];  // fino a tre materiali, con quantità
   material?: string;            // forma antica a materiale singolo: conservata e letta
   days?: number;                // giornate di lavorazione (assente = immediato)
+  scope?: UpgradeScope;         // su che cosa si può eseguire (assente = tutte)
 }
 
 /** Materiali richiesti in forma normalizzata, qualunque sia la stesura della voce. */
@@ -60,6 +67,8 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   const upgrade = upgrades.find(u => u.id === upgradeId);
   const catOf = (u: SmithUpgrade): SmithCat => u.cat || 'base';
   const inCat = upgrades.filter(u => catOf(u) === cat);
+  // Scelto un oggetto, restano le sole ricette che vi si possono eseguire.
+  const applicable = item ? inCat.filter(u => scopeAllows(u.scope, item)) : inCat;
 
   // Un materiale può essere illustrato dall'oggetto omonimo di un inventario
   // qualsiasi o dalla voce d'armeria: basta un identificativo per lo slot.
@@ -72,8 +81,13 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   };
 
   const mats = reqMats(upgrade);
+  // Gli oggetti senza slot liberi non compaiono affatto: mostrarli per poi
+  // rifiutarli è un passaggio di troppo. Restano visibili al DM, che deve
+  // poterne correggere il conteggio.
   const forgeable = (player?.inventory || []).filter(it =>
-    FORGEABLE_TYPES.includes(it.type) && (s.dmMode || (it as any).revealed !== false));
+    FORGEABLE_TYPES.includes(it.type)
+    && (s.dmMode || (it as any).revealed !== false)
+    && (s.dmMode || ((it as any).enhUsed ?? 0) < ((it as any).enhSlots ?? 0)));
   const matChoices = armoryMaterials(s);
   const missingMats = missingMaterials(s);
   // Il confronto è tollerante a maiuscole e spazi: la ricetta «Bordi
@@ -272,12 +286,23 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
             </div>
             <select value={upgradeId} onChange={e => { setUpgradeId(e.target.value); setDone(null); }} style={{ fontSize: 13, marginBottom: upgrade ? 8 : 0 }}>
               <option value="">— scegli il lavoro di fucina —</option>
-              {inCat.map(u => {
+              {applicable.map(u => {
                 const rm = reqMats(u);
                 return <option key={u.id} value={u.id}>{u.name}{rm.length ? ` (${rm.map(m => m.qty > 1 ? `${m.name} ×${m.qty}` : m.name).join(', ')})` : ''}</option>;
               })}
             </select>
-            {inCat.length === 0 && <div className="small muted" style={{ fontStyle: 'italic' }}>Nessun lavoro in questo catalogo.</div>}
+            {applicable.length === 0 && (
+              <div className="small muted" style={{ fontStyle: 'italic' }}>
+                {inCat.length === 0
+                  ? 'Nessun lavoro in questo catalogo.'
+                  : `Nessun lavoro di questo catalogo si esegue su ${SCOPE_WORD[scopeOfItem(item)]}.`}
+              </div>
+            )}
+            {item && applicable.length > 0 && applicable.length < inCat.length && (
+              <div className="small muted" style={{ fontSize: 9.5, fontStyle: 'italic', marginBottom: 4 }}>
+                Mostrati i {applicable.length} lavori eseguibili su {SCOPE_WORD[scopeOfItem(item)]}, dei {inCat.length} del catalogo.
+              </div>
+            )}
             {upgrade && (
               <div className="small" style={{ color: 'var(--text-card)', lineHeight: 1.5 }}>
                 <span style={{ color: 'var(--ember)', fontWeight: 600 }}>{upgrade.name}</span> — {upgrade.desc || 'nessun effetto descritto'}
@@ -441,6 +466,19 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
                         <textarea value={u.desc} placeholder="Effetto testuale (comparirà sull'oggetto)…"
                           onChange={e => patchUpg(u.id, { desc: e.target.value })}
                           style={{ minHeight: 44, fontSize: 12, width: '100%', marginBottom: 4 }} />
+                        <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 5, flexWrap: 'wrap' }}>
+                          <span className="label" style={{ fontSize: 8 }}>Si applica a</span>
+                          {UPGRADE_SCOPES.map(sc => {
+                            const on = (u.scope || 'tutte') === sc.k;
+                            return (
+                              <button key={sc.k} className="pill" style={{ padding: '2px 8px', fontSize: 8.5, cursor: 'pointer',
+                                color: on ? 'var(--ember)' : 'var(--gray-purple-deep)',
+                                borderColor: on ? 'var(--ember)' : 'var(--border)',
+                                background: on ? 'var(--bg-active)' : 'transparent' }}
+                                onClick={() => patchUpg(u.id, { scope: sc.k })}>{sc.l}</button>
+                            );
+                          })}
+                        </div>
                         <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 5 }}>
                           <span className="label" style={{ fontSize: 8 }}>Giornate di lavorazione</span>
                           <input type="number" min={0} value={u.days ?? 0}

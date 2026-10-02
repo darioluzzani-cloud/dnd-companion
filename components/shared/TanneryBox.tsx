@@ -4,7 +4,8 @@ import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { PanelBox, WorkBench, BenchEmpty } from '@/components/shared/PanelBox';
-import { CraftJob, TanneryRecipe, tanneryRecipesOf, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
+import { CraftJob, TanneryRecipe, TanIngredient, tanInputs, tanneryRecipesOf, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
+import { armoryMaterials } from '@/lib/dnd/smith-materials';
 import { absDay } from '@/lib/dnd/calendar';
 import { itemFromArmory, cloneImage, lookupByName, normName } from '@/lib/dnd/catalog';
 import { sfxComplete } from '@/lib/dnd/sounds';
@@ -34,6 +35,13 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
   const setRecipes = (list: TanneryRecipe[]) => update({ tanneryRecipes: list } as any);
   const patchRec = (id: string, p: Partial<TanneryRecipe>) => setRecipes(recipes.map(r => r.id === id ? { ...r, ...p } : r));
 
+  // Ingredienti ammessi: le due categorie di materia dell'armeria. L'esito
+  // può essere qualunque voce d'armeria — la conceria produce anche cuoio
+  // lavorato, che è equipaggiamento, non materia bruta.
+  const matChoices = armoryMaterials(s);
+  const outChoices: any[] = ((s as any).armory || []).slice().sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+  const outKnown = (r: TanneryRecipe) => !r.toName || outChoices.some((m: any) => normName(m.name) === normName(r.toName));
+
   const player = s.players.find(pl => pl.id === playerId);
   const recipe = recipes.find(r => r.id === recipeId);
   const today = s.calendar?.date;
@@ -46,14 +54,18 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
   // Illustrazione di un materiale: si cerca fra gli inventari e in armeria
   const findIllus = (name: string): any => lookupByName(s, name)?.entry || null;
 
-  const have = recipe ? (player?.inventory.find(it => it.name === recipe.fromName)?.qty || 0) : 0;
-  const maxBatches = recipe ? Math.floor(have / Math.max(1, recipe.fromQty)) : 0;
+  // Con più ingredienti il numero di lotti è dettato dal più scarso.
+  const ins: TanIngredient[] = tanInputs(recipe);
+  const stock = (n: string) => player?.inventory.find(it => normName(it.name) === normName(n))?.qty || 0;
+  const maxBatches = ins.length
+    ? Math.min(...ins.map(i => Math.floor(stock(i.name) / Math.max(1, i.qty))))
+    : 0;
   // Zero significa «al massimo consentito»: la scelta segue la scorta se
   // questa cambia, invece di restare inchiodata a un numero vecchio.
   const nBatches = Math.min(batches || maxBatches, maxBatches);
   const enough = !!recipe && maxBatches >= 1;
+  const short = ins.filter(i => stock(i.name) < i.qty);
   const canStart = !!player && !!recipe && enough && nBatches >= 1 && !myJob && !blockedByOther && !!today;
-  const inQty = recipe ? recipe.fromQty * nBatches : 0;
   const outQty = recipe ? recipe.toQty * nBatches : 0;
 
   const start = () => {
@@ -61,15 +73,21 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
     update(prev => {
       const players = prev.players.map(pl => {
         if (pl.id !== player.id) return pl;
-        const inventory = pl.inventory
-          .map((it: any) => it.name === recipe.fromName ? { ...it, qty: (it.qty || 0) - inQty } : it)
-          .filter((it: any) => !(it.name === recipe.fromName && (it.qty || 0) <= 0));
+        let inventory = pl.inventory;
+        for (const ing of ins) {
+          const take = ing.qty * nBatches;
+          inventory = inventory
+            .map((it: any) => normName(it.name) === normName(ing.name) ? { ...it, qty: (it.qty || 0) - take } : it)
+            .filter((it: any) => !(normName(it.name) === normName(ing.name) && (it.qty || 0) <= 0));
+        }
         return { ...pl, inventory };
       });
       const job: CraftJob = {
         id: uid('job'), kind: 'tannery', playerId: player.id,
         startAbs: absDay(today), days: Math.max(1, recipe.days),
-        recipeId: recipe.id, fromName: recipe.fromName, fromQty: inQty,
+        recipeId: recipe.id,
+        fromName: ins.map(i => `${i.name} ×${i.qty * nBatches}`).join(' · '),
+        fromQty: nBatches,
         toName: recipe.toName, toQty: outQty,
       };
       return { players, ...withJob(prev, job) } as any;
@@ -103,12 +121,17 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
   const cancel = (job: CraftJob) => {
     if (!confirm('Ritirare le pelli e annullare la lavorazione? Il materiale torna com\'era.')) return;
     update(prev => {
+      const rec = recipes.find(r => r.id === job.recipeId);
+      const back = tanInputs(rec).map(i => ({ name: i.name, qty: i.qty * (job.fromQty || 1) }));
       const players = prev.players.map(pl => {
         if (pl.id !== job.playerId) return pl;
-        const existing = pl.inventory.find((it: any) => normName(it.name) === normName(job.fromName));
-        const inventory = existing
-          ? pl.inventory.map((it: any) => it.id === existing.id ? { ...it, qty: (it.qty || 0) + (job.fromQty || 1) } : it)
-          : [...pl.inventory, itemFromArmory(s, job.fromName!, job.fromQty || 1).item];
+        let inventory = pl.inventory;
+        for (const b of back) {
+          const ex = inventory.find((it: any) => normName(it.name) === normName(b.name));
+          inventory = ex
+            ? inventory.map((it: any) => it.id === ex.id ? { ...it, qty: (it.qty || 0) + b.qty } : it)
+            : [...inventory, itemFromArmory(s, b.name, b.qty).item];
+        }
         return { ...pl, inventory };
       });
       return { players, ...withoutJob(prev, job.id) } as any;
@@ -116,13 +139,15 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
   };
 
   // Ciò che il banco mostra: la commessa in corso, o l'anteprima della scelta
-  const shown = myJob || (recipe ? {
-    fromName: recipe.fromName, fromQty: inQty || recipe.fromQty,
-    toName: recipe.toName, toQty: outQty || recipe.toQty, days: recipe.days,
-  } as any : null);
+  const shownIn = ins.map(i => ({ name: i.name, qty: i.qty * Math.max(1, nBatches) }));
   const prog = myJob ? jobProgress(myJob, today) : null;
 
-  const cell = (name?: string, qty?: number, dim?: boolean) => {
+  const cell = (name?: string, qty?: number, dim?: boolean, label?: string) => {
+    if (label) return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4 }}>
+        <span className="small muted" style={{ fontSize: 8, textAlign: 'center', lineHeight: 1.3 }}>{label}</span>
+      </div>
+    );
     if (!name) return <BenchEmpty mark="?" />;
     const illus = findIllus(name);
     return (
@@ -177,8 +202,16 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
           label={myJob
             ? (prog?.done ? 'pronto al ritiro' : `${prog?.elapsed}/${myJob.days} giorni · ne mancano ${prog?.remaining}`)
             : (recipe ? `${recipe.days} giorni di lavoro` : 'nessuna lavorazione scelta')}
-          left={cell(shown?.fromName, shown?.fromQty)}
-          right={cell(shown?.toName, shown?.toQty, !prog?.done)} />
+          left={myJob
+            ? cell(undefined, undefined, false, myJob.fromName)
+            : (shownIn.length
+              ? <div style={{ width: '100%', height: '100%', display: 'grid',
+                  gridTemplateColumns: shownIn.length > 1 ? '1fr 1fr' : '1fr',
+                  gridTemplateRows: shownIn.length > 2 ? '1fr 1fr' : '1fr', gap: 1 }}>
+                  {shownIn.slice(0, 4).map(i => <div key={i.name} style={{ position: 'relative' }}>{cell(i.name, i.qty)}</div>)}
+                </div>
+              : <BenchEmpty mark="?" />)}
+          right={cell(myJob?.toName || recipe?.toName, myJob?.toQty ?? (outQty || recipe?.toQty), !prog?.done)} />
 
         {/* Quante volte applicare la regola: proposto il massimo consentito
             dalla scorta, riducibile a piacere. */}
@@ -195,7 +228,7 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
             )}
             <div className="grow" />
             <span className="small muted" style={{ fontSize: 10 }}>
-              {recipe.fromName} ×{inQty} → {recipe.toName} ×{outQty} · ne restano {have - inQty}
+              {ins.map(i => `${i.name} ×${i.qty * nBatches}`).join(' · ')} → {recipe.toName} ×{outQty}
             </span>
           </div>
         )}
@@ -219,7 +252,7 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
               onClick={start}>
               {blockedByOther ? 'Bottega occupata'
                 : !recipe ? 'Scegli una lavorazione'
-                : !enough ? `Serve ${recipe.fromName} ×${recipe.fromQty} (ne hai ${have})`
+                : !enough ? `Manca ${short.map(i => `${i.name} ×${i.qty}`).join(', ')}`
                 : !today ? 'Serve il calendario'
                 : `Affida il lavoro · ${outQty} ${recipe.toName}`}
             </button>
@@ -261,7 +294,7 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
             <div key={r.id} style={{ borderBottom: '1px solid var(--border)', padding: '4px 0' }}>
               <div className="row" style={{ gap: 6, alignItems: 'center' }}>
                 <span className="small grow" style={{ cursor: 'pointer' }} onClick={() => setEditId(editId === r.id ? null : r.id)}>
-                  {editId === r.id ? '▾' : '▸'} {r.fromName} ×{r.fromQty} → {r.toName} ×{r.toQty}
+                  {editId === r.id ? '▾' : '▸'} {tanInputs(r).map(i => `${i.name} ×${i.qty}`).join(' · ') || '—'} → {r.toName} ×{r.toQty}
                   <span className="muted"> · {r.days} gg</span>
                 </span>
                 <button className="btn btn-danger btn-ghost" style={{ padding: '0 6px', fontSize: 10 }}
@@ -269,11 +302,45 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
               </div>
               {editId === r.id && (
                 <div style={{ padding: '6px 0 8px' }}>
+                  {/* Ingredienti ed esito si scelgono dall'armeria, come in
+                      fucina: il nome battuto a mano è la via più breve per una
+                      ricetta che non si esegue e non dice perché. */}
+                  <div className="label" style={{ fontSize: 8, marginBottom: 3 }}>Entra (fino a tre)</div>
+                  {[0, 1, 2].map(i => {
+                    const cur = tanInputs(r)[i];
+                    const known = !cur || matChoices.some(m => normName(m.name) === normName(cur.name));
+                    return (
+                      <div key={i} className="row" style={{ gap: 4, marginBottom: 3 }}>
+                        <select value={known ? (cur?.name || '') : '__x'} style={{ flex: 1, fontSize: 11, padding: '3px 6px' }}
+                          onChange={e => {
+                            const next = [...tanInputs(r)];
+                            while (next.length <= i) next.push({ name: '', qty: 1 });
+                            next[i] = { ...next[i], name: e.target.value };
+                            patchRec(r.id, { inputs: next.filter(x => x.name && x.name.trim()), fromName: undefined, fromQty: undefined });
+                          }}>
+                          <option value="">— ingrediente {i + 1} —</option>
+                          {!known && cur && <option value="__x">{cur.name} (fuori armeria)</option>}
+                          {matChoices.map(m => <option key={m.id} value={m.name}>{m.name}{m.type === 'alchemico' ? ' · alch.' : ''}</option>)}
+                        </select>
+                        <input type="number" min={1} value={cur?.qty || 1} disabled={!cur?.name}
+                          onChange={e => {
+                            const next = [...tanInputs(r)];
+                            if (!next[i]) return;
+                            next[i] = { ...next[i], qty: Math.max(1, parseInt(e.target.value) || 1) };
+                            patchRec(r.id, { inputs: next, fromName: undefined, fromQty: undefined });
+                          }}
+                          style={{ width: 46, textAlign: 'center', fontSize: 11, padding: '3px 4px' }} />
+                      </div>
+                    );
+                  })}
+                  <div className="label" style={{ fontSize: 8, margin: '6px 0 3px' }}>Esce</div>
                   <div className="row" style={{ gap: 4, marginBottom: 4, alignItems: 'center' }}>
-                    <input value={r.fromName} placeholder="Materiale in entrata" onChange={e => patchRec(r.id, { fromName: e.target.value })} style={{ flex: 1, fontSize: 11, padding: '3px 6px' }} />
-                    <input type="number" min={1} value={r.fromQty} onChange={e => patchRec(r.id, { fromQty: Math.max(1, parseInt(e.target.value) || 1) })} style={{ width: 46, textAlign: 'center', fontSize: 11, padding: '3px 4px' }} />
-                    <span style={{ color: TAN_COLOR }}>→</span>
-                    <input value={r.toName} placeholder="Prodotto" onChange={e => patchRec(r.id, { toName: e.target.value })} style={{ flex: 1, fontSize: 11, padding: '3px 6px' }} />
+                    <select value={outKnown(r) ? r.toName : '__x'} style={{ flex: 1, fontSize: 11, padding: '3px 6px' }}
+                      onChange={e => patchRec(r.id, { toName: e.target.value })}>
+                      <option value="">— prodotto —</option>
+                      {!outKnown(r) && r.toName && <option value="__x">{r.toName} (fuori armeria)</option>}
+                      {outChoices.map((m: any) => <option key={m.id} value={m.name}>{m.name}</option>)}
+                    </select>
                     <input type="number" min={1} value={r.toQty} onChange={e => patchRec(r.id, { toQty: Math.max(1, parseInt(e.target.value) || 1) })} style={{ width: 46, textAlign: 'center', fontSize: 11, padding: '3px 4px' }} />
                   </div>
                   <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 4 }}>
@@ -286,7 +353,7 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
             </div>
           ))}
           <button className="btn" style={{ fontSize: 10, width: '100%', marginTop: 6 }}
-            onClick={() => { const id = uid('tan'); setRecipes([...recipes, { id, fromName: '', fromQty: 1, toName: '', toQty: 1, days: 1 }]); setEditId(id); }}>
+            onClick={() => { const id = uid('tan'); setRecipes([...recipes, { id, inputs: [], toName: '', toQty: 1, days: 1 }]); setEditId(id); }}>
             + lavorazione
           </button>
         </div>

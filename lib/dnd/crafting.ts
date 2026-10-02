@@ -67,19 +67,33 @@ export const withoutJob = (s: any, jobId: string) => ({ craftJobs: ((s?.craftJob
 // Una ricetta converte un materiale in un altro: pelliccia in cuoio, e
 // qualunque altra trasformazione il DM voglia aggiungere.
 
+export interface TanIngredient { name: string; qty: number; }
+
 export interface TanneryRecipe {
   id: string;
-  fromName: string;
-  fromQty: number;
+  /** Ingredienti: fino a tre, come in fucina. */
+  inputs?: TanIngredient[];
+  /** Forma antica a ingrediente singolo: conservata e letta. */
+  fromName?: string;
+  fromQty?: number;
   toName: string;
   toQty: number;
   days: number;
   note?: string;
 }
 
+/** Ingredienti in forma normalizzata, qualunque sia la stesura della voce. */
+export function tanInputs(r?: TanneryRecipe): TanIngredient[] {
+  if (!r) return [];
+  if (r.inputs && r.inputs.length) return r.inputs.filter(i => i.name && i.name.trim());
+  if (r.fromName) return [{ name: r.fromName, qty: r.fromQty || 1 }];
+  return [];
+}
+
 export const DEFAULT_TANNERY: TanneryRecipe[] = [
-  { id: 'tan-cuoio', fromName: 'Pelliccia', fromQty: 2, toName: 'Cuoio', toQty: 1, days: 3,
-    note: 'La pelle va scarnita, messa in bagno e tirata: tre giorni senza scorciatoie.' },
+  { id: 'tan-cuoio', inputs: [{ name: 'Pelliccia', qty: 2 }, { name: 'Corteccia di Larice', qty: 1 }],
+    toName: 'Cuoio', toQty: 1, days: 3,
+    note: 'La pelle va scarnita, messa a bagno nel tannino di larice e tirata sul telaio: tre giorni senza scorciatoie.' },
 ];
 
 export const tanneryRecipesOf = (s: any): TanneryRecipe[] => {

@@ -576,3 +576,22 @@ html[data-theme='light'] { --ember: #9a6a12; }
   position: absolute; left: 3px; right: 3px; top: 40%; font-size: 7px; text-align: center;
   background: rgba(11,8,20,.8); color: var(--red); padding: 1px 0; border-radius: 2px;
 }
+
+/* === MERCATO: SCELTA DELLE MERCI DALL'ARMERIA =============== */
+/* Griglia di miniature con ricerca e filtro: comporre una bancarella da
+   novantasei voci d'armeria scrivendone i nomi a mano era il modo più
+   rapido per sbagliarli. */
+.market-pick-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+  gap: 6px; max-height: 240px; overflow-y: auto; padding-right: 2px;
+}
+.market-pick {
+  padding: 3px; background: transparent; border: 1px solid var(--border);
+  border-radius: 7px; cursor: pointer; color: var(--gray-purple); transition: all .13s;
+}
+.market-pick:hover { border-color: var(--gold); background: var(--bg-input); color: var(--text); }
+.market-pick-img { display: block; width: 100%; aspect-ratio: 1 / 1; border-radius: 4px; overflow: hidden; }
+.market-pick-name {
+  display: block; font-size: 7.5px; line-height: 1.15; margin-top: 3px;
+  max-height: 18px; overflow: hidden; text-align: center;
+}

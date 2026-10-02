@@ -11,12 +11,29 @@
  * marketRumors personalizzati, quelli prevalgono (copy-on-write dal DM).
  */
 
+export interface MarketGood {
+  name: string;      // nome della voce d'armeria
+  min: number;       // quantità minima quando compare
+  max: number;       // quantità massima
+  chance: number;    // probabilità di comparsa, 1-100
+}
+
+/** Merce effettivamente esposta oggi, con la quantità già tirata. */
+export interface DrawnGood { name: string; qty: number; }
+
 export interface MarketStall {
   id: string;
   name: string;
   desc: string;                       // offerta descrittiva
   ranges: Record<number, [number, number] | undefined>; // fasce dado per livello mercato 1..3
-  items: string[];                    // pool oggetti (a schermo max 5)
+  items: string[];                    // pool oggetti (a schermo max 5) — forma antica, a sole stringhe
+  /**
+   * Merci legate all'armeria: ciascuna con un intervallo di quantità e una
+   * probabilità di comparsa. È ciò che rende il banco imprevedibile — il
+   * Mantello del Nord può esserci in tre esemplari, in uno, o mancare del
+   * tutto — e permette di leggerne scheda e illustrazione.
+   */
+  goods?: MarketGood[];
   randomize?: boolean;                // se true, pesca 5 casuali dal pool a ogni mercato
   kind?: 'stall' | 'tales' | 'double';// tales = Cantastorie (tabella dicerie); double = grande affluenza
 }
@@ -32,7 +49,7 @@ export interface MarketDay {
   dateKey: string;                    // "g/m/a" velmorano del giorno di mercato
   level: 1 | 2 | 3;
   count: number;                      // bancarelle uscite
-  stalls: { stallId: string; items?: string[] }[];  // items = pescata random congelata
+  stalls: { stallId: string; items?: string[]; goods?: DrawnGood[] }[];  // pescata congelata
   rumorRoll?: number | null;          // ultimo tiro dicerie del cantastorie
 }
 
@@ -142,6 +159,26 @@ export function drawItems(stall: MarketStall): string[] | undefined {
 }
 
 /**
+ * Tira le merci legate all'armeria: ogni voce passa la propria prova di
+ * comparsa e, se la supera, esce in una quantità compresa nel suo
+ * intervallo. Un banco può quindi presentarsi diverso ogni giorno di
+ * mercato senza che nessuno riscriva il catalogo.
+ */
+export function drawGoods(stall: MarketStall): DrawnGood[] | undefined {
+  const goods = stall.goods;
+  if (!goods || !goods.length) return undefined;
+  const out: DrawnGood[] = [];
+  for (const g of goods) {
+    const chance = Math.max(0, Math.min(100, g.chance ?? 100));
+    if (chance < 100 && Math.floor(Math.random() * 100) + 1 > chance) continue;
+    const lo = Math.max(1, Math.min(g.min || 1, g.max || 1));
+    const hi = Math.max(lo, g.max || lo);
+    out.push({ name: g.name, qty: lo + Math.floor(Math.random() * (hi - lo + 1)) });
+  }
+  return out;
+}
+
+/**
  * Tira il mercato del giorno: numero di bancarelle (fissi + 1d4), poi
  * assegnazione sulle fasce del dado di livello. Doppioni ritirati (ogni
  * bancarella al massimo una volta); "grande affluenza" aggiunge due tiri
@@ -153,7 +190,7 @@ export function rollMarket(level: 1 | 2 | 3, stalls: MarketStall[], dateKey: str
   const findByRoll = (n: number) => eligible.find(st => { const r = st.ranges[level]!; return n >= r[0] && n <= r[1]; });
 
   let toDraw = cfg.fixed + roll(4);
-  const drawn: { stallId: string; items?: string[] }[] = [];
+  const drawn: { stallId: string; items?: string[]; goods?: DrawnGood[] }[] = [];
   const used = new Set<string>();
   let doubleTriggered = false;
   let guard = 200;
@@ -170,7 +207,7 @@ export function rollMarket(level: 1 | 2 | 3, stalls: MarketStall[], dateKey: str
       continue;                                          // non è un banco
     }
     used.add(st.id);
-    drawn.push({ stallId: st.id, items: drawItems(st) });
+    drawn.push({ stallId: st.id, items: drawItems(st), goods: drawGoods(st) });
   }
   return { dateKey, level, count: drawn.length, stalls: drawn, rumorRoll: null };
 }

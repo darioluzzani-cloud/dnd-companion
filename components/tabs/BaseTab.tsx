@@ -7,6 +7,7 @@ import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 import { ForgeBox } from '@/components/shared/ForgeBox';
 import { MarketBox } from '@/components/shared/MarketBox';
 import { TanneryBox } from '@/components/shared/TanneryBox';
+import { LibraryBox } from '@/components/shared/LibraryBox';
 import { PanelBox } from '@/components/shared/PanelBox';
 import { absDay } from '@/lib/dnd/calendar';
 
@@ -127,6 +128,7 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
       <ForgeBox s={s} update={update} campaignId={campaignId} />
       <TanneryBox s={s} update={update} campaignId={campaignId} />
       <MarketBox s={s} update={update} campaignId={campaignId} />
+      <LibraryBox s={s} update={update} campaignId={campaignId} />
 
       {/* Il villaggio: gli edifici restano com'erano, ma vivono dentro un
           riquadro come tutti gli altri, invece di essere l'unica sezione

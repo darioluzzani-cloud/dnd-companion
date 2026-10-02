@@ -238,6 +238,7 @@ export interface CampaignState {
   masteries?: { id: string; name: string; desc: string; custom?: boolean }[];
   /** Lavorazioni a tempo di fucina e conceria, e regime delle botteghe. */
   craftJobs?: any[];
+  library?: any[];              // volumi della biblioteca di Olmobianco
   craftMode?: 'shop' | 'player';
   tanneryRecipes?: { id: string; fromName: string; fromQty: number; toName: string; toQty: number; days: number; note?: string }[];
   baseRations?: number;  // razioni giornaliere nel magazzino del villaggio

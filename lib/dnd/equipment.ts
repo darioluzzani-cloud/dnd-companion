@@ -212,3 +212,40 @@ export function setNameOf(s: any, item?: any): string | undefined {
   if (!item?.setId) return undefined;
   return ((s?.itemSets || []) as any[]).find(st => st.id === item.setId)?.name;
 }
+
+// ─── APPLICABILITÀ DEI LAVORI DI FUCINA ──────────────────────
+// Una ricetta dichiara su che cosa si può eseguire: alcune valgono per
+// qualunque oggetto lavorabile, altre hanno senso solo su una lama, su una
+// corazza o su uno scudo. Senza questa distinzione «Borchie da spinta»
+// compariva anche su un arco, e l'elenco dei potenziamenti cresceva di
+// voci che il giocatore doveva scartare da sé.
+export type UpgradeScope = 'tutte' | 'arma' | 'armatura' | 'scudo';
+
+export const UPGRADE_SCOPES: { k: UpgradeScope; l: string }[] = [
+  { k: 'tutte', l: 'Tutte' },
+  { k: 'arma', l: 'Armi' },
+  { k: 'armatura', l: 'Armature' },
+  { k: 'scudo', l: 'Scudi' },
+];
+
+/** Famiglia a cui appartiene l'oggetto, ai fini del filtro delle ricette. */
+export function scopeOfItem(item: any): UpgradeScope {
+  if (!item) return 'tutte';
+  if (isShield(item)) return 'scudo';
+  if (item.type === 'armatura') return 'armatura';
+  if (item.type === 'arma') return 'arma';
+  // Magici e unici non dichiarano una famiglia propria: si riconoscono dal
+  // sottotipo d'arma quando ce l'hanno, altrimenti valgono per tutto.
+  if ((item.type === 'magico' || item.type === 'unico') && item.subtype) {
+    if (/scudo/i.test(item.subtype)) return 'scudo';
+    if (/mano|distanza/i.test(item.subtype)) return 'arma';
+  }
+  return 'tutte';
+}
+
+/** La ricetta si può eseguire su questo oggetto? */
+export function scopeAllows(scope: UpgradeScope | undefined, item: any): boolean {
+  const sc = scope || 'tutte';
+  if (sc === 'tutte') return true;
+  return scopeOfItem(item) === sc;
+}
