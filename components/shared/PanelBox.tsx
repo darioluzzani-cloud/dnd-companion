@@ -92,8 +92,11 @@ export function PanelBg({ slot, campaignId, color, onDone }: { slot: string; cam
 // indicatore di avanzamento quando una commessa è in corso, così la stessa
 // figura racconta sia la trasformazione sia il tempo che le manca.
 
-export function WorkBench({ left, right, pct, done, accent, label }: {
-  left: ReactNode;
+export function WorkBench({ left, lefts, right, pct, done, accent, label }: {
+  left?: ReactNode;
+  /** Più ingredienti: ciascuno nella propria casella, affiancate. Due pelli
+   *  e una corteccia sono tre cose distinte sul banco, non un mucchio. */
+  lefts?: ReactNode[];
   right: ReactNode;
   pct?: number;          // 0–100; assente = freccia inerte
   done?: boolean;
@@ -104,8 +107,17 @@ export function WorkBench({ left, right, pct, done, accent, label }: {
   const col = done ? 'var(--green)' : accent;
   return (
     <div className="row" style={{ gap: 8, alignItems: 'center', justifyContent: 'center', margin: '4px 0 8px' }}>
-      <div style={{ width: 84, height: 84, flexShrink: 0, borderRadius: 10, overflow: 'hidden', border: '2px solid var(--border-sec)', position: 'relative' }}>
-        {left}
+      <div className="row" style={{ gap: 5, flexShrink: 0 }}>
+        {(lefts && lefts.length ? lefts : [left]).map((node, i, arr) => {
+          // Le caselle si stringono al crescere del numero, così tre
+          // ingredienti stanno sul banco senza spingere fuori la freccia.
+          const side = arr.length >= 3 ? 52 : arr.length === 2 ? 64 : 84;
+          return (
+            <div key={i} style={{ width: side, height: side, flexShrink: 0, borderRadius: 9, overflow: 'hidden', border: '2px solid var(--border-sec)', position: 'relative' }}>
+              {node}
+            </div>
+          );
+        })}
       </div>
 
       <div style={{ flex: '1 1 0', minWidth: 44, maxWidth: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>

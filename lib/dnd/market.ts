@@ -11,6 +11,9 @@
  * marketRumors personalizzati, quelli prevalgono (copy-on-write dal DM).
  */
 
+/** Capienza predefinita di un banco, se non dichiarata. */
+export const DEFAULT_MAX_SHOWN = 5;
+
 export interface MarketGood {
   name: string;      // nome della voce d'armeria
   min: number;       // quantità minima quando compare
@@ -34,6 +37,13 @@ export interface MarketStall {
    * tutto — e permette di leggerne scheda e illustrazione.
    */
   goods?: MarketGood[];
+  /**
+   * Quante merci al massimo si vedono sul banco in una giornata. Le voci
+   * che superano la prova di comparsa vengono mescolate e troncate a questo
+   * numero: così un catalogo ricco non svuota il magazzino del DM in una
+   * mattina, e banchi diversi possono avere capienze diverse.
+   */
+  maxShown?: number;
   randomize?: boolean;                // se true, pesca 5 casuali dal pool a ogni mercato
   kind?: 'stall' | 'tales' | 'double';// tales = Cantastorie (tabella dicerie); double = grande affluenza
 }
@@ -175,7 +185,13 @@ export function drawGoods(stall: MarketStall): DrawnGood[] | undefined {
     const hi = Math.max(lo, g.max || lo);
     out.push({ name: g.name, qty: lo + Math.floor(Math.random() * (hi - lo + 1)) });
   }
-  return out;
+  // Oltre la capienza del banco si mescola e si tronca: a essere tagliate
+  // devono essere voci a caso, non le ultime dell'elenco, altrimenti ciò
+  // che sta in fondo al catalogo non comparirebbe mai.
+  const cap = Math.max(1, stall.maxShown ?? DEFAULT_MAX_SHOWN);
+  if (out.length <= cap) return out;
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  return out.slice(0, cap);
 }
 
 /**

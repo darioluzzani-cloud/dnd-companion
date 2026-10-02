@@ -7,7 +7,7 @@ import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
 import { lookupByName } from '@/lib/dnd/catalog';
 import { U } from '@/components/shared/common';
 import { isMarketDay, formatDateShort } from '@/lib/dnd/calendar';
-import { DEFAULT_STALLS, DEFAULT_RUMORS, MARKET_LEVELS, MarketStall, MarketRumor, marketLevelFromBuilding, rollMarket, drawItems, drawGoods, MarketGood, DrawnGood } from '@/lib/dnd/market';
+import { DEFAULT_STALLS, DEFAULT_RUMORS, MARKET_LEVELS, MarketStall, MarketRumor, marketLevelFromBuilding, rollMarket, drawItems, drawGoods, MarketGood, DrawnGood, DEFAULT_MAX_SHOWN } from '@/lib/dnd/market';
 
 // ─── MERCATO DI OLMOBIANCO ───────────────────────────────────
 // Box ripiegabile sul modello della Fucina. Sempre visibile al DM;
@@ -156,7 +156,8 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                   // Le merci legate all'armeria hanno la precedenza sulle
                   // stringhe della vecchia stesura, che restano come didascalie.
                   const drawnGoods: DrawnGood[] = (ms.goods ?? (st.goods ? drawGoods(st) : undefined)) ?? [];
-                  const shownItems = (ms.items ?? st.items).slice(0, 5);
+                  const cap = Math.max(1, st.maxShown ?? DEFAULT_MAX_SHOWN);
+                  const shownItems = (ms.items ?? st.items).slice(0, Math.max(0, cap - drawnGoods.length));
                   const isTales = st.kind === 'tales';
                   return (
                     <div key={ms.stallId} className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -265,6 +266,12 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                       <label className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer' }}>
                         <input type="checkbox" checked={!!st.randomize}
                           onChange={e => setStalls(stalls.map(x => x.id === st.id ? { ...x, randomize: e.target.checked } : x))} /> random
+                      </label>
+                      <label className="small muted" style={{ display: 'flex', alignItems: 'center', gap: 3 }} title="Quante merci al massimo si vedono su questo banco in una giornata">
+                        max
+                        <input type="number" min={1} max={20} value={st.maxShown ?? DEFAULT_MAX_SHOWN}
+                          onChange={e => setStalls(stalls.map(x => x.id === st.id ? { ...x, maxShown: Math.max(1, Math.min(20, parseInt(e.target.value) || DEFAULT_MAX_SHOWN)) } : x))}
+                          style={{ width: 42, textAlign: 'center', fontSize: 11, padding: '2px 3px' }} />
                       </label>
                     </div>
                     <textarea value={st.desc} style={{ fontSize: 11, marginTop: 4, minHeight: 26, width: '100%' }}

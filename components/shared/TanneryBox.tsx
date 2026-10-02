@@ -140,6 +140,13 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
 
   // Ciò che il banco mostra: la commessa in corso, o l'anteprima della scelta
   const shownIn = ins.map(i => ({ name: i.name, qty: i.qty * Math.max(1, nBatches) }));
+
+  /** Ingredienti di una commessa in corso, ricavati dalla sua ricetta. */
+  const jobIngredients = (job: CraftJob) => {
+    const rec = recipes.find(r => r.id === job.recipeId);
+    const list = tanInputs(rec).map(i => ({ name: i.name, qty: i.qty * (job.fromQty || 1) }));
+    return list.length ? list : [{ name: job.fromName || '', qty: job.fromQty || 1 }];
+  };
   const prog = myJob ? jobProgress(myJob, today) : null;
 
   const cell = (name?: string, qty?: number, dim?: boolean, label?: string) => {
@@ -202,15 +209,9 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
           label={myJob
             ? (prog?.done ? 'pronto al ritiro' : `${prog?.elapsed}/${myJob.days} giorni · ne mancano ${prog?.remaining}`)
             : (recipe ? `${recipe.days} giorni di lavoro` : 'nessuna lavorazione scelta')}
-          left={myJob
-            ? cell(undefined, undefined, false, myJob.fromName)
-            : (shownIn.length
-              ? <div style={{ width: '100%', height: '100%', display: 'grid',
-                  gridTemplateColumns: shownIn.length > 1 ? '1fr 1fr' : '1fr',
-                  gridTemplateRows: shownIn.length > 2 ? '1fr 1fr' : '1fr', gap: 1 }}>
-                  {shownIn.slice(0, 4).map(i => <div key={i.name} style={{ position: 'relative' }}>{cell(i.name, i.qty)}</div>)}
-                </div>
-              : <BenchEmpty mark="?" />)}
+          lefts={myJob
+            ? jobIngredients(myJob).map(i => cell(i.name, i.qty))
+            : (shownIn.length ? shownIn.map(i => cell(i.name, i.qty)) : [<BenchEmpty key="e" mark="?" />])}
           right={cell(myJob?.toName || recipe?.toName, myJob?.toQty ?? (outQty || recipe?.toQty), !prog?.done)} />
 
         {/* Quante volte applicare la regola: proposto il massimo consentito
