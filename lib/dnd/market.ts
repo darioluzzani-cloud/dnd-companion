@@ -14,6 +14,22 @@
 /** Capienza predefinita di un banco, se non dichiarata. */
 export const DEFAULT_MAX_SHOWN = 5;
 
+/**
+ * Prezzo di rivendita, in punti percentuali del listino.
+ * Il banco parte dal sessanta per cento e tratta: il tiro e il carisma
+ * spostano la percentuale, non una somma fissa, perché altrimenti su un
+ * oggetto da due monete il dado varrebbe più della merce e su uno da
+ * cinquecento non si noterebbe. Il tetto è il listino: nessuno rivende a
+ * un mercante guadagnandoci.
+ */
+export const RESALE_BASE = 60;
+export function resalePct(roll: number, chaMod: number): number {
+  return Math.max(30, Math.min(100, RESALE_BASE + roll + chaMod));
+}
+export function resaleValue(price: number, roll: number, chaMod: number): number {
+  return Math.max(1, Math.round(price * resalePct(roll, chaMod) / 100));
+}
+
 export interface MarketGood {
   name: string;      // nome della voce d'armeria
   min: number;       // quantità minima quando compare
@@ -46,6 +62,12 @@ export interface MarketStall {
    * mattina, e banchi diversi possono avere capienze diverse.
    */
   maxShown?: number;
+  /**
+   * Categorie di oggetti che il banco ritira. Un armaiolo compra armi, non
+   * decotti: senza questa dichiarazione la rivendita non compare. Vuoto o
+   * assente = il banco non ritira nulla.
+   */
+  buys?: string[];
   randomize?: boolean;                // se true, pesca 5 casuali dal pool a ogni mercato
   kind?: 'stall' | 'tales' | 'double';// tales = Cantastorie (tabella dicerie); double = grande affluenza
 }

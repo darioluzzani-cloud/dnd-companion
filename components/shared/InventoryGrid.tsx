@@ -37,7 +37,7 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
   onEnlarge: (src: string) => void;
   setItemField: (id: string, field: string, value: any) => void;
   players?: any[];
-  onTransfer?: (item: any, targetId: string) => void;
+  onTransfer?: (item: any, targetId: string, qty: number) => void;
   onConsume?: (itemId: string, madeOn: number, n?: number) => void;
   update?: (patch: any) => void;      // per depositare una voce in armeria
 }) {
@@ -164,7 +164,7 @@ export function InventoryGrid({ s, p, updPlayer, campaignId, items, gradientFor,
               onQty={n => setItemField(detail.id, 'qty', n)}
               onPu={n => setItemField(detail.id, 'pu', n)}
               players={players}
-              onTransfer={onTransfer ? (target: string) => { onTransfer(detail, target); setDetailId(null); } : undefined}
+              onTransfer={onTransfer ? (target: string, q: number) => { onTransfer(detail, target, q); setDetailId(null); } : undefined}
               onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detail.id, madeOn, n) : undefined} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>

@@ -30,7 +30,7 @@ const SIDE_OFFSET = 58;
 export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTransfer, setItemField, onConsume, onEnlarge }: {
   s: any; p: any; updPlayer: (fn: (pl: any) => any) => void; campaignId: string | null; accent: string;
   players?: any[];
-  onTransfer?: (item: any, targetId: string) => void;
+  onTransfer?: (item: any, targetId: string, qty: number) => void;
   setItemField?: (id: string, field: string, value: any) => void;
   onConsume?: (itemId: string, madeOn: number, n?: number) => void;
   onEnlarge?: (src: string) => void;   // anche la sagoma ingrandisce l'immagine
@@ -316,7 +316,7 @@ export function EquipDoll({ s, p, updPlayer, campaignId, accent, players, onTran
               onQty={n => setQty(detailItem.id, n)}
               onPu={setItemField ? (n: number) => setItemField(detailItem.id, 'pu', n) : undefined}
               players={players}
-              onTransfer={onTransfer ? (target: string) => { onTransfer(detailItem, target); setDetail(null); } : undefined}
+              onTransfer={onTransfer ? (target: string, q: number) => { onTransfer(detailItem, target, q); setDetail(null); } : undefined}
               onConsume={onConsume ? (madeOn: number, n?: number) => onConsume(detailItem.id, madeOn, n) : undefined} />
 
             <div className="row" style={{ gap: 6, marginTop: 10 }}>

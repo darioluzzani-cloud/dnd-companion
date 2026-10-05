@@ -7,7 +7,9 @@ import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
 import { lookupByName, priceOf, goldOf, paysGold, itemFromArmory, cloneImage, normName, GOLD_NAME } from '@/lib/dnd/catalog';
 import { U } from '@/components/shared/common';
 import { isMarketDay, formatDateShort } from '@/lib/dnd/calendar';
-import { DEFAULT_STALLS, DEFAULT_RUMORS, MARKET_LEVELS, MarketStall, MarketRumor, marketLevelFromBuilding, rollMarket, drawItems, drawGoods, MarketGood, DrawnGood, DEFAULT_MAX_SHOWN } from '@/lib/dnd/market';
+import { DEFAULT_STALLS, DEFAULT_RUMORS, MARKET_LEVELS, MarketStall, MarketRumor, marketLevelFromBuilding, rollMarket, drawItems, drawGoods, MarketGood, DrawnGood, DEFAULT_MAX_SHOWN, resalePct, resaleValue, RESALE_BASE } from '@/lib/dnd/market';
+import { ITEM_TYPES } from '@/components/shared/common';
+import { rollDice } from '@/components/shared/DiceOverlay';
 
 // ─── MERCATO DI OLMOBIANCO ───────────────────────────────────
 // Box ripiegabile sul modello della Fucina. Sempre visibile al DM;
@@ -36,6 +38,8 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
   // Chi compra: di norma il personaggio attivo sul dispositivo, ma il DM
   // deve poter acquistare per conto di chiunque.
   const [buyerId, setBuyerId] = useState<string>('');
+  const [sellAt, setSellAt] = useState<string | null>(null);        // banco aperto alla rivendita
+  const [sellDone, setSellDone] = useState<{ name: string; roll: number; pct: number; gain: number } | null>(null);
   const [bgTick, setBgTick] = useState(0);
   const [showCatalog, setShowCatalog] = useState(false);
   const [showRumors, setShowRumors] = useState(false);
@@ -98,6 +102,41 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
         : ms) },
     } as any));
     if (!already) cloneImage(campaignId, built.sourceId, built.item.id);
+  };
+
+  /** Oggetti del personaggio che questo banco ritira. */
+  const sellables = (st: MarketStall) => {
+    const kinds = st.buys || [];
+    if (!kinds.length || !buyer) return [];
+    return (buyer.inventory || []).filter((it: any) =>
+      kinds.includes(it.type) && (it.qty ?? 1) > 0 && priceOf(s, it.name) && !it.equipped);
+  };
+
+  /**
+   * Rivendita: si tira il dado davanti a tutti, la percentuale esce dal
+   * tiro e dal carisma, l'oggetto lascia lo zaino e l'oro vi entra.
+   */
+  const sell = (it: any) => {
+    if (!buyer) return;
+    const price = priceOf(s, it.name);
+    if (!price) return;
+    const cha = Math.floor((((buyer as any).abilities?.cha ?? 10) - 10) / 2);
+    const roll = rollDice(20, 'Contrattazione · ' + it.name);
+    const gain = resaleValue(price, roll, cha);
+    update(prev => ({
+      players: prev.players.map(pl => {
+        if (pl.id !== buyer.id) return pl;
+        let inv = (pl.inventory || [])
+          .map((x: any) => x.id === it.id ? { ...x, qty: (x.qty ?? 1) - 1 } : x)
+          .filter((x: any) => !(x.id === it.id && (x.qty ?? 0) <= 0));
+        const coin = inv.find((x: any) => normName(x.name) === normName(GOLD_NAME));
+        inv = coin
+          ? inv.map((x: any) => x.id === coin.id ? { ...x, qty: (x.qty || 0) + gain } : x)
+          : [...inv, { id: 'g' + Math.random().toString(36).slice(2, 9), name: GOLD_NAME, type: 'tesoro', qty: gain, revealed: true }];
+        return { ...pl, inventory: inv };
+      }),
+    } as any));
+    setSellDone({ name: it.name, roll, pct: resalePct(roll, cha), gain });
   };
 
   const renderBuy = (name: string) => {
@@ -284,6 +323,61 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                           </div>
                         )}
 
+                        {/* Rivendita: compare solo nei giorni di mercato e
+                            solo se il banco ritira qualcosa che il
+                            personaggio possiede. */}
+                        {(st.buys || []).length > 0 && (
+                          <div style={{ marginTop: 8 }}>
+                            {sellAt === st.id ? (
+                              <div className="card" style={{ padding: '8px 9px', borderColor: 'var(--gold-dim)' }}>
+                                <div className="row" style={{ gap: 6, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
+                                  <span className="label" style={{ fontSize: 8 }}>Rivendi</span>
+                                  <select value={buyer?.id || ''} onChange={e => { setBuyerId(e.target.value); setSellDone(null); }}
+                                    style={{ fontSize: 11, padding: '3px 6px', flex: '1 1 100px' }}>
+                                    {s.players.map(pl => <option key={pl.id} value={pl.id}>{pl.short || pl.name}</option>)}
+                                  </select>
+                                  <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 10 }}
+                                    onClick={() => { setSellAt(null); setSellDone(null); }}>chiudi</button>
+                                </div>
+                                <div className="small muted" style={{ fontSize: 9.5, marginBottom: 6 }}>
+                                  Il banco ritira: {(st.buys || []).join(', ')}. Offerta: {RESALE_BASE}% del listino, più il tiro e il modificatore di Carisma.
+                                </div>
+                                {sellDone && (
+                                  <div className="card" style={{ padding: '6px 8px', marginBottom: 6, borderColor: 'var(--green)' }}>
+                                    <span className="small" style={{ fontSize: 10.5, color: 'var(--green)' }}>
+                                      {sellDone.name} venduto · d20 = {sellDone.roll} → {sellDone.pct}% → <b>{sellDone.gain} mo</b>
+                                    </span>
+                                  </div>
+                                )}
+                                {sellables(st).length === 0
+                                  ? <div className="small muted" style={{ fontStyle: 'italic', fontSize: 10 }}>
+                                      Nessun oggetto con prezzo di listino, fra quelli che questo banco ritira.
+                                    </div>
+                                  : sellables(st).map((it: any) => {
+                                    const pr = priceOf(s, it.name) || 0;
+                                    return (
+                                      <div key={it.id} className="row" style={{ gap: 7, alignItems: 'center', marginBottom: 4 }}>
+                                        <span className="market-good-img" style={{ width: 26, height: 26 }}>
+                                          <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
+                                            dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
+                                        </span>
+                                        <span className="grow" style={{ fontSize: 11, minWidth: 0 }}>
+                                          {it.name}{(it.qty ?? 1) > 1 ? ` ×${it.qty}` : ''}
+                                          <span className="small muted" style={{ display: 'block', fontSize: 9 }}>listino {pr} mo</span>
+                                        </span>
+                                        <button className="btn" style={{ fontSize: 10, padding: '3px 10px', borderColor: 'var(--gold-dim)', color: 'var(--gold)' }}
+                                          onClick={() => sell(it)}>rivendi</button>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            ) : (
+                              <button className="btn btn-ghost" style={{ fontSize: 10, borderColor: 'var(--gold-dim)', color: 'var(--gold)' }}
+                                onClick={() => { setSellAt(st.id); setSellDone(null); }}>⇄ Rivendi a questo banco</button>
+                            )}
+                          </div>
+                        )}
+
                         {shownItems.length > 0 && (
                           <div style={{ margin: '7px 0 0', display: 'flex', flexDirection: 'column', gap: 4 }}>
                             {shownItems.map((it, i) => {
@@ -367,6 +461,23 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                         intervallo di quantità e probabilità di comparsa per
                         ciascuna. È questo che rende il banco diverso ogni
                         giorno di mercato senza riscrivere il catalogo. */}
+                    <div className="label" style={{ fontSize: 8, margin: '7px 0 4px' }}>Ritira (rivendita)</div>
+                    <div className="row" style={{ gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+                      {ITEM_TYPES.map(ty => {
+                        const on = (st.buys || []).includes(ty);
+                        return (
+                          <button key={ty} className="pill" style={{ padding: '2px 8px', fontSize: 8.5, cursor: 'pointer',
+                            color: on ? 'var(--gold)' : 'var(--gray-purple-deep)',
+                            borderColor: on ? 'var(--gold)' : 'var(--border)',
+                            background: on ? 'var(--bg-active)' : 'transparent' }}
+                            onClick={() => setStalls(stalls.map(x => x.id === st.id
+                              ? { ...x, buys: on ? (x.buys || []).filter(k => k !== ty) : [...(x.buys || []), ty] } : x))}>
+                            {ty}
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     <div className="label" style={{ fontSize: 8, margin: '7px 0 4px' }}>Merci d'armeria</div>
                     {(st.goods || []).length === 0 && (
                       <div className="small muted" style={{ fontSize: 10, fontStyle: 'italic', marginBottom: 4 }}>

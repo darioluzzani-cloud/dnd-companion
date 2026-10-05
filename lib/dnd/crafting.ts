@@ -100,3 +100,18 @@ export const tanneryRecipesOf = (s: any): TanneryRecipe[] => {
   const list = s?.tanneryRecipes;
   return Array.isArray(list) && list.length ? list : DEFAULT_TANNERY;
 };
+
+// ─── RENDITA DELLA TAVERNA ───────────────────────────────────
+// La taverna di Olmobianco frutta, e la quota spetta ai quattro che il
+// villaggio l'hanno liberato. Il pagamento è legato al giorno di mercato —
+// il sesto della settimana velmorana — perché è quando i conti si fanno.
+//
+// Il punto delicato è l'idempotenza: avanzando e tornando indietro col
+// calendario la rendita non deve pagarsi due volte. Per questo si registra
+// l'ultimo giorno pagato e si contano i giorni di mercato scavalcati.
+
+export const TAVERN_WEEKLY_DEFAULT = 7;
+
+export function tavernBuilding(s: any): any | undefined {
+  return ((s?.buildings || []) as any[]).find(b => /tavern|osteri|locand/i.test(b.name || ''));
+}

@@ -4,12 +4,14 @@ import { CampaignState } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { sfxDice } from '@/lib/dnd/sounds';
 import { sweepExpired } from '@/lib/dnd/perishables';
-import { jobsOf, jobProgress } from '@/lib/dnd/crafting';
+import { jobsOf, jobProgress, tavernBuilding, TAVERN_WEEKLY_DEFAULT } from '@/lib/dnd/crafting';
+import { GOLD_NAME, normName } from '@/lib/dnd/catalog';
 import { absDay } from '@/lib/dnd/calendar';
 import { COND, DT, WEATHER_MAP, WEATHER_DETAILS, BIOMES, SEASONS, EFFECT_CATS, INTENSITY_COLORS } from '@/lib/dnd/weather';
 import {
   CalendarState, DEFAULT_CALENDAR, MONTHS, addDays, seasonForMonth,
   formatDate, formatDateShort, festivityOn, isMarketDay, nextFestivities, rollDailyWeather,
+  DAYS_PER_MONTH, DAYS_PER_WEEK,
 } from '@/lib/dnd/calendar';
 
 // ─── BARRA DATA (topbar — visibile a tutti, tocco DM apre il popup) ──
@@ -56,7 +58,7 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
   // guasti, cantieri conclusi, commesse pronte. Tre meccanismi diversi
   // dipendono ormai dall'avanzare della data, e vederli in un punto solo
   // evita di doverli cercare in tre riquadri della tab Base.
-  const [night, setNight] = useState<{ lost: string[]; ready: string[] } | null>(null);
+  const [night, setNight] = useState<{ lost: string[]; ready: string[]; income?: string } | null>(null);
 
   const setCal = (next: CalendarState) => update({ calendar: next });
 
@@ -93,8 +95,37 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
           ready.push(`Cantiere · ${b.name} → livello ${c.targetLevel}`);
       }
 
-      if (lost.length || ready.length) setTimeout(() => setNight({ lost, ready }), 0);
-      return { calendar: next, players };
+      // ── Rendita della taverna ──
+      let paidPlayers = players;
+      let income: string | undefined;
+      const tav = tavernBuilding(prev);
+      const fromAbs = absDay(prev.calendar!.date), toAbs = absDay(next.date);
+      if (tav && toAbs > fromAbs) {
+        const lastPaid = (prev as any).tavernPaidAbs ?? fromAbs;
+        // Giorni di mercato scavalcati da quando si è pagato l'ultima volta.
+        let weeks = 0;
+        for (let d = Math.max(lastPaid, fromAbs) + 1; d <= toAbs; d++) {
+          // Il giorno di mercato è il sesto di ogni settimana velmorana;
+          // ricavarlo dal giorno assoluto evita di ricostruire la data.
+          const day = (d % DAYS_PER_MONTH) + 1;
+          if (day % DAYS_PER_WEEK === 0) weeks++;
+        }
+        const rate = (prev as any).tavernWeekly ?? TAVERN_WEEKLY_DEFAULT;
+        if (weeks > 0 && rate > 0) {
+          const each = weeks * rate;
+          paidPlayers = players.map((pl: any) => {
+            const coin = (pl.inventory || []).find((it: any) => normName(it.name) === normName(GOLD_NAME));
+            const inventory = coin
+              ? pl.inventory.map((it: any) => it.id === coin.id ? { ...it, qty: (it.qty || 0) + each } : it)
+              : [...(pl.inventory || []), { id: 'g' + Math.random().toString(36).slice(2, 9), name: GOLD_NAME, type: 'tesoro', qty: each, revealed: true }];
+            return { ...pl, inventory };
+          });
+          income = `${each} mo a testa — ${weeks === 1 ? 'una settimana' : weeks + ' settimane'} di rendita`;
+        }
+      }
+
+      if (lost.length || ready.length || income) setTimeout(() => setNight({ lost, ready, income }), 0);
+      return { calendar: next, players: paidPlayers, ...(income ? { tavernPaidAbs: toAbs } : {}) } as any;
     });
   };
 
@@ -273,6 +304,12 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
                   <div className="grow" />
                   <button className="btn btn-ghost" style={{padding:'1px 6px',fontSize:10}} onClick={()=>setNight(null)}>✕</button>
                 </div>
+                {night.income && (
+                  <div style={{ marginBottom: (night.ready.length || night.lost.length) ? 8 : 0 }}>
+                    <div className="label" style={{fontSize:8,color:'var(--gold)',marginBottom:3}}>Rendita della taverna</div>
+                    <div className="small" style={{fontSize:11,lineHeight:1.6,color:'var(--gold-light)'}}>◉ {night.income}</div>
+                  </div>
+                )}
                 {night.ready.length > 0 && (
                   <div style={{marginBottom: night.lost.length ? 8 : 0}}>
                     <div className="label" style={{fontSize:8,color:'var(--green)',marginBottom:3}}>Pronto al ritiro</div>

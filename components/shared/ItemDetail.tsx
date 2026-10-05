@@ -47,7 +47,7 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
   onQty?: (n: number) => void;      // regolazione della quantità
   onPu?: (n: number) => void;       // Punti Usura
   players?: { id: string; name: string; short?: string; color?: string }[];
-  onTransfer?: (targetId: string) => void;   // «Passa a…»
+  onTransfer?: (targetId: string, qty: number) => void;   // «Passa a…», con la quantità ceduta
   today?: any;                      // data corrente, per la scadenza dei preparati
   onConsume?: (madeOn: number, n?: number) => void;   // muove le dosi di un lotto (n>0 consuma, n<0 restituisce)
   mastery?: MasteryEntry;      // padronanza dell'arma, risolta dal catalogo
@@ -56,6 +56,9 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
   // L'hook precede l'uscita anticipata: gli hook vanno chiamati sempre,
   // nello stesso ordine, a ogni render.
   const [showMastery, setShowMastery] = useState(false);
+  // Quante unità cedere: chi prepara quattro decotti vuole darne uno a
+  // testa, non svuotare la pila o passarla intera a una persona sola.
+  const [giveQty, setGiveQty] = useState(1);
   if (!item) return null;
   const qty = item.qty ?? 1;
   const anchor = `${slotPrefix}-${item.id}`;
@@ -273,16 +276,36 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
 
       {/* Passa a… — un solo comando, aperto anche ai giocatori: un oggetto
           consegnato di mano in mano non deve passare dal DM. */}
-      {onTransfer && (players || []).length > 0 && (
-        <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 8 }}>
-          <span className="label" style={{ fontSize: 9, flexShrink: 0 }}>Passa a</span>
-          <select className="grow" style={{ fontSize: 12, padding: '4px 6px' }} defaultValue=""
-            onChange={e => { const v = e.target.value; e.target.value = ''; if (v) onTransfer(v); }}>
-            <option value="">— scegli il destinatario —</option>
-            {(players || []).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
-          </select>
-        </div>
-      )}
+      {onTransfer && (players || []).length > 0 && (() => {
+        const stack = perish ? batches.reduce((n, b) => n + b.qty, 0) : qty;
+        const give = Math.max(1, Math.min(giveQty, Math.max(1, stack)));
+        return (
+          <div style={{ marginTop: 8 }}>
+            <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+              <span className="label" style={{ fontSize: 9, flexShrink: 0 }}>Passa a</span>
+              <select className="grow" style={{ fontSize: 12, padding: '4px 6px' }} defaultValue=""
+                onChange={e => { const v = e.target.value; e.target.value = ''; if (v) onTransfer(v, give); }}>
+                <option value="">— scegli il destinatario —</option>
+                {(players || []).map(pl => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+              </select>
+            </div>
+            {stack > 1 && (
+              <div className="row" style={{ gap: 6, alignItems: 'center', marginTop: 5 }}>
+                <span className="small muted" style={{ fontSize: 9 }}>quantità</span>
+                <button className="btn btn-ghost" style={{ padding: '1px 9px', fontSize: 11 }}
+                  disabled={give <= 1} onClick={() => setGiveQty(give - 1)}>−</button>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: 14, minWidth: 24, textAlign: 'center', color: accent }}>{give}</span>
+                <button className="btn btn-ghost" style={{ padding: '1px 9px', fontSize: 11 }}
+                  disabled={give >= stack} onClick={() => setGiveQty(give + 1)}>+</button>
+                <span className="small muted" style={{ fontSize: 9 }}>di {stack}</span>
+                <div className="grow" />
+                <button className="btn btn-ghost" style={{ padding: '1px 8px', fontSize: 9 }}
+                  onClick={() => setGiveQty(stack)}>tutto</button>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </>
   );
 }

@@ -12,7 +12,8 @@ import { InventoryGrid } from '@/components/shared/InventoryGrid';
 import { subtypesFor } from '@/lib/dnd/equipment';
 import { U, moveInArray, ReorderBtns, computeAC, ITEM_TYPES } from '@/components/shared/common';
 import { copyItemImage } from '@/components/shared/imageCopy';
-import { consumeDose } from '@/lib/dnd/perishables';
+import { consumeDose, isPerishable, batchesOf, withBatches } from '@/lib/dnd/perishables';
+import { normName } from '@/lib/dnd/catalog';
 
 const ITEM_TEMPLATES = [
   {name:'Pozione di cura',type:'consumabile',effect:'Recupera 2d4+2 PF',desc:'Liquido rosso che luccica quando viene agitato.'},
@@ -61,18 +62,47 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
   // spada che cambia mano non resta impugnata da sola, e perché lasciare
   // l'alloggiamento occupato produrrebbe due oggetti nella stessa casella.
   // La sintonia decade per la stessa ragione: appartiene a chi la stringe.
-  const moveItem = (item:any, targetId:string) => {
+  const moveItem = (item:any, targetId:string, qty:number = 1) => {
+    const stack = isPerishable(item)
+      ? batchesOf(item).reduce((n:number,b:any)=>n+b.qty,0)
+      : (item.qty ?? 1);
+    const give = Math.max(1, Math.min(qty, Math.max(1, stack)));
+    const whole = give >= stack;
     const newId = uid('i');
     update(prev => ({
       players: prev.players.map(pl => {
-        if (pl.id === p.id) return {...pl, inventory: pl.inventory.filter((i:any)=>i.id!==item.id)};
-        if (pl.id === targetId) return {...pl, inventory: [...pl.inventory,
-          {...item, id:newId, slot:undefined, equipped:false, attuned:undefined}]};
+        // Il cedente: perde la pila intera, oppure solo le unità cedute.
+        if (pl.id === p.id) {
+          if (whole) return {...pl, inventory: pl.inventory.filter((i:any)=>i.id!==item.id)};
+          if (isPerishable(item)) {
+            // Si cedono le dosi più vecchie: chi riceve un decotto riceve
+            // quello che scade prima, come succederebbe davvero.
+            let left = give, next = batchesOf(item);
+            for (const b of next) { const take = Math.min(left, b.qty); b.qty -= take; left -= take; if (!left) break; }
+            return {...pl, inventory: pl.inventory.map((i:any)=> i.id===item.id ? withBatches(i, next) : i)};
+          }
+          return {...pl, inventory: pl.inventory.map((i:any)=> i.id===item.id ? {...i, qty:(i.qty??1)-give} : i)};
+        }
+        // Il destinatario: se ha già un oggetto con lo stesso nome la pila
+        // si somma, altrimenti nasce una voce nuova — sfilata dalla sagoma
+        // e senza sintonia, perché ciò che cambia mano non resta impugnato.
+        if (pl.id === targetId) {
+          const ex = pl.inventory.find((i:any)=> normName(i.name)===normName(item.name) && !isPerishable(i) && !isPerishable(item));
+          if (ex) return {...pl, inventory: pl.inventory.map((i:any)=> i.id===ex.id ? {...i, qty:(i.qty??0)+give} : i)};
+          const copy:any = {...item, id:newId, slot:undefined, equipped:false, attuned:undefined};
+          if (isPerishable(item)) {
+            let left = give, taken:any[] = [];
+            for (const b of batchesOf(item)) { const take = Math.min(left, b.qty); if (take>0) taken.push({...b, qty:take}); left -= take; if (!left) break; }
+            return {...pl, inventory: [...pl.inventory, withBatches(copy, taken)]};
+          }
+          return {...pl, inventory: [...pl.inventory, {...copy, qty:give}]};
+        }
         return pl;
       })
     }));
     if (campaignId) copyItemImage(campaignId, item.id, newId);
   };
+
   const otherPlayers = s.players.filter(pl => pl.id !== p.id);
 
   // Consumo di una dose da un lotto di preparato deperibile. Passa da
@@ -354,7 +384,7 @@ export function InventoryTab({ s, update, updPlayer, p, campaignId }: { s:Campai
                   <div className="row" style={{gap:8,marginTop:8,alignItems:'center'}}>
                     <span className="label" style={{fontSize:9,flexShrink:0}}>Passa a</span>
                     <select className="grow" style={{fontSize:12,padding:'4px 6px'}} defaultValue=""
-                      onChange={e=>{const v=e.target.value; e.target.value=''; if(v) moveItem(it,v);}}>
+                      onChange={e=>{const v=e.target.value; e.target.value=''; if(v) moveItem(it,v,1);}}>
                       <option value="">— scegli il destinatario —</option>
                       {otherPlayers.map(pl=><option key={pl.id} value={pl.id}>{pl.name}</option>)}
                     </select>
