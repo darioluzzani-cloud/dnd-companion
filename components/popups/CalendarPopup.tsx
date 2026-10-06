@@ -6,6 +6,7 @@ import { sfxDice } from '@/lib/dnd/sounds';
 import { sweepExpired } from '@/lib/dnd/perishables';
 import { jobsOf, jobProgress, tavernBuilding, TAVERN_WEEKLY_DEFAULT } from '@/lib/dnd/crafting';
 import { GOLD_NAME, normName } from '@/lib/dnd/catalog';
+import { villageTick } from '@/lib/dnd/village';
 import { absDay, advanceMark, VelmoraDate } from '@/lib/dnd/calendar';
 import { COND, DT, WEATHER_MAP, WEATHER_DETAILS, BIOMES, SEASONS, EFFECT_CATS, INTENSITY_COLORS } from '@/lib/dnd/weather';
 import {
@@ -58,7 +59,7 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
   // guasti, cantieri conclusi, commesse pronte. Tre meccanismi diversi
   // dipendono ormai dall'avanzare della data, e vederli in un punto solo
   // evita di doverli cercare in tre riquadri della tab Base.
-  const [night, setNight] = useState<{ lost: string[]; ready: string[]; income?: string } | null>(null);
+  const [night, setNight] = useState<{ lost: string[]; ready: string[]; income?: string; village?: string[] } | null>(null);
 
   // Bozza dell'impostazione manuale. Giorno e anno restano testo finché non
   // si conferma: ogni cifra battuta produrrebbe altrimenti una data di
@@ -128,8 +129,14 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
         }
       }
 
-      if (lost.length || ready.length || income) setTimeout(() => setNight({ lost, ready, income }), 0);
-      return { calendar: next, players: paidPlayers, ...(mark !== (prev as any).tavernPaidAbs ? { tavernPaidAbs: mark } : {}) } as any;
+      // ── Gli abitanti: crescita quindicinale e notabili alla porta ──
+      // Il villaggio tiene una tacca propria nel suo registro e scrive
+      // soltanto le chiavi che gli appartengono.
+      const village = villageTick(prev, fromAbs, toAbs);
+
+      if (lost.length || ready.length || income || village.notes.length)
+        setTimeout(() => setNight({ lost, ready, income, village: village.notes }), 0);
+      return { calendar: next, players: paidPlayers, ...(mark !== (prev as any).tavernPaidAbs ? { tavernPaidAbs: mark } : {}), ...village.patch } as any;
     });
   };
 
@@ -162,7 +169,7 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
   } : null;
   const draftDelta = draftDate ? absDay(draftDate) - absDay(cal.date) : 0;
   // Ciò che l'applicazione farebbe maturare, detto prima di farlo.
-  const draftMarkets = (draftDate && tavernBuilding(s))
+  const draftMarkets = draftDate
     ? advanceMark((s as any).tavernPaidAbs, absDay(cal.date), absDay(draftDate)).markets
     : 0;
   const applyDraft = () => {
@@ -326,6 +333,14 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
                     <div className="small" style={{fontSize:11,lineHeight:1.6,color:'var(--gold-light)'}}>◉ {night.income}</div>
                   </div>
                 )}
+                {(night.village?.length || 0) > 0 && (
+                  <div style={{ marginBottom: (night.ready.length || night.lost.length) ? 8 : 0 }}>
+                    <div className="label" style={{fontSize:8,color:'var(--purple-light)',marginBottom:3}}>Al villaggio</div>
+                    {night.village!.map((r,i)=>(
+                      <div key={i} className="small" style={{fontSize:11,lineHeight:1.6,color:'var(--text-card)'}}>◈ {r}</div>
+                    ))}
+                  </div>
+                )}
                 {night.ready.length > 0 && (
                   <div style={{marginBottom: night.lost.length ? 8 : 0}}>
                     <div className="label" style={{fontSize:8,color:'var(--green)',marginBottom:3}}>Pronto al ritiro</div>
@@ -365,7 +380,7 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
                     {draftDelta === 0
                       ? 'La data coincide con quella corrente.'
                       : <>→ {formatDate(draftDate)} · {draftDelta > 0
-                          ? <>{draftDelta === 1 ? 'un giorno' : draftDelta + ' giorni'} in avanti{draftMarkets > 0 ? `, ${draftMarkets === 1 ? 'un mercato' : draftMarkets + ' mercati'} da onorare` : ''}: ciò che scade o matura nel frattempo verrà applicato.</>
+                          ? <>{draftDelta === 1 ? 'un giorno' : draftDelta + ' giorni'} in avanti{draftMarkets > 0 ? `, ${draftMarkets === 1 ? 'un mercato' : draftMarkets + ' mercati'} nel mezzo` : ''}: ciò che scade o matura nel frattempo verrà applicato.</>
                           : <>{-draftDelta === 1 ? 'un giorno' : -draftDelta + ' giorni'} indietro: nulla viene pagato né restituito.</>}</>}
                   </div>
                   <div className="row" style={{gap:6,marginTop:8}}>

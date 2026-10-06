@@ -35,6 +35,11 @@ export interface NPC {
   expanded?: boolean;
   reveals?: RevealFragment[];   // frammenti da svelare progressivamente
   imgPos?: number;              // inquadratura verticale dell'immagine nel riquadro (0–100)
+  // ── Villaggio (si veda lib/dnd/village.ts) ──
+  /** Tratto leggibile da tutti: ciò che al villaggio si dice della persona. */
+  trait?: string;
+  /** Nel mazzo dei forestieri: preparato dal DM, non ancora arrivato. */
+  inDeck?: boolean;
 }
 
 export interface Spell {
@@ -285,6 +290,15 @@ export interface CampaignState {
   tavernWeekly?: number;        // monete d'oro a testa per settimana; assente = valore predefinito
   buildings?: Building[];       // gli edifici di Olmobianco, con livelli e cantieri
   baseRations?: number;  // razioni giornaliere nel magazzino del villaggio
+  // ── Gli abitanti di Olmobianco. Chiavi distinte per chi le scrive: il
+  //    salvataggio procede per chiave, e l'ultimo che ne scrive una la vince.
+  villagePop?: number;                                        // abitanti — calendario e strumenti del DM
+  villageLedger?: import('./dnd/village').VillageLedger;      // tacca e ultimo tiro di crescita — calendario
+  villageHousingId?: string;                                  // edificio delle case, se scelto a mano
+  villageHousing?: import('./dnd/village').HousingRow[];      // capienza e fattore del 3d4 per livello
+  villageGate?: import('./dnd/village').VillageGateEntry[];   // notabili in attesa alla porta
+  villageResidents?: string[];                                // id dei PNG residenti
+  villageDismissed?: string[];                                // id dei notabili respinti
   smithUpgrades?: { id: string; name: string; desc: string; material?: string; cat?: 'base'|'avanzato'|'nanico'; materials?: { name: string; qty: number }[] }[];  // catalogo della fucina
   marketBuildingId?: string;      // edificio (di norma la Piazza) che governa il livello del mercato
   marketStalls?: import('./dnd/market').MarketStall[];   // catalogo bancarelle (copy-on-write dai default)

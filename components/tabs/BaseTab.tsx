@@ -9,6 +9,7 @@ import { MarketBox } from '@/components/shared/MarketBox';
 import { TanneryBox } from '@/components/shared/TanneryBox';
 import { LibraryBox } from '@/components/shared/LibraryBox';
 import { PanelBox } from '@/components/shared/PanelBox';
+import { VillageBox } from '@/components/shared/VillageBox';
 import { absDay } from '@/lib/dnd/calendar';
 
 
@@ -125,6 +126,7 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
         })()}
       </PanelBox>
 
+      <VillageBox s={s} update={update} campaignId={campaignId} />
       <ForgeBox s={s} update={update} campaignId={campaignId} />
       <TanneryBox s={s} update={update} campaignId={campaignId} />
       <MarketBox s={s} update={update} campaignId={campaignId} />

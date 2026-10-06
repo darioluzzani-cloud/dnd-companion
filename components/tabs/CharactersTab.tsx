@@ -5,6 +5,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 import { Markdown } from '@/components/shared/textUtils';
 import { RevealsView, RevealsEditor, RevealBadge } from '@/components/shared/Reveals';
+import { residentIds, gateOf, dismissedIds } from '@/lib/dnd/village';
 
 const REL_NEXT: Record<string,string> = {ally:'enemy',enemy:'neutral',neutral:'ally'};
 const REL_LABEL: Record<string,string> = {ally:'Alleato',enemy:'Nemico',neutral:'Neutrale'};
@@ -131,6 +132,32 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
                 <input value={detail.location||''} placeholder="Luogo" onChange={e=>setField(detail.id,'location',e.target.value)} style={{marginBottom:4,fontSize:12,padding:'4px 8px',width:'100%'}} />
                 <textarea value={detail.note||''} placeholder="Note…" onChange={e=>setField(detail.id,'note',e.target.value)} style={{fontSize:12,padding:'6px 8px',minHeight:80,width:'100%'}} />
                 <RevealsEditor list={detail.reveals} onChange={l=>setReveals(detail.id,l)} accent={relColor(detail.relation)} />
+                {/* Il PNG come abitante di Olmobianco: la marca di residenza
+                    lo rende assegnabile nel riquadro «Gli abitanti», quella
+                    del mazzo lo tiene in serbo come forestiero in arrivo. */}
+                {(() => {
+                  const isRes = residentIds(s).includes(detail.id);
+                  const atGate = gateOf(s).some(g => g.npcId === detail.id);
+                  const refused = dismissedIds(s).includes(detail.id);
+                  const toggleRes = () => update(prev => {
+                    const ids = residentIds(prev);
+                    return { villageResidents: ids.includes(detail.id) ? ids.filter(x => x !== detail.id) : [...ids, detail.id] } as any;
+                  });
+                  return (
+                    <div style={{marginTop:10,padding:'8px 10px',border:'1px dashed var(--border)',borderRadius:6}}>
+                      <div className="row" style={{gap:6,alignItems:'center',marginBottom:6,flexWrap:'wrap'}}>
+                        <span className="label" style={{fontSize:8}}>Villaggio</span>
+                        <span className="small muted" style={{fontSize:10}}>{isRes ? 'residente a Olmobianco' : atGate ? 'alla porta' : refused ? 'ha avuto un rifiuto alla porta' : detail.inDeck ? 'nel mazzo dei forestieri' : 'estraneo a Olmobianco'}</span>
+                        <div className="grow" />
+                        {!atGate && <button className="btn btn-ghost" style={{padding:'2px 8px',fontSize:9}} onClick={toggleRes}>{isRes ? 'Togli dai residenti' : 'Residente a Olmobianco'}</button>}
+                        {!isRes && !atGate && (
+                          <button className="btn btn-ghost" style={{padding:'2px 8px',fontSize:9}} onClick={()=>setField(detail.id,'inDeck',!detail.inDeck)}>{detail.inDeck ? 'Togli dal mazzo' : 'Metti nel mazzo'}</button>
+                        )}
+                      </div>
+                      <input value={detail.trait||''} placeholder="Tratto visibile ai giocatori (es. «conta ogni cosa due volte»)" onChange={e=>setField(detail.id,'trait',e.target.value)} style={{fontSize:12,padding:'4px 8px',width:'100%'}} />
+                    </div>
+                  );
+                })()}
                 <div className="row" style={{marginTop:10,gap:4,flexWrap:'wrap',alignItems:'center'}}>
                   <button className={'pill relation-'+detail.relation} style={{cursor:'pointer',fontSize:9}}
                     onClick={()=>setField(detail.id,'relation',REL_NEXT[detail.relation]||'neutral')}>{REL_LABEL[detail.relation]}</button>
@@ -147,6 +174,9 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
               </>
             ) : (
               <div style={{maxWidth:'62ch'}}>
+                {detail.trait && (residentIds(s).includes(detail.id) || gateOf(s).some(g => g.npcId === detail.id)) && (
+                  <div className="small" style={{marginBottom:8,color:'var(--gold-dim)'}}>Al villaggio si dice: <span style={{fontStyle:'italic'}}>{detail.trait}</span></div>
+                )}
                 {detail.note
                   ? <div style={{fontSize:13,lineHeight:1.65,fontStyle:'italic'}}><Markdown text={detail.note}/></div>
                   : <div className="small muted">(nessuna nota)</div>}
