@@ -6,12 +6,12 @@ import { sfxDice } from '@/lib/dnd/sounds';
 import { sweepExpired } from '@/lib/dnd/perishables';
 import { jobsOf, jobProgress, tavernBuilding, TAVERN_WEEKLY_DEFAULT } from '@/lib/dnd/crafting';
 import { GOLD_NAME, normName } from '@/lib/dnd/catalog';
-import { absDay } from '@/lib/dnd/calendar';
+import { absDay, advanceMark, VelmoraDate } from '@/lib/dnd/calendar';
 import { COND, DT, WEATHER_MAP, WEATHER_DETAILS, BIOMES, SEASONS, EFFECT_CATS, INTENSITY_COLORS } from '@/lib/dnd/weather';
 import {
   CalendarState, DEFAULT_CALENDAR, MONTHS, addDays, seasonForMonth,
   formatDate, formatDateShort, festivityOn, isMarketDay, nextFestivities, rollDailyWeather,
-  DAYS_PER_MONTH, DAYS_PER_WEEK,
+  DAYS_PER_MONTH,
 } from '@/lib/dnd/calendar';
 
 // ─── BARRA DATA (topbar — visibile a tutti, tocco DM apre il popup) ──
@@ -60,6 +60,12 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
   // evita di doverli cercare in tre riquadri della tab Base.
   const [night, setNight] = useState<{ lost: string[]; ready: string[]; income?: string } | null>(null);
 
+  // Bozza dell'impostazione manuale. Giorno e anno restano testo finché non
+  // si conferma: ogni cifra battuta produrrebbe altrimenti una data di
+  // passaggio, e il calendario la tratterebbe come tempo trascorso davvero —
+  // con rendita pagata e preparati scartati lungo la strada.
+  const [draft, setDraft] = useState<{ day: string; month: number; year: string } | null>(null);
+
   const setCal = (next: CalendarState) => update({ calendar: next });
 
   /**
@@ -78,7 +84,10 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
       // ritiro resta un gesto di chi gioca, com'era già per i cantieri.
       const ready: string[] = [];
       const nameOf = (id: string) => prev.players.find(pl => pl.id === id)?.short || prev.players.find(pl => pl.id === id)?.name || '—';
-      const wasDone = (start: number, days: number) => Math.max(0, absDay(prev.calendar!.date) - start) >= days;
+      // Una campagna che non ha ancora salvato il calendario parte dalla
+      // data mostrata a schermo, non da un riferimento mancante.
+      const prevDate = prev.calendar?.date || cal.date;
+      const wasDone = (start: number, days: number) => Math.max(0, absDay(prevDate) - start) >= days;
       const isDone = (start: number, days: number) => Math.max(0, absDay(next.date) - start) >= days;
 
       for (const j of jobsOf(prev, 'forge')) {
@@ -96,22 +105,17 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
       }
 
       // ── Rendita della taverna ──
+      // La tacca è il giorno più avanzato mai raggiunto e si salva a ogni
+      // cambio di data, anche arretrando e anche senza incasso: mancando,
+      // il primo ritorno in avanti pagava per intero i giorni già vissuti.
       let paidPlayers = players;
       let income: string | undefined;
       const tav = tavernBuilding(prev);
-      const fromAbs = absDay(prev.calendar!.date), toAbs = absDay(next.date);
-      if (tav && toAbs > fromAbs) {
-        const lastPaid = (prev as any).tavernPaidAbs ?? fromAbs;
-        // Giorni di mercato scavalcati da quando si è pagato l'ultima volta.
-        let weeks = 0;
-        for (let d = Math.max(lastPaid, fromAbs) + 1; d <= toAbs; d++) {
-          // Il giorno di mercato è il sesto di ogni settimana velmorana;
-          // ricavarlo dal giorno assoluto evita di ricostruire la data.
-          const day = (d % DAYS_PER_MONTH) + 1;
-          if (day % DAYS_PER_WEEK === 0) weeks++;
-        }
+      const fromAbs = absDay(prevDate), toAbs = absDay(next.date);
+      const { markets: weeks, mark } = advanceMark((prev as any).tavernPaidAbs, fromAbs, toAbs);
+      if (tav && weeks > 0) {
         const rate = (prev as any).tavernWeekly ?? TAVERN_WEEKLY_DEFAULT;
-        if (weeks > 0 && rate > 0) {
+        if (rate > 0) {
           const each = weeks * rate;
           paidPlayers = players.map((pl: any) => {
             const coin = (pl.inventory || []).find((it: any) => normName(it.name) === normName(GOLD_NAME));
@@ -125,12 +129,13 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
       }
 
       if (lost.length || ready.length || income) setTimeout(() => setNight({ lost, ready, income }), 0);
-      return { calendar: next, players: paidPlayers, ...(income ? { tavernPaidAbs: toAbs } : {}) } as any;
+      return { calendar: next, players: paidPlayers, ...(mark !== (prev as any).tavernPaidAbs ? { tavernPaidAbs: mark } : {}) } as any;
     });
   };
 
   // ── Giornata: avanzamento ──
   const advance = (n: number) => {
+    setDraft(null);   // una bozza aperta si riferirebbe a una data ormai superata
     const date = addDays(cal.date, n);
     if (n > 0) {
       const { key, roll } = rollDailyWeather(cal.biome || 'temperato', seasonForMonth(date.month));
@@ -147,12 +152,23 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
     setCal({ ...cal, weatherKey: key, weatherRoll: roll });
   };
 
-  const setDatePart = (part: 'year' | 'month' | 'day', v: number) => {
-    const date = { ...cal.date, [part]: v };
-    date.year = Math.max(0, date.year || 0);
-    date.month = Math.min(12, Math.max(1, date.month || 1));
-    date.day = Math.min(30, Math.max(1, date.day || 1));
-    setCalAndSweep({ ...cal, date, weatherKey: undefined, weatherRoll: undefined });
+  // ── Impostazione manuale: si scrive in bozza, si applica con un gesto ──
+  const draftOrCurrent = draft || { day: String(cal.date.day), month: cal.date.month, year: String(cal.date.year) };
+  const editDraft = (patch: Partial<{ day: string; month: number; year: string }>) => setDraft({ ...draftOrCurrent, ...patch });
+  const draftDate: VelmoraDate | null = draft ? {
+    year: Math.max(0, parseInt(draft.year) || 0),
+    month: Math.min(12, Math.max(1, draft.month || 1)),
+    day: Math.min(DAYS_PER_MONTH, Math.max(1, parseInt(draft.day) || 1)),
+  } : null;
+  const draftDelta = draftDate ? absDay(draftDate) - absDay(cal.date) : 0;
+  // Ciò che l'applicazione farebbe maturare, detto prima di farlo.
+  const draftMarkets = (draftDate && tavernBuilding(s))
+    ? advanceMark((s as any).tavernPaidAbs, absDay(cal.date), absDay(draftDate)).markets
+    : 0;
+  const applyDraft = () => {
+    if (!draftDate) return;
+    if (draftDelta !== 0) setCalAndSweep({ ...cal, date: draftDate, weatherKey: undefined, weatherRoll: undefined });
+    setDraft(null);
   };
 
   const upcoming = nextFestivities(cal.date, 3);
@@ -333,17 +349,32 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
             <div className="card">
               <div className="label" style={{marginBottom:6}}>Imposta data</div>
               <div className="row" style={{gap:6}}>
-                <input type="number" value={cal.date.day} min={1} max={30}
-                  onChange={e=>setDatePart('day', parseInt(e.target.value)||1)}
+                <input type="number" value={draftOrCurrent.day} min={1} max={30}
+                  onChange={e=>editDraft({ day: e.target.value })}
                   style={{width:64,textAlign:'center'}} title="Giorno" />
-                <select value={cal.date.month} onChange={e=>setDatePart('month', parseInt(e.target.value)||1)} className="grow" title="Mese">
+                <select value={draftOrCurrent.month} onChange={e=>editDraft({ month: parseInt(e.target.value)||1 })} className="grow" title="Mese">
                   {MONTHS.map(m => <option key={m.n} value={m.n}>{m.short} ({m.n}º)</option>)}
                 </select>
-                <input type="number" value={cal.date.year} min={0}
-                  onChange={e=>setDatePart('year', parseInt(e.target.value)||0)}
+                <input type="number" value={draftOrCurrent.year} min={0}
+                  onChange={e=>editDraft({ year: e.target.value })}
                   style={{width:80,textAlign:'center'}} title="Anno d.V." />
               </div>
-              <div className="small muted" style={{marginTop:6}}>Impostare la data a mano azzera il meteo del giorno.</div>
+              {draft && draftDate && (
+                <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid var(--border)'}}>
+                  <div className="small" style={{fontSize:11,lineHeight:1.6,color: draftDelta === 0 ? 'var(--gray-purple)' : 'var(--text-card)'}}>
+                    {draftDelta === 0
+                      ? 'La data coincide con quella corrente.'
+                      : <>→ {formatDate(draftDate)} · {draftDelta > 0
+                          ? <>{draftDelta === 1 ? 'un giorno' : draftDelta + ' giorni'} in avanti{draftMarkets > 0 ? `, ${draftMarkets === 1 ? 'un mercato' : draftMarkets + ' mercati'} da onorare` : ''}: ciò che scade o matura nel frattempo verrà applicato.</>
+                          : <>{-draftDelta === 1 ? 'un giorno' : -draftDelta + ' giorni'} indietro: nulla viene pagato né restituito.</>}</>}
+                  </div>
+                  <div className="row" style={{gap:6,marginTop:8}}>
+                    <button className="btn btn-gold" style={{fontSize:10,padding:'4px 12px'}} disabled={draftDelta === 0} onClick={applyDraft}>Applica</button>
+                    <button className="btn btn-ghost" style={{fontSize:10,padding:'4px 12px'}} onClick={()=>setDraft(null)}>Annulla</button>
+                  </div>
+                </div>
+              )}
+              <div className="small muted" style={{marginTop:6}}>La data cambia soltanto con «Applica», e impostarla a mano azzera il meteo del giorno.</div>
             </div>
 
             {/* Prossime ricorrenze */}

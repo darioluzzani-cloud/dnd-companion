@@ -72,6 +72,9 @@ export interface InventoryItem {
    *  in un registro del calendario, che vive la scadenza: due preparati
    *  omonimi fatti in giorni diversi restano due voci separate. */
   madeOn?: number;
+  /** Partite datate di un deperibile: è la forma corrente, e `madeOn` qui
+   *  sopra resta soltanto per leggere le voci della stesura precedente. */
+  batches?: { madeOn: number; qty: number }[];
 }
 
 export interface ItemSet {
@@ -121,6 +124,8 @@ export interface Player {
   profGear?: Record<string, boolean>;
   /** Armi con cui il personaggio ha padronanza (nomi, confronto tollerante). */
   masteryWeapons?: string[];
+  /** Voce d'inventario scelta come munizione dell'arma a distanza impugnata. */
+  ammoId?: string;
   profNotes?: string;
   spells: Spell[];
   inventory: InventoryItem[];
@@ -194,6 +199,39 @@ export interface AlchemyRecipe {
   };
 }
 
+/** Un livello di un edificio di Olmobianco, con ciò che costa raggiungerlo. */
+export interface BuildingLevel {
+  desc: string;
+  costGold: number;
+  costTime: string;     // testo libero («due settimane»): la durata vera è quella del cantiere
+  costPeople: number;   // braccia richieste dal cantiere
+}
+
+/** Cantiere in corso: come le commesse di bottega, vive di sola data. */
+export interface BuildingSite {
+  startAbs: number;     // giorno assoluto d'avvio
+  days: number;
+  targetLevel: number;
+}
+
+export interface Building {
+  id: string;
+  name: string;
+  level: number;
+  maxLevel: number;
+  gate: 'mondano' | 'esoterico' | 'organico';
+  revealed?: boolean;
+  expanded?: boolean;
+  levels?: BuildingLevel[];
+  construction?: BuildingSite | null;
+  /** Campi della stesura antica, a livello singolo: letti come ripiego. */
+  desc?: string;
+  nextDesc?: string;
+  costGold?: number;
+  costTime?: string;
+  costPeople?: number;
+}
+
 export interface JournalEntry {
   id: string;
   author: string;      // nome del PG o 'DM'
@@ -237,17 +275,22 @@ export interface CampaignState {
   timeline?: TimelineEvent[];   // Le Cronache della Marca
   masteries?: { id: string; name: string; desc: string; custom?: boolean }[];
   /** Lavorazioni a tempo di fucina e conceria, e regime delle botteghe. */
-  craftJobs?: any[];
+  craftJobs?: import('./dnd/crafting').CraftJob[];
   library?: any[];              // volumi della biblioteca di Olmobianco
   craftMode?: 'shop' | 'player';
-  tanneryRecipes?: { id: string; fromName: string; fromQty: number; toName: string; toQty: number; days: number; note?: string }[];
+  tanneryRecipes?: import('./dnd/crafting').TanneryRecipe[];   // a più ingredienti; la forma antica resta leggibile
+  /** Tacca d'alta marea della rendita: il giorno assoluto più avanzato che
+   *  il calendario abbia raggiunto. Si veda `advanceMark` in calendar.ts. */
+  tavernPaidAbs?: number;
+  tavernWeekly?: number;        // monete d'oro a testa per settimana; assente = valore predefinito
+  buildings?: Building[];       // gli edifici di Olmobianco, con livelli e cantieri
   baseRations?: number;  // razioni giornaliere nel magazzino del villaggio
   smithUpgrades?: { id: string; name: string; desc: string; material?: string; cat?: 'base'|'avanzato'|'nanico'; materials?: { name: string; qty: number }[] }[];  // catalogo della fucina
   marketBuildingId?: string;      // edificio (di norma la Piazza) che governa il livello del mercato
   marketStalls?: import('./dnd/market').MarketStall[];   // catalogo bancarelle (copy-on-write dai default)
   marketRumors?: import('./dnd/market').MarketRumor[];   // tabella dicerie d100 (copy-on-write dai default)
   market?: import('./dnd/market').MarketDay | null;      // il mercato tirato per il giorno corrente
-  armory?: { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; attunement?: boolean }[];
+  armory?: { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; attunement?: boolean; mastery?: string; ammo?: boolean; price?: number }[];
   itemSets?: ItemSet[];  // catalogo oggetti preparati dal DM (Armeria)
   calendar?: CalendarState;
   lastRoll: DiceRoll | null;

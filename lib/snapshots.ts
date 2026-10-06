@@ -170,4 +170,6 @@ export const SNAPSHOT_SQL = `create table if not exists campaign_snapshots (
 create index if not exists campaign_snapshots_campaign_idx
   on campaign_snapshots (campaign_id, created_at desc);
 alter table campaign_snapshots enable row level security;
-create policy "snapshots_all" on campaign_snapshots for all using (true) with check (true);`;
+drop policy if exists "snapshots_all" on campaign_snapshots;
+create policy "snapshots_all" on campaign_snapshots for all using (true) with check (true);
+grant select, insert, update, delete on table campaign_snapshots to anon;`;

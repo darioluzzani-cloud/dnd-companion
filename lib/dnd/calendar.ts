@@ -133,3 +133,36 @@ export function rollDailyWeather(biome: string, season: string): { key: string; 
   }
   return { key: rows[rows.length - 1].id, roll };
 }
+
+// ─── Giorni di mercato e tacca d'alta marea ──────────────────
+// Ogni meccanismo che paga o consuma a cadenza settimanale poggia sulla
+// stessa aritmetica: si conserva il giorno più avanzato che il calendario
+// abbia mai raggiunto (la tacca) e si contano i mercati compresi fra la
+// tacca e la nuova data. Tornare indietro non sposta la tacca, sicché
+// ripercorrere giorni già vissuti non paga e non consuma una seconda volta.
+
+/** Il giorno assoluto cade di mercato? Il sesto di ogni settimana velmorana. */
+export function isMarketAbs(abs: number): boolean {
+  return ((abs % DAYS_PER_MONTH) + 1) % DAYS_PER_WEEK === 0;
+}
+
+/** Mercati compresi nell'intervallo (fromAbs, toAbs], estremo iniziale escluso. */
+export function marketDaysBetween(fromAbs: number, toAbs: number): number {
+  if (toAbs <= fromAbs) return 0;
+  // Trenta giorni al mese e sei alla settimana: i mercati cadono a passo
+  // costante anche sul giorno assoluto, e il conto si fa senza scorrerlo.
+  const upTo = (abs: number) => Math.floor((abs + 1) / DAYS_PER_WEEK);
+  return upTo(toAbs) - upTo(fromAbs);
+}
+
+/**
+ * Avanzamento della tacca. `stored` è la tacca salvata (assente al primo
+ * uso), `fromAbs` il giorno da cui si parte, `toAbs` quello d'arrivo.
+ * Restituisce i mercati da onorare e la tacca da salvare — sempre, anche
+ * quando si arretra: è proprio la tacca scritta arretrando a impedire che
+ * il primo ritorno in avanti paghi giorni già trascorsi.
+ */
+export function advanceMark(stored: number | undefined | null, fromAbs: number, toAbs: number): { markets: number; mark: number } {
+  const mark = Math.max(typeof stored === 'number' ? stored : fromAbs, fromAbs);
+  return { markets: marketDaysBetween(mark, toAbs), mark: Math.max(mark, toAbs) };
+}
