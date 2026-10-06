@@ -293,7 +293,7 @@ export interface CampaignState {
   tavernPaidAbs?: number;
   tavernWeekly?: number;        // monete d'oro a testa per settimana; assente = valore predefinito
   buildings?: Building[];       // gli edifici di Olmobianco, con livelli e cantieri
-  baseRations?: number;  // razioni giornaliere nel magazzino del villaggio
+  baseRations?: number;  // vecchio contatore delle razioni: il DM lo travasa nel magazzino a oggetti
   // ── Gli abitanti di Olmobianco. Chiavi distinte per chi le scrive: il
   //    salvataggio procede per chiave, e l'ultimo che ne scrive una la vince.
   villagePop?: number;                                        // abitanti — calendario e strumenti del DM
@@ -305,6 +305,14 @@ export interface CampaignState {
   villageDismissed?: string[];                                // id dei notabili respinti
   villageActivities?: import('./dnd/village').Activity[];     // catalogo delle attività (copy-on-write dai predefiniti)
   villageAssign?: import('./dnd/village').VillageAssign;      // chi tiene ciascuna attività — scritta dai giocatori
+  // ── Magazzino: giacenza = villageStock − villageDrawn (si veda lib/dnd/storehouse.ts) ──
+  villageStock?: import('./dnd/storehouse').Tally;            // reso dalle attività meno il consumato — calendario e DM
+  villageDrawn?: import('./dnd/storehouse').Tally;            // prelevato meno il riposto — giocatori
+  villageRationId?: string;                                   // voce d'armeria che vale come razione, se scelta a mano
+  villageHunger?: boolean;                                    // consumo delle razioni attivo
+  villageRationPct?: number;                                  // quota giornaliera degli abitanti; assente = 15
+  villageLeavePct?: number;                                   // partenze a ogni mercato di carestia; assente = 10
+  tavernRecipes?: import('./dnd/crafting').TanneryRecipe[];   // catalogo delle bevande della taverna
   smithUpgrades?: { id: string; name: string; desc: string; material?: string; cat?: 'base'|'avanzato'|'nanico'; materials?: { name: string; qty: number }[] }[];  // catalogo della fucina
   marketBuildingId?: string;      // edificio (di norma la Piazza) che governa il livello del mercato
   marketStalls?: import('./dnd/market').MarketStall[];   // catalogo bancarelle (copy-on-write dai default)

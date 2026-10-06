@@ -99,6 +99,10 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
         if (!wasDone(j.startAbs, j.days) && isDone(j.startAbs, j.days))
           ready.push(`Conceria · ${j.toName} ×${j.toQty} — ${nameOf(j.playerId)}`);
       }
+      for (const j of jobsOf(prev, 'tavern')) {
+        if (!wasDone(j.startAbs, j.days) && isDone(j.startAbs, j.days))
+          ready.push(`Taverna · ${j.toName} ×${j.toQty} — ${nameOf(j.playerId)}`);
+      }
       for (const b of (((prev as any).buildings || []) as any[])) {
         const c = b.construction;
         if (c && !wasDone(c.startAbs, c.days) && isDone(c.startAbs, c.days))

@@ -13,7 +13,7 @@ import { absDay } from '@/lib/dnd/calendar';
 
 export interface CraftJob {
   id: string;
-  kind: 'forge' | 'tannery';
+  kind: 'forge' | 'tannery' | 'tavern';
   playerId: string;
   startAbs: number;      // giorno assoluto d'avvio
   days: number;          // giornate di lavorazione
@@ -99,6 +99,17 @@ export const DEFAULT_TANNERY: TanneryRecipe[] = [
 export const tanneryRecipesOf = (s: any): TanneryRecipe[] => {
   const list = s?.tanneryRecipes;
   return Array.isArray(list) && list.length ? list : DEFAULT_TANNERY;
+};
+
+// ─── Taverna: bevande ────────────────────────────────────────
+// La taverna lavora come la conceria — ingredienti che entrano, una bevanda
+// che esce dopo qualche giornata — e ne condivide la forma delle ricette.
+// Non ha lavorazioni di partenza: le bevande sono voci d'armeria, e il
+// catalogo lo scrive il DM scegliendole da lì.
+
+export const tavernRecipesOf = (s: any): TanneryRecipe[] => {
+  const list = s?.tavernRecipes;
+  return Array.isArray(list) ? list : [];
 };
 
 // ─── RENDITA DELLA TAVERNA ───────────────────────────────────

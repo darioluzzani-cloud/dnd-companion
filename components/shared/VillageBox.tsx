@@ -11,14 +11,15 @@ import {
   popOf, ledgerOf, gateOf, residentIds, residentsOf, dismissedIds, deckOf,
   housingBuilding, housingRow, currentHousing, daysToGrowth,
   Activity, ActivityState, CapoSeat, ACT_BUILDERS,
-  activitiesOf, assignOf, activityStatus, roleOf, withCapo, withoutNpc,
-  aptitudeOf, isKnown, daysToKnow, buildDiscount,
+  activitiesOf, assignOf, activityStatus, roleOf, withCapo,
+  aptitudeOf, isKnown, daysToKnow, buildDiscount, yieldOf,
 } from '@/lib/dnd/village';
 
 // ─── GLI ABITANTI ────────────────────────────────────────────
 // Quanta gente vive a Olmobianco, chi bussa alla porta, e chi tiene le
 // attività del villaggio: una casella per ciascuna, che i giocatori
-// riempiono scegliendo fra i residenti con un nome.
+// riempiono scegliendo fra i PNG marcati come residenti. Non c'è un elenco
+// dei residenti a sé: chi può tenere una casella compare quando la si apre.
 //
 // Ai giocatori il tiro di crescita resta invisibile: vedono il numero
 // salire e la capienza delle case. Dadi, fattore e conto alla rovescia
@@ -156,6 +157,21 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
             : <div className="small" style={{ fontSize: 11, marginTop: 4, color: 'var(--text-card)' }}>I cantieri avviati da ora durano circa il {act.buildPct ?? 20}% in meno; quanto vi aggiunga o tolga chi li guida si vedrà col lavoro.</div>
         )}
 
+        {(() => {
+          // Ciò che l'attività deposita in magazzino. Il contributo di chi
+          // la tiene si dichiara soltanto quando è noto.
+          const y = yieldOf(s, act);
+          if (!y) return null;
+          const open = !!st.capo && (s.dmMode || isKnown(s, st.capo.id, act.id));
+          return (
+            <div className="small" style={{ fontSize: 11, marginTop: 4, color: 'var(--text-card)', lineHeight: 1.5 }}>
+              {st.state === 'active' ? 'Rende' : 'Renderebbe'} a ogni mercato {open ? y.qty : y.base} × {y.entry.name}
+              {open && y.mod !== 0 ? <span className="muted"> ({y.base} {y.mod > 0 ? '+' : '−'} {Math.abs(y.mod)} di {st.capo.name})</span> : null}
+              {!open && st.capo ? <span className="muted">, più o meno ciò che vi porta chi la tiene</span> : null}.
+            </div>
+          );
+        })()}
+
         {st.capo && (
           <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
             {person(st.capo, st.capo.role || undefined)}
@@ -165,7 +181,7 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
 
         <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
           <div className="label" style={{ fontSize: 8, marginBottom: 6 }}>{st.capo ? 'Affida ad altri' : 'A chi affidarla'}</div>
-          {residents.length === 0 && <div className="small muted" style={{ fontSize: 11 }}>Nessun residente con un nome a cui affidarla.</div>}
+          {residents.length === 0 && <div className="small muted" style={{ fontSize: 11 }}>Nessun PNG è ancora marcato come residente di Olmobianco: lo si fa dalla sua scheda, nella sezione «Villaggio».</div>}
           {residents.filter((npc: any) => npc.id !== st.capo?.id).map((npc: any) => {
             const cur = roleOf(assign, npc.id);
             const curName = acts.find(a => a.id === cur)?.name;
@@ -191,6 +207,7 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
   const activeCount = acts.filter(a => activityStatus(s, a.id).state === 'active').length;
 
   // ── Strumenti del DM ──
+  const armoryList: any[] = (((s as any).armory || []) as any[]).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const setActs = (list: Activity[]) => update({ villageActivities: list } as any);
   const patchAct = (id: string, p: Partial<Activity>) => setActs(acts.map(a => a.id === id ? { ...a, ...p } : a));
   const setPop = (n: number) => update({ villagePop: Math.max(0, Math.floor(n || 0)) } as any);
@@ -204,12 +221,6 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
     update(prev => ({ villageGate: [...leaveGate(gateOf(prev), id), { npcId: id, sinceAbs: today }] } as any));
   };
   const recall = (id: string) => update(prev => ({ villageDismissed: dismissedIds(prev).filter(x => x !== id) } as any));
-  const sendAway = (id: string, name: string) => {
-    if (confirm(`Togliere ${name} dai residenti di Olmobianco?`)) update(prev => ({
-      villageResidents: residentIds(prev).filter(x => x !== id),
-      villageAssign: withoutNpc(assignOf(prev), id),
-    } as any));
-  };
   const dismissed = dismissedIds(s).map(id => s.characters.find(c => c.id === id)).filter(Boolean) as any[];
   const lastLevel = Math.max(hb?.maxLevel || 0, house.level);
   const dateOf = (abs: number) => formatDateShort(addDays({ year: 0, month: 1, day: 1 }, abs)).replace(/ · .*$/, '');
@@ -267,18 +278,6 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
       </div>
       {picked && seatPanel(picked)}
 
-      {/* Residenti con un nome */}
-      <div className="card" style={{ padding: '11px 13px' }}>
-        <div className="label" style={{ fontSize: 9, marginBottom: 8 }}>Residenti con un nome · {residents.length}</div>
-        {residents.length === 0 && <div className="small muted" style={{ fontSize: 11 }}>Nessuno ancora.{s.dmMode ? ' Un PNG si stabilisce dalla sua scheda, nella sezione «Villaggio».' : ''}</div>}
-        {residents.map((npc: any) => (
-          <div key={npc.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '4px 0' }}>
-            <div className="grow" style={{ minWidth: 0 }}>{person(npc, acts.find(a => a.id === roleOf(assign, npc.id))?.name || 'senza incarico')}</div>
-            {s.dmMode && <button className="btn btn-danger btn-ghost" style={{ fontSize: 9, padding: '2px 8px', flexShrink: 0 }} onClick={() => sendAway(npc.id, npc.name)}>Togli</button>}
-          </div>
-        ))}
-      </div>
-
       {/* ── Strumenti del DM ── */}
       {s.dmMode && (
         <div className="card" style={{ padding: '10px 13px', borderStyle: 'dashed' }}>
@@ -334,7 +333,7 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
               )}
 
               {/* Catalogo delle attività */}
-              <div className="label" style={{ fontSize: 8, marginBottom: 5 }}>Attività: edificio e livello richiesti</div>
+              <div className="label" style={{ fontSize: 8, marginBottom: 5 }}>Attività: edificio richiesto e resa settimanale</div>
               {acts.map(a => (
                 <div key={a.id} className="row" style={{ gap: 5, alignItems: 'center', flexWrap: 'wrap', padding: '3px 0' }}>
                   <input value={a.name} onChange={e => patchAct(a.id, { name: e.target.value })}
@@ -354,6 +353,22 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
                     <span className="small muted" style={{ fontSize: 10 }}>%</span>
                   </>}
                   <button className="btn btn-danger btn-ghost" style={{ fontSize: 10, padding: '1px 7px' }} onClick={() => { if (confirm(`Togliere «${a.name}» dalle attività?`)) setActs(acts.filter(x => x.id !== a.id)); }}>&times;</button>
+                  {/* Ciò che l'attività rende al magazzino a ogni mercato */}
+                  <div className="row" style={{ gap: 5, alignItems: 'center', flexBasis: '100%', flexWrap: 'wrap', paddingBottom: 5, borderBottom: '1px solid var(--border)' }}>
+                    <span className="small muted" style={{ fontSize: 10 }}>rende</span>
+                    <NumberInput value={a.produces?.qty || 0} min={0} onChange={n => patchAct(a.id, { produces: { ...(a.produces || { armoryId: '' }), qty: n } })} style={{ ...num, width: 46 }} title="Quantità a ogni mercato (0 = nulla)" />
+                    <span className="small muted" style={{ fontSize: 10 }}>×</span>
+                    <select value={a.produces?.armoryId || ''} onChange={e => patchAct(a.id, { produces: e.target.value ? { qty: 1, ...(a.produces || {}), armoryId: e.target.value } : undefined })} style={{ flex: '1 1 130px', fontSize: 10.5 }} title="Voce d'armeria depositata in magazzino">
+                      <option value="">— nessun oggetto —</option>
+                      {armoryList.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                    {a.building !== 'none' && (
+                      <label className="row" style={{ gap: 3, alignItems: 'center', cursor: 'pointer' }} title="Moltiplica la quantità per il livello dell'edificio">
+                        <input type="checkbox" checked={!!a.produces?.perLevel} disabled={!a.produces?.armoryId} onChange={e => patchAct(a.id, { produces: { ...(a.produces as any), perLevel: e.target.checked } })} />
+                        <span className="small muted" style={{ fontSize: 10 }}>× livello</span>
+                      </label>
+                    )}
+                  </div>
                 </div>
               ))}
               <div className="row" style={{ gap: 6, margin: '6px 0 12px' }}>

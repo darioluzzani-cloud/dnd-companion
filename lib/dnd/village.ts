@@ -1,4 +1,5 @@
 import { isMarketAbs, DAYS_PER_WEEK } from '@/lib/dnd/calendar';
+import { Tally, HungerState, tallyOf, addTo, rationEntry, rationPct, leavePct, settleWeek } from '@/lib/dnd/storehouse';
 
 // ─── GLI ABITANTI DI OLMOBIANCO ──────────────────────────────
 // Primo passo del gestionale: quanta gente vive nel villaggio e come
@@ -49,6 +50,8 @@ export interface VillageLedger {
   /** Bonus e malus già visti all'opera: PNG → attività in cui ha lavorato
    *  una settimana intera. Una volta noti, restano noti. */
   known?: Record<string, string[]>;
+  /** Stato della dispensa dopo l'ultimo mercato: penuria e carestia. */
+  hunger?: HungerState;
 }
 
 /** Soglia del tiro nudo oltre la quale si presenta un notabile. */
@@ -128,13 +131,18 @@ export interface TickResult {
 /**
  * Elabora i giorni compresi fra la tacca e la nuova data. La tacca si
  * salva sempre, anche arretrando: ripercorrere giorni già vissuti non
- * ripete né un tiro di crescita né la comparsa di un notabile.
+ * ripete né una produzione, né un consumo, né un tiro di crescita.
+ *
+ * A ogni mercato, nell'ordine: le attività attive depositano ciò che
+ * rendono; il villaggio mangia la sua quota di razioni; un mercato sì e
+ * uno no, infine, si tira per i nuovi arrivi — che in tempo di penuria
+ * non si fermano.
  */
 export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => number = Math.random): TickResult {
   const led = ledgerOf(s);
   const base = Math.max(typeof led.mark === 'number' ? led.mark : fromAbs, fromAbs);
   const mark = Math.max(base, toAbs);
-  const grew: string[] = [], came: string[] = [];
+  const grew: string[] = [], came: string[] = [], fed: string[] = [];
 
   const pop0 = popOf(s);
   let pop = pop0;
@@ -143,13 +151,47 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
   let last = led.last;
   const { cap, mult, found } = currentHousing(s);
 
+  // Magazzino: il calendario scrive soltanto il proprio registro.
+  let stock = tallyOf(s, 'villageStock');
+  let stockTouched = false;
+  const drawn = (s?.villageDrawn || {}) as Tally;
+  const have = (id: string) => Math.max(0, (stock[id] || 0) - (drawn[id] || 0));
+  const yields = weeklyYields(s);
+  const madeTotal: Record<string, number> = {};
+  const ration = rationEntry(s);
+  const hungerOn = !!s?.villageHunger && !!ration;
+  let hunger: HungerState = led.hunger || { streak: 0 };
+  const hunger0 = led.hunger;
+
   for (let d = base + 1; d <= toAbs; d++) {
+    if (isMarketAbs(d)) {
+      // 1. Produzione della settimana.
+      for (const y of yields) {
+        stock = addTo(stock, y.entry.id, y.qty);
+        madeTotal[y.activity.id] = (madeTotal[y.activity.id] || 0) + y.qty;
+        stockTouched = true;
+      }
+      // 2. Consumo: la quota degli abitanti, per i sei giorni trascorsi.
+      if (hungerOn) {
+        const r = settleWeek(pop, have(ration.id), rationPct(s), leavePct(s), hunger.streak);
+        if (r.eaten > 0) { stock = addTo(stock, ration.id, -r.eaten); stockTouched = true; }
+        if (r.streak === 0 && hunger.streak > 0) fed.push('La dispensa torna a bastare: la penuria è finita');
+        if (r.streak === 1) fed.push(`Penuria: il magazzino copre ${r.eaten} razioni su ${r.need}`);
+        if (r.streak >= 2) {
+          pop -= r.left;
+          fed.push(`Carestia: ${r.eaten} razioni su ${r.need}; ${r.left === 1 ? 'un abitante lascia' : r.left + ' abitanti lasciano'} il villaggio, ne restano ${pop}`);
+        }
+        hunger = { streak: r.streak, abs: d, need: r.need, eaten: r.eaten };
+      }
+    }
+
     if (!isGrowthDay(d)) continue;
     const dice = [d4(rng), d4(rng), d4(rng)];
     const sum = dice[0] + dice[1] + dice[2];
 
     // Chi è già oltre la capienza non viene sfoltito: semplicemente non cresce.
-    const want = found ? sum * mult : 0;
+    const starving = hunger.streak > 0;
+    const want = found && !starving ? sum * mult : 0;
     const next = pop >= cap ? pop : Math.min(cap, pop + want);
     const gained = next - pop;
     pop = next;
@@ -166,9 +208,10 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
     }
 
     last = { abs: d, dice, mult, gained, ...(notable ? { notable } : {}) };
-    const why = !found ? ' — nessun edificio delle case' : mult === 0 ? ' — a questo livello non si cresce' : gained < want ? ' — case piene' : '';
+    const why = !found ? ' — nessun edificio delle case' : starving ? ' — penuria: nessuno si ferma' : mult === 0 ? ' — a questo livello non si cresce' : gained < want ? ' — case piene' : '';
     grew.push(`Abitanti: 3d4 = ${sum} (${dice.join(' · ')})${mult > 1 ? ' × ' + mult : ''} → +${gained}, ora ${pop}${why}`);
   }
+  const made = yields.filter(y => madeTotal[y.activity.id]).map(y => `${y.activity.name}: +${madeTotal[y.activity.id]} ${y.entry.name}`);
 
   // ── Capi al lavoro da una settimana: si vede ciò che valgono ──
   // Il controllo guarda lo stato, non il passaggio: chi ha già maturato la
@@ -187,11 +230,13 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
   }
 
   const patch: Record<string, unknown> = {};
-  if (mark !== led.mark || last !== led.last || known !== led.known)
-    patch.villageLedger = { ...led, mark, ...(last ? { last } : {}), ...(known ? { known } : {}) };
+  const hungerChanged = hunger.abs !== undefined && hunger !== hunger0;
+  if (mark !== led.mark || last !== led.last || known !== led.known || hungerChanged)
+    patch.villageLedger = { ...led, mark, ...(last ? { last } : {}), ...(known ? { known } : {}), ...(hunger.abs !== undefined ? { hunger } : {}) };
+  if (stockTouched) patch.villageStock = stock;
   if (pop !== pop0) patch.villagePop = pop;
   if (gate !== gate0) patch.villageGate = gate;
-  return { patch, notes: [...grew, ...came, ...seen] };
+  return { patch, notes: [...made, ...fed, ...grew, ...came, ...seen] };
 }
 
 // ─── LE ATTIVITÀ E I LORO CAPI ───────────────────────────────
@@ -215,6 +260,10 @@ export interface Activity {
   minLevel?: number;          // livello minimo dell'edificio; assente = 1
   /** Solo Costruttori: punti percentuali tolti alla durata dei cantieri. */
   buildPct?: number;
+  /** Ciò che l'attività deposita in magazzino a ogni mercato: una voce
+   *  d'armeria e una quantità, eventualmente moltiplicata per il livello
+   *  dell'edificio. */
+  produces?: { armoryId: string; qty: number; perLevel?: boolean };
 }
 
 export const ACT_FORGE = 'act-fucina';
@@ -357,4 +406,33 @@ export function buildDiscount(s: any): { pct: number; capo?: any } {
 export function buildDays(s: any, days: number): number {
   const { pct } = buildDiscount(s);
   return Math.max(1, Math.round(Math.max(1, days) * (100 - pct) / 100));
+}
+
+// ─── Produzione settimanale ──────────────────────────────────
+// Un'attività attiva rende, a ogni mercato, la quantità dichiarata dal DM;
+// il modificatore di chi la tiene vi si somma in unità, e vale dal primo
+// giorno anche quando i giocatori non l'hanno ancora visto. Per i
+// Costruttori il modificatore è già speso sui cantieri e qui non conta.
+
+export interface WeeklyYield { activity: Activity; entry: any; base: number; mod: number; qty: number; }
+
+/** Ciò che un'attività renderebbe al prossimo mercato, o null se non rende. */
+export function yieldOf(s: any, act: Activity): WeeklyYield | null {
+  const p = act.produces;
+  if (!p?.armoryId || !(p.qty > 0)) return null;
+  const entry = ((s?.armory || []) as any[]).find(e => e.id === p.armoryId);
+  if (!entry) return null;
+  const st = activityStatus(s, act.id);
+  const level = p.perLevel ? Math.max(1, Math.floor(st.building?.level || 1)) : 1;
+  const base = Math.floor(p.qty) * level;
+  const mod = st.capo && act.id !== ACT_BUILDERS ? (aptitudeOf(st.capo, act.id)?.mod || 0) : 0;
+  return { activity: act, entry, base, mod, qty: Math.max(0, base + mod) };
+}
+
+/** Le rese di tutte le attività attive, come stanno le cose adesso. */
+export function weeklyYields(s: any): WeeklyYield[] {
+  return activitiesOf(s)
+    .filter(a => activityStatus(s, a.id).state === 'active')
+    .map(a => yieldOf(s, a))
+    .filter((y): y is WeeklyYield => !!y && y.qty > 0);
 }

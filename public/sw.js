@@ -1,4 +1,4 @@
-const CACHE_NAME = 'velmora-v7.8';
+const CACHE_NAME = 'velmora-v7.9';
 
 // Cache separata per le immagini dello Storage. Non viene svuotata quando
 // cambia la versione dell'applicazione: gli URL delle immagini contengono
