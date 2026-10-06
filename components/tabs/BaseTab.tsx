@@ -10,6 +10,7 @@ import { TanneryBox } from '@/components/shared/TanneryBox';
 import { LibraryBox } from '@/components/shared/LibraryBox';
 import { PanelBox } from '@/components/shared/PanelBox';
 import { VillageBox } from '@/components/shared/VillageBox';
+import { buildDays, buildDiscount } from '@/lib/dnd/village';
 import { absDay } from '@/lib/dnd/calendar';
 
 
@@ -291,7 +292,10 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
                               <input type="number" min={1} defaultValue={14} id={'con-days-'+b.id} style={{width:52,textAlign:'center',fontSize:12,padding:'3px 4px'}} />
                               <span className="small muted">giorni</span>
                               <button className="btn btn-gold" style={{fontSize:10,padding:'3px 10px'}} disabled={!s.calendar?.date}
-                                onClick={()=>{const el=document.getElementById('con-days-'+b.id) as HTMLInputElement;const days=Math.max(1,parseInt(el?.value||'14')||14);if(!s.calendar?.date){alert('Imposta prima la data nel calendario.');return;}setBuilding(b.id,{construction:{startAbs:absDay(s.calendar.date),days,targetLevel:b.level+1}});}}>Avvia</button>
+                                onClick={()=>{const el=document.getElementById('con-days-'+b.id) as HTMLInputElement;const days=Math.max(1,parseInt(el?.value||'14')||14);if(!s.calendar?.date){alert('Imposta prima la data nel calendario.');return;}setBuilding(b.id,{construction:{startAbs:absDay(s.calendar.date),days:buildDays(s,days),baseDays:days,targetLevel:b.level+1}});}}>Avvia</button>
+                              {(() => { const d = buildDiscount(s); return d.pct !== 0
+                                ? <span className="small muted" style={{fontSize:9.5,flexBasis:'100%'}}>Costruttori ({d.capo?.name}): la durata dichiarata si {d.pct > 0 ? 'accorcia' : 'allunga'} del {Math.abs(d.pct)}% all'avvio.</span>
+                                : null; })()}
                               {!s.calendar?.date && <span className="small muted" style={{fontSize:9}}>(serve il calendario)</span>}
                             </div>
                           ) : (

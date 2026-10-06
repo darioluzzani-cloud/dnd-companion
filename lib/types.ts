@@ -40,6 +40,9 @@ export interface NPC {
   trait?: string;
   /** Nel mazzo dei forestieri: preparato dal DM, non ancora arrivato. */
   inDeck?: boolean;
+  /** Bonus e malus per attività: testo e modificatore numerico. Celati ai
+   *  giocatori finché la persona non vi ha lavorato una settimana. */
+  aptitudes?: import('./dnd/village').Aptitude[];
 }
 
 export interface Spell {
@@ -215,7 +218,8 @@ export interface BuildingLevel {
 /** Cantiere in corso: come le commesse di bottega, vive di sola data. */
 export interface BuildingSite {
   startAbs: number;     // giorno assoluto d'avvio
-  days: number;
+  days: number;         // durata effettiva, già ridotta o allungata dai Costruttori
+  baseDays?: number;    // durata dichiarata dal DM all'avvio
   targetLevel: number;
 }
 
@@ -299,6 +303,8 @@ export interface CampaignState {
   villageGate?: import('./dnd/village').VillageGateEntry[];   // notabili in attesa alla porta
   villageResidents?: string[];                                // id dei PNG residenti
   villageDismissed?: string[];                                // id dei notabili respinti
+  villageActivities?: import('./dnd/village').Activity[];     // catalogo delle attività (copy-on-write dai predefiniti)
+  villageAssign?: import('./dnd/village').VillageAssign;      // chi tiene ciascuna attività — scritta dai giocatori
   smithUpgrades?: { id: string; name: string; desc: string; material?: string; cat?: 'base'|'avanzato'|'nanico'; materials?: { name: string; qty: number }[] }[];  // catalogo della fucina
   marketBuildingId?: string;      // edificio (di norma la Piazza) che governa il livello del mercato
   marketStalls?: import('./dnd/market').MarketStall[];   // catalogo bancarelle (copy-on-write dai default)

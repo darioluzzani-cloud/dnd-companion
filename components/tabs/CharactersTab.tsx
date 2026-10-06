@@ -5,7 +5,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { U, moveInArray, ReorderBtns } from '@/components/shared/common';
 import { Markdown } from '@/components/shared/textUtils';
 import { RevealsView, RevealsEditor, RevealBadge } from '@/components/shared/Reveals';
-import { residentIds, gateOf, dismissedIds } from '@/lib/dnd/village';
+import { residentIds, gateOf, dismissedIds, activitiesOf, assignOf, withoutNpc, Aptitude } from '@/lib/dnd/village';
 
 const REL_NEXT: Record<string,string> = {ally:'enemy',enemy:'neutral',neutral:'ally'};
 const REL_LABEL: Record<string,string> = {ally:'Alleato',enemy:'Nemico',neutral:'Neutrale'};
@@ -141,8 +141,15 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
                   const refused = dismissedIds(s).includes(detail.id);
                   const toggleRes = () => update(prev => {
                     const ids = residentIds(prev);
-                    return { villageResidents: ids.includes(detail.id) ? ids.filter(x => x !== detail.id) : [...ids, detail.id] } as any;
+                    if (!ids.includes(detail.id)) return { villageResidents: [...ids, detail.id] } as any;
+                    // chi lascia il villaggio lascia anche la casella che teneva
+                    return { villageResidents: ids.filter(x => x !== detail.id), villageAssign: withoutNpc(assignOf(prev), detail.id) } as any;
                   });
+                  const acts = activitiesOf(s);
+                  const apts: Aptitude[] = detail.aptitudes || [];
+                  const setApts = (list: Aptitude[]) => setField(detail.id, 'aptitudes', list);
+                  const patchApt = (i: number, p: Partial<Aptitude>) => setApts(apts.map((a, k) => k === i ? { ...a, ...p } : a));
+                  const freeAct = acts.find(a => !apts.some(x => x.activityId === a.id));
                   return (
                     <div style={{marginTop:10,padding:'8px 10px',border:'1px dashed var(--border)',borderRadius:6}}>
                       <div className="row" style={{gap:6,alignItems:'center',marginBottom:6,flexWrap:'wrap'}}>
@@ -155,6 +162,21 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
                         )}
                       </div>
                       <input value={detail.trait||''} placeholder="Tratto visibile ai giocatori (es. «conta ogni cosa due volte»)" onChange={e=>setField(detail.id,'trait',e.target.value)} style={{fontSize:12,padding:'4px 8px',width:'100%'}} />
+                      {/* Bonus e malus: uno per attività, testo e modificatore.
+                          Ai giocatori compaiono dopo una settimana di lavoro. */}
+                      <div className="label" style={{fontSize:8,margin:'8px 0 4px'}}>Bonus e malus per attività</div>
+                      {apts.map((a, i) => (
+                        <div key={i} className="row" style={{gap:5,alignItems:'center',marginBottom:4,flexWrap:'wrap'}}>
+                          <select value={a.activityId} onChange={e=>patchApt(i,{activityId:e.target.value})} style={{fontSize:11,padding:'3px 4px',flex:'0 1 118px'}}>
+                            {acts.filter(o => o.id === a.activityId || !apts.some(x => x.activityId === o.id)).map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                            {!acts.some(o => o.id === a.activityId) && <option value={a.activityId}>(attività rimossa)</option>}
+                          </select>
+                          <input value={a.text||''} placeholder="Che cosa porta, in parole" onChange={e=>patchApt(i,{text:e.target.value})} style={{fontSize:11,padding:'3px 6px',flex:'1 1 130px'}} />
+                          <input type="number" value={a.mod ?? 0} onChange={e=>patchApt(i,{mod:parseInt(e.target.value)||0})} title="Modificatore numerico: positivo è un bonus, negativo un malus" style={{fontSize:11,padding:'3px 4px',width:50,textAlign:'center'}} />
+                          <button className="btn btn-danger btn-ghost" style={{padding:'1px 7px',fontSize:10}} onClick={()=>setApts(apts.filter((_,k)=>k!==i))}>&times;</button>
+                        </div>
+                      ))}
+                      {freeAct && <button className="btn btn-ghost" style={{padding:'2px 8px',fontSize:9}} onClick={()=>setApts([...apts,{activityId:freeAct.id,text:'',mod:0}])}>+ bonus o malus</button>}
                     </div>
                   );
                 })()}

@@ -5,6 +5,7 @@ import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { PanelBox, WorkBench, BenchEmpty } from '@/components/shared/PanelBox';
 import { CraftJob, TanneryRecipe, TanIngredient, tanInputs, tanneryRecipesOf, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
+import { shopOpen, ACT_TANNERY } from '@/lib/dnd/village';
 import { armoryMaterials } from '@/lib/dnd/smith-materials';
 import { absDay } from '@/lib/dnd/calendar';
 import { itemFromArmory, cloneImage, lookupByName, normName } from '@/lib/dnd/catalog';
@@ -65,7 +66,9 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
   const nBatches = Math.min(batches || maxBatches, maxBatches);
   const enough = !!recipe && maxBatches >= 1;
   const short = ins.filter(i => stock(i.name) < i.qty);
-  const canStart = !!player && !!recipe && enough && nBatches >= 1 && !myJob && !blockedByOther && !!today;
+  // Come la fucina: senza qualcuno che la tenga, la conceria non prende lavoro.
+  const open = shopOpen(s, ACT_TANNERY);
+  const canStart = open && !!player && !!recipe && enough && nBatches >= 1 && !myJob && !blockedByOther && !!today;
   const outQty = recipe ? recipe.toQty * nBatches : 0;
 
   const start = () => {
@@ -172,6 +175,14 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
       badge={jobs.length > 0 ? <span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: TAN_COLOR, borderColor: TAN_COLOR }}>{jobs.length} in lavorazione</span> : undefined}
       icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={TAN_COLOR} strokeWidth="1.5"><path d="M4 7l4-3 4 2 4-2 4 3-3 3v9a1 1 0 01-1 1H8a1 1 0 01-1-1v-9L4 7z"/></svg>}>
 
+      {!open && (
+        <div className="card" style={{ borderColor: 'var(--gold-dim)', padding: '9px 12px' }}>
+          <div className="small" style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--gold-dim)' }}>
+            La conceria è ferma: nessuno la tiene, e nuove lavorazioni non si possono affidare. La casella si riempie nel riquadro «Gli abitanti».
+          </div>
+        </div>
+      )}
+
       {/* 1 — Chi porta le pelli */}
       <div className="card">
         <div className="label" style={{ marginBottom: 6 }}>1 · Avventuriero</div>
@@ -251,7 +262,8 @@ export function TanneryBox({ s, update, campaignId }: { s: CampaignState; update
             <button className="btn btn-primary" disabled={!canStart}
               style={{ width: '100%', fontSize: 12, opacity: canStart ? 1 : .45, borderColor: TAN_COLOR }}
               onClick={start}>
-              {blockedByOther ? 'Bottega occupata'
+              {!open ? 'Conceria ferma'
+                : blockedByOther ? 'Bottega occupata'
                 : !recipe ? 'Scegli una lavorazione'
                 : !enough ? `Manca ${short.map(i => `${i.name} ×${i.qty}`).join(', ')}`
                 : !today ? 'Serve il calendario'

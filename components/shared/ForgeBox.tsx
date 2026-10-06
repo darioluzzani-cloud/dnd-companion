@@ -5,6 +5,7 @@ import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { PanelBox, WorkBench, BenchEmpty } from '@/components/shared/PanelBox';
 import { CraftJob, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
+import { shopOpen, ACT_FORGE } from '@/lib/dnd/village';
 import { armoryMaterials, missingMaterials } from '@/lib/dnd/smith-materials';
 import { UpgradeScope, UPGRADE_SCOPES, scopeAllows, scopeOfItem } from '@/lib/dnd/equipment';
 import { normName } from '@/lib/dnd/catalog';
@@ -102,7 +103,10 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   const materialsOk = matState.every(m => m.ok);
   const alreadyApplied = !!(item && upgrade && ((item as any).upgrades || []).some((u: any) => u.name === upgrade.name));
   const freeSlot = !!(item && ((item as any).enhUsed ?? 0) < ((item as any).enhSlots ?? 0));
-  const ready = !!(player && item && upgrade && materialsOk && !alreadyApplied && freeSlot);
+  // La fucina lavora soltanto se qualcuno la tiene: la casella si riempie
+  // nel riquadro «Gli abitanti». Le commesse già avviate restano ritirabili.
+  const open = shopOpen(s, ACT_FORGE);
+  const ready = !!(open && player && item && upgrade && materialsOk && !alreadyApplied && freeSlot);
 
   // ── Commesse in corso ──
   const today = s.calendar?.date;
@@ -200,6 +204,14 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
       badge={jobs.length > 0 ? <span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: 'var(--ember)', borderColor: 'var(--ember)' }}>{jobs.length} all'incudine</span> : undefined}
       icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" strokeWidth="1.5"><path d="M14 4l6 6-2 2-2-1-6.5 6.5a2.1 2.1 0 11-3-3L13 8l-1-2 2-2zM3 21l3-3"/></svg>}>
 
+
+          {!open && (
+            <div className="card" style={{ borderColor: 'var(--gold-dim)', padding: '9px 12px' }}>
+              <div className="small" style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--gold-dim)' }}>
+                La fucina è ferma: nessuno la tiene, e nuovi lavori non si possono affidare. La casella si riempie nel riquadro «Gli abitanti».
+              </div>
+            </div>
+          )}
 
           {/* 1 — Chi si presenta alla fucina */}
           <div className="card">
@@ -388,7 +400,8 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
             style={{ width: '100%', fontSize: 12, marginBottom: 10, opacity: ready ? 1 : 0.45,
               borderColor: 'var(--ember)', color: ready ? undefined : 'var(--gray-purple)' }}
             onClick={forge}>
-            {blockedByOther ? 'Bottega occupata'
+            {!open ? 'Fucina ferma'
+              : blockedByOther ? 'Bottega occupata'
               : alreadyApplied ? 'Potenziamento già applicato'
               : (item && !freeSlot ? 'Nessuno slot di potenziamento libero'
               : jobDays > 0 ? `Affida il lavoro · ${jobDays} gg` : 'Creazione')}

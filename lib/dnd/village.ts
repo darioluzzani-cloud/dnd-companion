@@ -46,6 +46,9 @@ export interface VillageLedger {
   mark?: number;
   /** L'ultimo tiro di crescita, per il riepilogo del DM. */
   last?: GrowthRoll;
+  /** Bonus e malus già visti all'opera: PNG → attività in cui ha lavorato
+   *  una settimana intera. Una volta noti, restano noti. */
+  known?: Record<string, string[]>;
 }
 
 /** Soglia del tiro nudo oltre la quale si presenta un notabile. */
@@ -167,9 +170,191 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
     grew.push(`Abitanti: 3d4 = ${sum} (${dice.join(' · ')})${mult > 1 ? ' × ' + mult : ''} → +${gained}, ora ${pop}${why}`);
   }
 
+  // ── Capi al lavoro da una settimana: si vede ciò che valgono ──
+  // Il controllo guarda lo stato, non il passaggio: chi ha già maturato la
+  // settimana viene riconosciuto al primo cambio di data utile, e chi è già
+  // noto non viene annunciato di nuovo.
+  let known = led.known;
+  const seen: string[] = [];
+  for (const [actId, a] of Object.entries(assignOf(s))) {
+    if (toAbs - a.sinceAbs < DAYS_PER_WEEK) continue;
+    if ((known?.[a.npcId] || []).includes(actId)) continue;
+    const st = activityStatus(s, actId);
+    if (st.state !== 'active' || !st.capo) continue;
+    known = { ...(known || {}), [a.npcId]: [...(known?.[a.npcId] || []), actId] };
+    const apt = aptitudeOf(st.capo, actId);
+    seen.push(`${st.capo.name}, ${st.activity!.name}: una settimana di lavoro ha mostrato ${apt ? (apt.mod < 0 ? 'un malus' : 'un bonus') : 'che non porta né bonus né malus'}`);
+  }
+
   const patch: Record<string, unknown> = {};
-  if (mark !== led.mark || last !== led.last) patch.villageLedger = { ...led, mark, ...(last ? { last } : {}) };
+  if (mark !== led.mark || last !== led.last || known !== led.known)
+    patch.villageLedger = { ...led, mark, ...(last ? { last } : {}), ...(known ? { known } : {}) };
   if (pop !== pop0) patch.villagePop = pop;
   if (gate !== gate0) patch.villageGate = gate;
-  return { patch, notes: [...grew, ...came] };
+  return { patch, notes: [...grew, ...came, ...seen] };
+}
+
+// ─── LE ATTIVITÀ E I LORO CAPI ───────────────────────────────
+// Secondo passo: ogni attività del villaggio ha una casella, e i giocatori
+// decidono chi la occupa scegliendo fra i residenti con un nome. Un'attività
+// è attiva quando il suo edificio esiste al livello richiesto e qualcuno la
+// tiene; fucina e conceria, che lavorano già, partono senza requisito
+// d'edificio e chiedono soltanto il capo.
+//
+// Del capo si legge subito il tratto. Il bonus o il malus — un testo e un
+// modificatore numerico, scritti dal DM per ciascuna attività in cui la
+// persona si distingue — compare dopo una settimana di lavoro, e da allora
+// resta noto. L'effetto, invece, vale dal primo giorno.
+
+export interface Activity {
+  id: string;
+  name: string;
+  /** Edificio richiesto: l'id di un edificio, 'none' per nessun requisito;
+   *  assente = cercato per nome fra gli edifici del villaggio. */
+  building?: string;
+  minLevel?: number;          // livello minimo dell'edificio; assente = 1
+  /** Solo Costruttori: punti percentuali tolti alla durata dei cantieri. */
+  buildPct?: number;
+}
+
+export const ACT_FORGE = 'act-fucina';
+export const ACT_TANNERY = 'act-conceria';
+export const ACT_BUILDERS = 'act-costruttori';
+
+export const DEFAULT_ACTIVITIES: Activity[] = [
+  { id: ACT_FORGE,          name: 'Fucina',   building: 'none' },
+  { id: ACT_TANNERY,        name: 'Conceria', building: 'none' },
+  { id: 'act-taverna',      name: 'Taverna' },
+  { id: 'act-erboristeria', name: 'Erboristeria' },
+  { id: 'act-cappella',     name: 'Cappella di S. Mira' },
+  { id: 'act-biblioteca',   name: 'Biblioteca' },
+  { id: 'act-campi',        name: 'Campi' },
+  { id: 'act-milizia',      name: 'Milizia' },
+  { id: ACT_BUILDERS,       name: 'Costruttori', buildPct: 20 },
+];
+
+/** Come riconoscere per nome l'edificio di un'attività predefinita. */
+const AUTO_MATCH: Record<string, RegExp> = {
+  [ACT_FORGE]: /fucin|forgia/i,
+  [ACT_TANNERY]: /conceri/i,
+  'act-taverna': /tavern|locand|osteri/i,
+  'act-erboristeria': /erbor/i,
+  'act-cappella': /cappella/i,
+  'act-biblioteca': /bibliotec/i,
+  'act-campi': /\bcamp[io]\b/i,
+  'act-milizia': /mura|milizi|caserma/i,
+  [ACT_BUILDERS]: /capomastro|costrutt/i,
+};
+
+/** Bonus o malus di un PNG in una data attività. */
+export interface Aptitude { activityId: string; text: string; mod: number; }
+
+export interface CapoSeat { npcId: string; sinceAbs: number; }
+export type VillageAssign = Record<string, CapoSeat>;
+
+export const activitiesOf = (s: any): Activity[] => {
+  const list = s?.villageActivities;
+  return Array.isArray(list) && list.length ? list : DEFAULT_ACTIVITIES;
+};
+
+export const assignOf = (s: any): VillageAssign => ({ ...((s?.villageAssign || {}) as VillageAssign) });
+
+/** L'edificio da cui l'attività dipende, se ne chiede uno e se esiste. */
+export function activityBuilding(s: any, act: Activity): any | undefined {
+  if (act.building === 'none') return undefined;
+  const list = (s?.buildings || []) as any[];
+  if (act.building) return list.find(b => b.id === act.building);
+  const rx = AUTO_MATCH[act.id];
+  const name = (act.name || '').trim().toLowerCase();
+  return list.find(b => rx ? rx.test(b.name || '') : (!!name && (b.name || '').toLowerCase().includes(name)));
+}
+
+export type ActivityState = 'active' | 'idle' | 'unbuilt' | 'low';
+
+export interface ActivityStatus {
+  state: ActivityState;
+  activity?: Activity;
+  building?: any;
+  need: number;            // livello richiesto
+  capo?: any;              // il PNG che tiene la casella
+  seat?: CapoSeat;
+}
+
+/** Stato di un'attività: prima l'edificio, poi chi la tiene. */
+export function activityStatus(s: any, actId: string): ActivityStatus {
+  const activity = activitiesOf(s).find(a => a.id === actId);
+  if (!activity) return { state: 'unbuilt', need: 1 };
+  const need = Math.max(1, Math.floor(activity.minLevel || 1));
+  const seat = assignOf(s)[actId];
+  const capo = seat && residentIds(s).includes(seat.npcId) ? npcById(s, seat.npcId) : undefined;
+  const base = { activity, need, capo, seat: capo ? seat : undefined };
+  if (activity.building !== 'none') {
+    const building = activityBuilding(s, activity);
+    if (!building) return { ...base, state: 'unbuilt' };
+    if ((building.level || 0) < need) return { ...base, state: 'low', building };
+    return { ...base, building, state: capo ? 'active' : 'idle' };
+  }
+  return { ...base, state: capo ? 'active' : 'idle' };
+}
+
+export const isActive = (s: any, actId: string): boolean => activityStatus(s, actId).state === 'active';
+
+/** La bottega accetta lavoro? Un'attività tolta dal catalogo non vincola
+ *  più nulla: la bottega torna a lavorare come prima che le caselle esistessero. */
+export const shopOpen = (s: any, actId: string): boolean =>
+  !activitiesOf(s).some(a => a.id === actId) || isActive(s, actId);
+
+/** Attività tenuta dal PNG, se ne tiene una. */
+export const roleOf = (a: VillageAssign, npcId: string): string | undefined =>
+  Object.keys(a).find(k => a[k].npcId === npcId);
+
+/** Affida una casella. Una persona ne tiene una sola: chi viene spostato
+ *  lascia quella che aveva, e la sua settimana ricomincia. */
+export function withCapo(a: VillageAssign, actId: string, npcId: string | null, todayAbs: number): VillageAssign {
+  const next: VillageAssign = {};
+  for (const [k, v] of Object.entries(a)) {
+    if (k === actId) continue;
+    if (npcId && v.npcId === npcId) continue;
+    next[k] = v;
+  }
+  if (npcId) next[actId] = a[actId]?.npcId === npcId ? a[actId] : { npcId, sinceAbs: todayAbs };
+  return next;
+}
+
+/** Toglie una persona da ogni casella: serve quando lascia il villaggio. */
+export function withoutNpc(a: VillageAssign, npcId: string): VillageAssign {
+  const next: VillageAssign = {};
+  for (const [k, v] of Object.entries(a)) if (v.npcId !== npcId) next[k] = v;
+  return next;
+}
+
+export function aptitudeOf(npc: any, actId: string): Aptitude | null {
+  return (((npc?.aptitudes || []) as Aptitude[]).find(x => x.activityId === actId && (x.text?.trim() || x.mod))) || null;
+}
+
+export const isKnown = (s: any, npcId: string, actId: string): boolean =>
+  (ledgerOf(s).known?.[npcId] || []).includes(actId);
+
+/** Giorni di lavoro che mancano perché bonus e malus si vedano. */
+export const daysToKnow = (seat: CapoSeat, todayAbs: number): number =>
+  Math.max(0, DAYS_PER_WEEK - Math.max(0, todayAbs - seat.sinceAbs));
+
+// ─── Costruttori: cantieri più rapidi ────────────────────────
+// Con i Costruttori attivi un cantiere dura una percentuale in meno. Il
+// modificatore del capomastro si somma in punti percentuali: un bonus lo
+// accorcia ancora, un malus lo allunga. Lo sconto si calcola all'avvio e
+// resta scritto nel cantiere: come ogni altra cosa a tempo, da lì in poi
+// dipende soltanto dalla data.
+
+export function buildDiscount(s: any): { pct: number; capo?: any } {
+  const st = activityStatus(s, ACT_BUILDERS);
+  if (st.state !== 'active' || !st.capo) return { pct: 0 };
+  const base = Math.floor(st.activity?.buildPct ?? 20);
+  const mod = aptitudeOf(st.capo, ACT_BUILDERS)?.mod || 0;
+  return { pct: Math.max(-50, Math.min(75, base + mod)), capo: st.capo };
+}
+
+export function buildDays(s: any, days: number): number {
+  const { pct } = buildDiscount(s);
+  return Math.max(1, Math.round(Math.max(1, days) * (100 - pct) / 100));
 }
