@@ -83,14 +83,17 @@ export function ItemDetailBody({ item, inventory, campaignId, accent, onAttune, 
 
   return (
     <>
-      <div style={{ cursor: onEnlarge ? 'pointer' : 'default', marginBottom: 10 }}
+      {/* L'illustrazione è un quadrato centrato, uguale in ogni vista che apre
+          la scheda: il lato deriva da `imageHeight` e non supera mai la
+          larghezza del pannello. Senza immagine il riquadro non occupa spazio. */}
+      <div style={{ display: 'flex', justifyContent: 'center', cursor: onEnlarge ? 'pointer' : 'default', marginBottom: 10 }}
         onClick={() => {
           if (!onEnlarge) return;
           const img = document.querySelector(`[data-slot="${anchor}"] img`) as HTMLImageElement;
           if (img?.src) onEnlarge(img.src);
         }}>
-        <div data-slot={anchor}>
-          <ImageSlot slotId={'item-' + item.id} campaignId={campaignId} shape="rounded" width="100%" height={imageHeight}
+        <div data-slot={anchor} style={{ width: `min(100%, ${Math.round(imageHeight * 1.3)}px)` }}>
+          <ImageSlot slotId={'item-' + item.id} campaignId={campaignId} shape="rounded" width="100%" aspect="1 / 1"
             dmMode={false} placeholder={item.name.slice(0, 2).toUpperCase()} alt={item.name} hideIfEmpty
             objectPosition={`center ${item.imgPos ?? 50}%`} />
         </div>

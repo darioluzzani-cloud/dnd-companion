@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
-import { PanelBox } from '@/components/shared/PanelBox';
+import { PanelBox, panelPos } from '@/components/shared/PanelBox';
+import { YieldCard } from '@/components/shared/YieldCard';
 import { Markdown } from '@/components/shared/textUtils';
 import { RevealBadge, RevealsView, RevealsEditor } from '@/components/shared/Reveals';
 import { supabase } from '@/lib/supabase';
@@ -95,11 +96,14 @@ export function LibraryBox({ s, update, campaignId }: { s: CampaignState; update
   };
 
   return (
-    <PanelBox title="Biblioteca" color={LIB_COLOR} bgSlot="library-bg" campaignId={campaignId} dmMode={s.dmMode}
+    <PanelBox title="Biblioteca" color={LIB_COLOR} bgSlot="library-bg" campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, 'library-bg')}
       badge={<span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: LIB_COLOR, borderColor: LIB_COLOR }}>{shown.length} volumi</span>}
       icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={LIB_COLOR} strokeWidth="1.5">
         <path d="M4 5h6a2 2 0 012 2v12a1.5 1.5 0 00-1.5-1.5H4V5zM20 5h-6a2 2 0 00-2 2v12a1.5 1.5 0 011.5-1.5H20V5z" />
       </svg>}>
+
+      {/* Ciò che la biblioteca rende al magazzino a ogni mercato */}
+      <YieldCard s={s} update={update} campaignId={campaignId} activityId="act-biblioteca" color={LIB_COLOR} />
 
       {shown.length === 0 && (
         <div className="card small muted" style={{ textAlign: 'center', fontStyle: 'italic' }}>

@@ -12,8 +12,27 @@ import { supabase } from '@/lib/supabase';
 //
 // L'apertura è stato locale del riquadro: nessun toggle di navigazione
 // finisce nel dato condiviso fra i cinque dispositivi.
+//
+// L'inquadratura dello sfondo a scheda chiusa, invece, è un dato condiviso:
+// a riquadro chiuso l'immagine si riduce a una striscia bassa e larga, e
+// dove cada il ritaglio decide se si vede il soggetto o il suo soffitto.
+// La sceglie il DM con un cursore, come per le immagini degli oggetti, e
+// vale per tutti i dispositivi.
 
-export function PanelBox({ title, color, icon, bgSlot, campaignId, dmMode, badge, defaultOpen, children }: {
+/** Inquadrature degli sfondi: slot → posizione verticale del ritaglio (0–100). */
+export type PanelPos = Record<string, number>;
+
+/** Le due proprietà d'inquadratura da passare a un riquadro, lette e
+ *  scritte nello stato della campagna. */
+export function panelPos(s: any, update: (patch: any) => void, slot: string): { bgPos: number; onBgPos: (n: number) => void } {
+  const cur = (s?.panelPos as PanelPos | undefined)?.[slot];
+  return {
+    bgPos: typeof cur === 'number' ? cur : 50,
+    onBgPos: (n: number) => update((prev: any) => ({ panelPos: { ...((prev?.panelPos || {}) as PanelPos), [slot]: n } })),
+  };
+}
+
+export function PanelBox({ title, color, icon, bgSlot, campaignId, dmMode, badge, defaultOpen, bgPos, onBgPos, children }: {
   title: string;
   color: string;
   icon: ReactNode;
@@ -22,6 +41,8 @@ export function PanelBox({ title, color, icon, bgSlot, campaignId, dmMode, badge
   dmMode?: boolean;
   badge?: ReactNode;          // indicatore mostrato anche a pannello chiuso
   defaultOpen?: boolean;
+  bgPos?: number;             // inquadratura verticale dello sfondo a scheda chiusa (0–100)
+  onBgPos?: (n: number) => void;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
@@ -31,7 +52,8 @@ export function PanelBox({ title, color, icon, bgSlot, campaignId, dmMode, badge
     <div className="frame" style={{ position: 'relative', overflow: 'hidden', borderColor: color, padding: 0, minHeight: open ? undefined : 76 }}>
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <div data-slot={bgSlot} style={{ width: '100%', height: '100%' }}>
-          <ImageSlot key={(open ? 'o' : 'c') + bgTick} slotId={bgSlot} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt={title} />
+          <ImageSlot key={(open ? 'o' : 'c') + bgTick} slotId={bgSlot} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt={title}
+            objectPosition={open ? undefined : `center ${bgPos ?? 50}%`} />
         </div>
       </div>
       <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: open
@@ -52,6 +74,7 @@ export function PanelBox({ title, color, icon, bgSlot, campaignId, dmMode, badge
         {open && <>
           {children}
           {dmMode && <PanelBg slot={bgSlot} campaignId={campaignId} color={color} onDone={() => setBgTick(t => t + 1)} />}
+          {dmMode && onBgPos && <PanelBgPos slot={bgSlot} campaignId={campaignId} pos={bgPos ?? 50} onPos={onBgPos} tick={bgTick} />}
         </>}
       </div>
     </div>
@@ -82,6 +105,30 @@ export function PanelBg({ slot, campaignId, color, onDone }: { slot: string; cam
         }} />
       </label>
       <span className="small muted" style={{ fontSize: 9 }}>Un'unica immagine per il riquadro chiuso e aperto.</span>
+    </div>
+  );
+}
+
+/**
+ * Inquadratura dello sfondo a scheda chiusa — solo DM. Il cursore sposta
+ * il ritaglio verso l'alto o verso il basso; l'anteprima mostra la striscia
+ * così come apparirà a riquadro chiuso, perché da aperto la stessa immagine
+ * occupa tutt'altra forma e non direbbe nulla del risultato.
+ */
+export function PanelBgPos({ slot, campaignId, pos, onPos, tick }: { slot: string; campaignId: string | null; pos: number; onPos: (n: number) => void; tick?: number }) {
+  return (
+    <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
+      <div style={{ position: 'relative', height: 76, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+        <ImageSlot key={'pv' + (tick || 0)} slotId={slot} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="" objectPosition={`center ${pos}%`} />
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.4) 50%, rgba(11,8,20,0) 100%)' }} />
+        <span className="small muted" style={{ position: 'absolute', left: 10, top: 8, fontSize: 9 }}>Anteprima a scheda chiusa</span>
+      </div>
+      <div className="row" style={{ gap: 8, alignItems: 'center', marginTop: 6 }}>
+        <span className="label" style={{ fontSize: 8 }}>Inquadratura</span>
+        <input type="range" min={0} max={100} value={pos} onChange={e => onPos(parseInt(e.target.value))}
+          style={{ flex: 1 }} title="Sposta il ritaglio dello sfondo verso l'alto o verso il basso" />
+        <span className="small muted" style={{ fontSize: 10, width: 32, textAlign: 'right' }}>{pos}%</span>
+      </div>
     </div>
   );
 }

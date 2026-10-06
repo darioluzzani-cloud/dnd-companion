@@ -43,11 +43,21 @@ export const addTo = (t: Tally, id: string, n: number): Tally => ({ ...t, [id]: 
 export const RATION_PCT_DEFAULT = 15;   // quota degli abitanti che mangia dal magazzino, al giorno
 export const LEAVE_PCT_DEFAULT = 10;    // abitanti che partono a ogni mercato di carestia
 
-/** La voce d'armeria che vale come razione: quella scelta dal DM,
- *  altrimenti la prima il cui nome parli di razioni. */
+/**
+ * La voce d'armeria che vale come razione: quella scelta dal DM; altrimenti
+ * quella che si chiama proprio «Razioni giornaliere»; altrimenti la prima
+ * il cui nome contenga una parola che comincia per «razion».
+ *
+ * La parola deve cominciare così: cercando la sequenza ovunque nel nome,
+ * «Pergamena di Lavorazione Nanica» veniva scambiata per una razione —
+ * lavo-razion-e — e riceveva le scorte al posto del pane.
+ */
 export function rationEntry(s: any): any | undefined {
   const armory = (s?.armory || []) as any[];
-  return armory.find(e => e.id === s?.villageRationId) || armory.find(e => /razion/i.test(e.name || ''));
+  const norm = (n?: string) => (n || '').trim().toLowerCase();
+  return armory.find(e => e.id === s?.villageRationId)
+    || armory.find(e => /^razion[ei] giornalier[ae]$/.test(norm(e.name)))
+    || armory.find(e => /(^|[^a-zà-ú])razion/i.test(e.name || ''));
 }
 
 export const rationPct = (s: any): number => {

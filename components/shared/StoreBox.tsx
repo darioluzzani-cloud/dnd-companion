@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { CampaignState } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
-import { PanelBox } from '@/components/shared/PanelBox';
+import { PanelBox, panelPos } from '@/components/shared/PanelBox';
 import { NumberInput } from '@/components/shared/textUtils';
 import { armoryByName, itemFromArmory, cloneImage, normName } from '@/lib/dnd/catalog';
 import { popOf, ledgerOf, weeklyYields } from '@/lib/dnd/village';
@@ -135,7 +135,7 @@ export function StoreBox({ s, update, campaignId }: { s: CampaignState; update: 
   );
 
   return (
-    <PanelBox title="Magazzino" color={COLOR} bgSlot="store-bg" campaignId={campaignId} dmMode={s.dmMode}
+    <PanelBox title="Magazzino" color={COLOR} bgSlot="store-bg" campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, 'store-bg')}
       badge={<span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: alarm ? 'var(--red)' : COLOR, borderColor: alarm ? 'var(--red)' : COLOR }}>{alarm ? alarm + ' · ' : ''}{rationQty} razioni</span>}
       icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLOR} strokeWidth="1.5"><path d="M3 9l9-6 9 6v11a1 1 0 01-1 1H4a1 1 0 01-1-1V9z"/><path d="M9 21v-7h6v7"/></svg>}>
 
@@ -284,7 +284,7 @@ export function StoreBox({ s, update, campaignId }: { s: CampaignState; update: 
                 <button className="hp-btn hp-btn-pos" style={{ flex: 'none', padding: '3px 10px' }} disabled={!adjId} onClick={() => adjust(1)}>Aggiungi</button>
                 <button className="hp-btn hp-btn-neg" style={{ flex: 'none', padding: '3px 10px' }} disabled={!adjId} onClick={() => adjust(-1)}>Togli</button>
               </div>
-              <div className="small muted" style={{ fontSize: 10, lineHeight: 1.5, marginTop: 6 }}>Che cosa rende ogni attività si dichiara nel riquadro «Gli abitanti», fra gli strumenti del DM.</div>
+              <div className="small muted" style={{ fontSize: 10, lineHeight: 1.5, marginTop: 6 }}>Che cosa rende ogni bottega si dichiara nella sua scheda «Produzione settimanale»; le scorte di una singola voce si ritoccano anche dall'Armeria.</div>
             </div>
           )}
         </div>

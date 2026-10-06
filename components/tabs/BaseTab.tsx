@@ -8,7 +8,7 @@ import { ForgeBox } from '@/components/shared/ForgeBox';
 import { MarketBox } from '@/components/shared/MarketBox';
 import { TanneryBox } from '@/components/shared/TanneryBox';
 import { LibraryBox } from '@/components/shared/LibraryBox';
-import { PanelBox } from '@/components/shared/PanelBox';
+import { PanelBox, panelPos } from '@/components/shared/PanelBox';
 import { VillageBox } from '@/components/shared/VillageBox';
 import { StoreBox } from '@/components/shared/StoreBox';
 import { TavernBox } from '@/components/shared/TavernBox';
@@ -83,7 +83,7 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
       {/* Il villaggio: gli edifici restano com'erano, ma vivono dentro un
           riquadro come tutti gli altri, invece di essere l'unica sezione
           sempre distesa in fondo alla tab. */}
-      <PanelBox title="Olmobianco" color="var(--gold)" bgSlot="village-bg" campaignId={campaignId} dmMode={s.dmMode}
+      <PanelBox title="Olmobianco" color="var(--gold)" bgSlot="village-bg" campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, 'village-bg')}
         badge={<span className="pill" style={{padding:'2px 8px',fontSize:8.5,color:'var(--gold)',borderColor:'var(--gold)'}}>{visible.length} edifici</span>}
         icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="1.5"><path d="M3 21h18M5 21V10l4-3 4 3M13 21V13l3-2 3 2v8"/><path d="M8 21v-4h2v4"/></svg>}>
         {visible.length===0 && <div className="card muted small" style={{textAlign:'center'}}>Nessun edificio.</div>}

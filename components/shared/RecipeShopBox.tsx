@@ -3,9 +3,10 @@ import { useState, ReactNode } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
-import { PanelBox, WorkBench, BenchEmpty } from '@/components/shared/PanelBox';
+import { PanelBox, WorkBench, BenchEmpty, panelPos } from '@/components/shared/PanelBox';
 import { CraftJob, TanneryRecipe, TanIngredient, tanInputs, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
 import { shopOpen } from '@/lib/dnd/village';
+import { YieldCard } from '@/components/shared/YieldCard';
 import { absDay } from '@/lib/dnd/calendar';
 import { itemFromArmory, cloneImage, lookupByName, normName } from '@/lib/dnd/catalog';
 import { sfxComplete } from '@/lib/dnd/sounds';
@@ -194,7 +195,7 @@ export function RecipeShopBox({ s, update, campaignId, cfg }: { s: CampaignState
   };
 
   return (
-    <PanelBox title={cfg.title} color={TAN_COLOR} bgSlot={cfg.bgSlot} campaignId={campaignId} dmMode={s.dmMode}
+    <PanelBox title={cfg.title} color={TAN_COLOR} bgSlot={cfg.bgSlot} campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, cfg.bgSlot)}
       badge={jobs.length > 0 ? <span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: TAN_COLOR, borderColor: TAN_COLOR }}>{jobs.length} {cfg.badge}</span> : undefined}
       icon={cfg.icon}>
 
@@ -206,7 +207,10 @@ export function RecipeShopBox({ s, update, campaignId, cfg }: { s: CampaignState
         </div>
       )}
 
-      {/* 1 — Chi porta le pelli */}
+      {/* Ciò che la bottega rende al magazzino a ogni mercato */}
+      <YieldCard s={s} update={update} campaignId={campaignId} activityId={cfg.activityId} color={TAN_COLOR} />
+
+      {/* 1 — Chi porta i materiali */}
       <div className="card">
         <div className="label" style={{ marginBottom: 6 }}>1 · Avventuriero</div>
         <div className="row" style={{ gap: 6 }}>

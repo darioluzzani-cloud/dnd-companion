@@ -168,7 +168,8 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
       // 1. Produzione della settimana.
       for (const y of yields) {
         stock = addTo(stock, y.entry.id, y.qty);
-        madeTotal[y.activity.id] = (madeTotal[y.activity.id] || 0) + y.qty;
+        const k = y.activity.id + '|' + y.entry.id;
+        madeTotal[k] = (madeTotal[k] || 0) + y.qty;
         stockTouched = true;
       }
       // 2. Consumo: la quota degli abitanti, per i sei giorni trascorsi.
@@ -211,7 +212,8 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
     const why = !found ? ' — nessun edificio delle case' : starving ? ' — penuria: nessuno si ferma' : mult === 0 ? ' — a questo livello non si cresce' : gained < want ? ' — case piene' : '';
     grew.push(`Abitanti: 3d4 = ${sum} (${dice.join(' · ')})${mult > 1 ? ' × ' + mult : ''} → +${gained}, ora ${pop}${why}`);
   }
-  const made = yields.filter(y => madeTotal[y.activity.id]).map(y => `${y.activity.name}: +${madeTotal[y.activity.id]} ${y.entry.name}`);
+  const made = yields.filter(y => madeTotal[y.activity.id + '|' + y.entry.id])
+    .map(y => `${y.activity.name}: +${madeTotal[y.activity.id + '|' + y.entry.id]} ${y.entry.name}`);
 
   // ── Capi al lavoro da una settimana: si vede ciò che valgono ──
   // Il controllo guarda lo stato, non il passaggio: chi ha già maturato la
@@ -260,10 +262,21 @@ export interface Activity {
   minLevel?: number;          // livello minimo dell'edificio; assente = 1
   /** Solo Costruttori: punti percentuali tolti alla durata dei cantieri. */
   buildPct?: number;
-  /** Ciò che l'attività deposita in magazzino a ogni mercato: una voce
-   *  d'armeria e una quantità, eventualmente moltiplicata per il livello
-   *  dell'edificio. */
-  produces?: { armoryId: string; qty: number; perLevel?: boolean };
+  /** Ciò che l'attività deposita in magazzino a ogni mercato: voci
+   *  d'armeria con la loro quantità. La forma a oggetto singolo è quella
+   *  della prima stesura e resta leggibile: si passa sempre da `productsOf`. */
+  produces?: Product[] | Product;
+}
+
+/** Un prodotto settimanale: voce d'armeria, quantità, ed eventuale
+ *  moltiplicazione per il livello dell'edificio. */
+export interface Product { armoryId: string; qty: number; perLevel?: boolean; }
+
+/** I prodotti dichiarati di un'attività, qualunque forma abbiano a stato. */
+export function productsOf(act?: Activity): Product[] {
+  const p = act?.produces;
+  const list = Array.isArray(p) ? p : (p ? [p] : []);
+  return list.filter(x => x && x.armoryId);
 }
 
 export const ACT_FORGE = 'act-fucina';
@@ -409,30 +422,35 @@ export function buildDays(s: any, days: number): number {
 }
 
 // ─── Produzione settimanale ──────────────────────────────────
-// Un'attività attiva rende, a ogni mercato, la quantità dichiarata dal DM;
-// il modificatore di chi la tiene vi si somma in unità, e vale dal primo
-// giorno anche quando i giocatori non l'hanno ancora visto. Per i
+// Un'attività attiva rende, a ogni mercato, i prodotti dichiarati dal DM
+// nella scheda della bottega. Il modificatore di chi la tiene si somma in
+// unità al primo prodotto dell'elenco — quello principale — e vale dal
+// primo giorno, anche quando i giocatori non l'hanno ancora visto. Per i
 // Costruttori il modificatore è già speso sui cantieri e qui non conta.
 
-export interface WeeklyYield { activity: Activity; entry: any; base: number; mod: number; qty: number; }
+export interface WeeklyYield { activity: Activity; entry: any; base: number; mod: number; qty: number; perLevel: boolean; index: number; }
 
-/** Ciò che un'attività renderebbe al prossimo mercato, o null se non rende. */
-export function yieldOf(s: any, act: Activity): WeeklyYield | null {
-  const p = act.produces;
-  if (!p?.armoryId || !(p.qty > 0)) return null;
-  const entry = ((s?.armory || []) as any[]).find(e => e.id === p.armoryId);
-  if (!entry) return null;
+/** Ciò che un'attività renderebbe al prossimo mercato, prodotto per prodotto.
+ *  Le voci non più presenti in armeria si saltano. */
+export function yieldsOf(s: any, act: Activity): WeeklyYield[] {
   const st = activityStatus(s, act.id);
-  const level = p.perLevel ? Math.max(1, Math.floor(st.building?.level || 1)) : 1;
-  const base = Math.floor(p.qty) * level;
-  const mod = st.capo && act.id !== ACT_BUILDERS ? (aptitudeOf(st.capo, act.id)?.mod || 0) : 0;
-  return { activity: act, entry, base, mod, qty: Math.max(0, base + mod) };
+  const level = Math.max(1, Math.floor(st.building?.level || 1));
+  const capoMod = st.capo && act.id !== ACT_BUILDERS ? (aptitudeOf(st.capo, act.id)?.mod || 0) : 0;
+  const out: WeeklyYield[] = [];
+  productsOf(act).forEach((p, index) => {
+    const entry = ((s?.armory || []) as any[]).find(e => e.id === p.armoryId);
+    if (!entry) return;
+    const base = Math.max(0, Math.floor(p.qty || 0)) * (p.perLevel ? level : 1);
+    const mod = out.length === 0 ? capoMod : 0;
+    out.push({ activity: act, entry, base, mod, qty: Math.max(0, base + mod), perLevel: !!p.perLevel, index });
+  });
+  return out;
 }
 
 /** Le rese di tutte le attività attive, come stanno le cose adesso. */
 export function weeklyYields(s: any): WeeklyYield[] {
   return activitiesOf(s)
     .filter(a => activityStatus(s, a.id).state === 'active')
-    .map(a => yieldOf(s, a))
-    .filter((y): y is WeeklyYield => !!y && y.qty > 0);
+    .flatMap(a => yieldsOf(s, a))
+    .filter(y => y.qty > 0);
 }

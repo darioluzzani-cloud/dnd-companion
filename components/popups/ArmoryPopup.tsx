@@ -7,6 +7,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { copyItemImage } from '@/components/shared/imageCopy';
 import { MasteryEntry, DEFAULT_MASTERIES, masteriesOf } from '@/lib/dnd/mastery';
 import { ammoApplies } from '@/lib/dnd/equipment';
+import { qtyOf, tallyOf, addTo } from '@/lib/dnd/storehouse';
 
 // ─── POPUP: ARMERIA — catalogo oggetti preparati dal DM ─────
 // Speculare al Bestiario: il DM prepara gli oggetti prima della sessione
@@ -24,6 +25,8 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [showMast, setShowMast] = useState(false);          // catalogo padronanze aperto
   const [editMastId, setEditMastId] = useState<string | null>(null);
+  // Quantità da aggiungere o togliere al magazzino, voce per voce.
+  const [storeN, setStoreN] = useState<Record<string, string>>({});
   const toggleExp = (id: string) => setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   // ── Catalogo delle padronanze ──
@@ -47,6 +50,18 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
   };
   const patchEntry = (id: string, patch: Partial<ArmoryEntry>) =>
     setArmory(armory.map(e => e.id === id ? { ...e, ...patch } : e));
+
+  // Scorte del magazzino di Olmobianco: il DM aggiunge e toglie da qui, sulla
+  // voce stessa, senza passare dal riquadro del magazzino. Si scrive il
+  // registro delle rese, mai quello dei prelievi dei giocatori; togliendo,
+  // non si scende sotto ciò che il magazzino contiene davvero.
+  const storeMove = (e: ArmoryEntry, sign: 1 | -1) => {
+    const n = Math.max(1, parseInt(storeN[e.id] ?? '1') || 1);
+    update(prev => {
+      const move = sign > 0 ? n : Math.min(n, qtyOf(prev, e.id));
+      return move > 0 ? { villageStock: addTo(tallyOf(prev, 'villageStock'), e.id, sign * move) } as any : {};
+    });
+  };
 
   // Consegna: crea l'oggetto nell'inventario del PG scelto e copia l'immagine
   const give = (e: ArmoryEntry, playerId: string) => {
@@ -260,6 +275,18 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                   <button className="btn btn-ghost" style={{ padding: '2px 7px', fontSize: 9 }} onClick={() => setEditingId(editingId === e.id ? null : e.id)}>{editingId === e.id ? 'Fine' : 'Modifica'}</button>
                   <button className="btn btn-danger btn-ghost" style={{ padding: '2px 7px', fontSize: 9 }} onClick={() => { if (confirm('Eliminare dal catalogo?')) setArmory(armory.filter(x => x.id !== e.id)); }}>&times;</button>
                 </div>
+                )}
+                {/* Magazzino di Olmobianco */}
+                {expanded.has(e.id) && s.dmMode && (
+                  <div className="row" style={{ gap: 6, marginTop: 7, paddingTop: 7, borderTop: '1px solid var(--border)', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span className="label" style={{ fontSize: 8 }}>Magazzino</span>
+                    <span className="small" style={{ color: qtyOf(s, e.id) > 0 ? 'var(--green)' : 'var(--gray-purple)' }}>{qtyOf(s, e.id)} in scorta</span>
+                    <div className="grow" />
+                    <button className="hp-btn hp-btn-neg" style={{ flex: 'none', padding: '3px 10px', opacity: qtyOf(s, e.id) > 0 ? 1 : .4 }} disabled={qtyOf(s, e.id) <= 0} onClick={() => storeMove(e, -1)}>Togli</button>
+                    <input type="number" min={1} value={storeN[e.id] ?? '1'} onChange={ev => setStoreN(m => ({ ...m, [e.id]: ev.target.value }))}
+                      style={{ width: 54, textAlign: 'center', fontSize: 12, padding: '3px 4px' }} title="Quantità da aggiungere o togliere" />
+                    <button className="hp-btn hp-btn-pos" style={{ flex: 'none', padding: '3px 10px' }} onClick={() => storeMove(e, 1)}>Aggiungi</button>
+                  </div>
                 )}
               </div>
             </div>

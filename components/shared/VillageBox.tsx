@@ -3,8 +3,9 @@ import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
-import { PanelBox } from '@/components/shared/PanelBox';
+import { PanelBox, panelPos } from '@/components/shared/PanelBox';
 import { NumberInput } from '@/components/shared/textUtils';
+import { YieldCard } from '@/components/shared/YieldCard';
 import { absDay, addDays, formatDateShort, DEFAULT_CALENDAR } from '@/lib/dnd/calendar';
 import {
   HousingRow, VillageGateEntry, NOTABLE_MIN,
@@ -12,7 +13,7 @@ import {
   housingBuilding, housingRow, currentHousing, daysToGrowth,
   Activity, ActivityState, CapoSeat, ACT_BUILDERS,
   activitiesOf, assignOf, activityStatus, roleOf, withCapo,
-  aptitudeOf, isKnown, daysToKnow, buildDiscount, yieldOf,
+  aptitudeOf, isKnown, daysToKnow, buildDiscount,
 } from '@/lib/dnd/village';
 
 // ─── GLI ABITANTI ────────────────────────────────────────────
@@ -157,21 +158,6 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
             : <div className="small" style={{ fontSize: 11, marginTop: 4, color: 'var(--text-card)' }}>I cantieri avviati da ora durano circa il {act.buildPct ?? 20}% in meno; quanto vi aggiunga o tolga chi li guida si vedrà col lavoro.</div>
         )}
 
-        {(() => {
-          // Ciò che l'attività deposita in magazzino. Il contributo di chi
-          // la tiene si dichiara soltanto quando è noto.
-          const y = yieldOf(s, act);
-          if (!y) return null;
-          const open = !!st.capo && (s.dmMode || isKnown(s, st.capo.id, act.id));
-          return (
-            <div className="small" style={{ fontSize: 11, marginTop: 4, color: 'var(--text-card)', lineHeight: 1.5 }}>
-              {st.state === 'active' ? 'Rende' : 'Renderebbe'} a ogni mercato {open ? y.qty : y.base} × {y.entry.name}
-              {open && y.mod !== 0 ? <span className="muted"> ({y.base} {y.mod > 0 ? '+' : '−'} {Math.abs(y.mod)} di {st.capo.name})</span> : null}
-              {!open && st.capo ? <span className="muted">, più o meno ciò che vi porta chi la tiene</span> : null}.
-            </div>
-          );
-        })()}
-
         {st.capo && (
           <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
             {person(st.capo, st.capo.role || undefined)}
@@ -207,7 +193,6 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
   const activeCount = acts.filter(a => activityStatus(s, a.id).state === 'active').length;
 
   // ── Strumenti del DM ──
-  const armoryList: any[] = (((s as any).armory || []) as any[]).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const setActs = (list: Activity[]) => update({ villageActivities: list } as any);
   const patchAct = (id: string, p: Partial<Activity>) => setActs(acts.map(a => a.id === id ? { ...a, ...p } : a));
   const setPop = (n: number) => update({ villagePop: Math.max(0, Math.floor(n || 0)) } as any);
@@ -227,7 +212,7 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
   const num = { width: 58, textAlign: 'center', fontSize: 11, padding: '2px 4px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 4 } as const;
 
   return (
-    <PanelBox title="Gli abitanti" color={COLOR} bgSlot="people-bg" campaignId={campaignId} dmMode={s.dmMode} defaultOpen={defaultOpen}
+    <PanelBox title="Gli abitanti" color={COLOR} bgSlot="people-bg" campaignId={campaignId} dmMode={s.dmMode} defaultOpen={defaultOpen} {...panelPos(s, update, 'people-bg')}
       badge={<span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: COLOR, borderColor: COLOR }}>{pop} abitanti{gate.length > 0 ? ' · ' + gate.length + ' alla porta' : ''}</span>}
       icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLOR} strokeWidth="1.5"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.3"/><path d="M15.5 14.3c3 .2 5.5 2.6 5.5 5.7"/></svg>}>
 
@@ -276,7 +261,12 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(118px, 1fr))', gap: 9, marginBottom: 10 }}>
         {acts.map(tile)}
       </div>
-      {picked && seatPanel(picked)}
+      {picked && <>
+        {seatPanel(picked)}
+        {/* Per le attività senza un riquadro proprio — i campi, l'erboristeria,
+            la cappella — è questa la scheda in cui si vede e si decide che cosa rendono. */}
+        <YieldCard s={s} update={update} campaignId={campaignId} activityId={picked.id} color={COLOR} />
+      </>}
 
       {/* ── Strumenti del DM ── */}
       {s.dmMode && (
@@ -333,7 +323,7 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
               )}
 
               {/* Catalogo delle attività */}
-              <div className="label" style={{ fontSize: 8, marginBottom: 5 }}>Attività: edificio richiesto e resa settimanale</div>
+              <div className="label" style={{ fontSize: 8, marginBottom: 5 }}>Attività: edificio e livello richiesti</div>
               {acts.map(a => (
                 <div key={a.id} className="row" style={{ gap: 5, alignItems: 'center', flexWrap: 'wrap', padding: '3px 0' }}>
                   <input value={a.name} onChange={e => patchAct(a.id, { name: e.target.value })}
@@ -353,22 +343,6 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
                     <span className="small muted" style={{ fontSize: 10 }}>%</span>
                   </>}
                   <button className="btn btn-danger btn-ghost" style={{ fontSize: 10, padding: '1px 7px' }} onClick={() => { if (confirm(`Togliere «${a.name}» dalle attività?`)) setActs(acts.filter(x => x.id !== a.id)); }}>&times;</button>
-                  {/* Ciò che l'attività rende al magazzino a ogni mercato */}
-                  <div className="row" style={{ gap: 5, alignItems: 'center', flexBasis: '100%', flexWrap: 'wrap', paddingBottom: 5, borderBottom: '1px solid var(--border)' }}>
-                    <span className="small muted" style={{ fontSize: 10 }}>rende</span>
-                    <NumberInput value={a.produces?.qty || 0} min={0} onChange={n => patchAct(a.id, { produces: { ...(a.produces || { armoryId: '' }), qty: n } })} style={{ ...num, width: 46 }} title="Quantità a ogni mercato (0 = nulla)" />
-                    <span className="small muted" style={{ fontSize: 10 }}>×</span>
-                    <select value={a.produces?.armoryId || ''} onChange={e => patchAct(a.id, { produces: e.target.value ? { qty: 1, ...(a.produces || {}), armoryId: e.target.value } : undefined })} style={{ flex: '1 1 130px', fontSize: 10.5 }} title="Voce d'armeria depositata in magazzino">
-                      <option value="">— nessun oggetto —</option>
-                      {armoryList.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                    </select>
-                    {a.building !== 'none' && (
-                      <label className="row" style={{ gap: 3, alignItems: 'center', cursor: 'pointer' }} title="Moltiplica la quantità per il livello dell'edificio">
-                        <input type="checkbox" checked={!!a.produces?.perLevel} disabled={!a.produces?.armoryId} onChange={e => patchAct(a.id, { produces: { ...(a.produces as any), perLevel: e.target.checked } })} />
-                        <span className="small muted" style={{ fontSize: 10 }}>× livello</span>
-                      </label>
-                    )}
-                  </div>
                 </div>
               ))}
               <div className="row" style={{ gap: 6, margin: '6px 0 12px' }}>

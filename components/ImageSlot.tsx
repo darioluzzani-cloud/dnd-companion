@@ -60,10 +60,11 @@ interface Props {
   alt?: string;
   hideIfEmpty?: boolean;  // se true, il riquadro è invisibile finché non c'è un'immagine (salvo modalità DM)
   objectPosition?: string;  // inquadratura: sposta il ritaglio dentro il riquadro (es. 'center 30%')
+  aspect?: string;          // proporzione fissa (es. '1 / 1'): l'altezza segue la larghezza e `height` non conta
   onUploaded?: () => void; // notifica il genitore a upload completato
 }
 
-export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height, dmMode, placeholder, alt, hideIfEmpty, objectPosition, onUploaded }: Props) {
+export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height, dmMode, placeholder, alt, hideIfEmpty, objectPosition, aspect, onUploaded }: Props) {
   const [url, setUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -119,13 +120,18 @@ export function ImageSlot({ slotId, campaignId, shape = 'rounded', width, height
   if (hideIfEmpty && !dmMode && !url) return null;
 
   const borderRadius = shape === 'circle' ? '50%' : shape === 'rect' ? '0' : '8px';
-  const style: React.CSSProperties = { width: width || '100%', height: height || '100%', borderRadius };
+  const style: React.CSSProperties = aspect
+    ? { width: width || '100%', aspectRatio: aspect, borderRadius }
+    : { width: width || '100%', height: height || '100%', borderRadius };
+  // A proporzione fissa il contenuto si ancora ai bordi della cornice, così
+  // la riempie comunque il browser risolva le altezze in percentuale.
+  const fill: React.CSSProperties = aspect ? { position: 'absolute', inset: 0 } : {};
 
   return (
     <div className="img-frame" style={style}>
       {url
-        ? <img src={url} alt={alt || ''} className="img-slot" style={{ borderRadius, objectPosition }} loading="lazy" />
-        : <div className="img-empty" style={{ borderRadius }}>{placeholder || alt?.slice(0, 2).toUpperCase() || 'IMG'}</div>
+        ? <img src={url} alt={alt || ''} className="img-slot" style={{ borderRadius, objectPosition, ...fill }} loading="lazy" />
+        : <div className="img-empty" style={{ borderRadius, ...fill }}>{placeholder || alt?.slice(0, 2).toUpperCase() || 'IMG'}</div>
       }
       {dmMode && (
         <div className="img-upload-overlay" onClick={() => inputRef.current?.click()}>

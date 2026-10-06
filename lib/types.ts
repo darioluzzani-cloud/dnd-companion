@@ -313,6 +313,9 @@ export interface CampaignState {
   villageRationPct?: number;                                  // quota giornaliera degli abitanti; assente = 15
   villageLeavePct?: number;                                   // partenze a ogni mercato di carestia; assente = 10
   tavernRecipes?: import('./dnd/crafting').TanneryRecipe[];   // catalogo delle bevande della taverna
+  /** Inquadratura degli sfondi dei riquadri della tab Base a scheda chiusa:
+   *  slot dell'immagine → posizione verticale del ritaglio (0–100). */
+  panelPos?: Record<string, number>;
   smithUpgrades?: { id: string; name: string; desc: string; material?: string; cat?: 'base'|'avanzato'|'nanico'; materials?: { name: string; qty: number }[] }[];  // catalogo della fucina
   marketBuildingId?: string;      // edificio (di norma la Piazza) che governa il livello del mercato
   marketStalls?: import('./dnd/market').MarketStall[];   // catalogo bancarelle (copy-on-write dai default)

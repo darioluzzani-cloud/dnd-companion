@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { CampaignState } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
+import { panelPos, PanelBgPos } from '@/components/shared/PanelBox';
 import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
 import { lookupByName, priceOf, goldOf, paysGold, itemFromArmory, cloneImage, normName, GOLD_NAME } from '@/lib/dnd/catalog';
 import { U } from '@/components/shared/common';
@@ -220,7 +221,8 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
     <div className="frame" style={{ position: 'relative', overflow: 'hidden', borderColor: 'var(--gold)', padding: 0, minHeight: open ? undefined : 76 }}>
       {/* Sfondo del box */}
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <ImageSlot key={(open ? 'o' : 'c') + bgTick} slotId="market-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="Mercato di Olmobianco" />
+        <ImageSlot key={(open ? 'o' : 'c') + bgTick} slotId="market-bg" campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder="" alt="Mercato di Olmobianco"
+          objectPosition={open ? undefined : `center ${panelPos(s, update, 'market-bg').bgPos}%`} />
       </div>
       <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none', background: open
         ? 'linear-gradient(180deg, rgba(11,8,20,0) 0%, rgba(11,8,20,.3) 35%, rgba(11,8,20,.6) 60%, rgba(11,8,20,.9) 85%, rgba(11,8,20,.97) 100%)'
@@ -258,6 +260,8 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
                       onChange={e => { const f = e.target.files?.[0]; if (f) uploadTo('market-bg', f); e.target.value = ''; }} />
                   </label>
                 </div>
+                {/* Inquadratura dello sfondo a scheda chiusa, come negli altri riquadri */}
+                <PanelBgPos slot="market-bg" campaignId={campaignId} pos={panelPos(s, update, 'market-bg').bgPos} onPos={panelPos(s, update, 'market-bg').onBgPos} tick={bgTick} />
                 <div className="row" style={{ gap: 6, marginTop: 8, alignItems: 'center' }}>
                   <button className="btn btn-primary" disabled={mktLevel === 0} onClick={doRoll}>
                     {market ? 'Ritira il mercato' : 'Tira le bancarelle'} ({cfg ? `${cfg.fixed}+1d4` : '—'})
