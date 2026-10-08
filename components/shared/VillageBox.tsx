@@ -14,7 +14,7 @@ import {
   Activity, ActivityState, CapoSeat, ACT_BUILDERS,
   activitiesOf, assignOf, activityStatus, roleOf, withCapo,
   aptitudeOf, isKnown, daysToKnow, buildDiscount,
-  agesOf, agePctOf, postsOf, workersOf, freeAdults, withWorkers, workerPctOf, productsOf,
+  agesOf, agePctOf, postsOf, workersOf, freeAdults, withWorkers, yieldsOf,
 } from '@/lib/dnd/village';
 
 // ─── GLI ABITANTI ────────────────────────────────────────────
@@ -214,8 +214,10 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
         {(() => {
           const posts = postsOf(s, act);
           const n = workers[act.id] || 0;
-          const wp = workerPctOf(act);
-          const makes = productsOf(act).length > 0;
+          // Ciò che un adulto aggiunge, oggetto per oggetto: i numeri si
+          // fissano nella scheda «Produzione settimanale», qui si leggono.
+          const gains = yieldsOf(s, act).filter(y => y.perWorker > 0);
+          const makes = yieldsOf(s, act).length > 0;
           // Livelli di cui il DM fissa i posti: uno solo per le attività
           // senza edificio, altrimenti dal livello richiesto al massimo.
           const levels: number[] = act.building === 'none' ? [1]
@@ -238,11 +240,11 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
                 <>
                   {workerStepper(act, true)}
                   <div className="small muted" style={{ fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>
-                    {makes
-                      ? (n > 0
-                          ? <>Ogni adulto aggiunge il {wp}% alla resa di base: ora <b style={{ color: 'var(--green)' }}>+{n * wp}%</b>.</>
-                          : <>Ogni adulto messo al lavoro qui aggiunge il {wp}% alla resa di base.</>)
-                      : <>Quest'attività non deposita nulla in magazzino: per ora gli adulti che vi lavorano non cambiano alcun conto.</>}
+                    {!makes
+                      ? <>Quest'attività non deposita nulla in magazzino: per ora gli adulti che vi lavorano non cambiano alcun conto.</>
+                      : gains.length === 0
+                        ? <>Qui un adulto in più non aggiunge pezzi alla produzione.</>
+                        : <>Ogni adulto al lavoro aggiunge a ogni mercato {gains.map(y => `${y.perWorker} × ${y.entry.name}`).join(', ')}{n > 0 ? <>: ora <b style={{ color: 'var(--green)' }}>{gains.map(y => `+${y.extra}`).join(', ')}</b></> : null}.</>}
                     {st.state !== 'active' && n > 0 && <> Finché l'attività è ferma, però, non rende nulla.</>}
                   </div>
                 </>
@@ -258,9 +260,6 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
                       <NumberInput value={act.posts?.[lv] || 0} min={0} onChange={v => setPost(lv, v)} style={{ ...num, width: 44 }} title={act.building === 'none' ? 'Posti di lavoro' : `Posti di lavoro al livello ${lv}`} />
                     </div>
                   ))}
-                  <span className="small muted" style={{ fontSize: 10, marginLeft: 4 }}>ogni adulto +</span>
-                  <NumberInput value={wp} min={0} onChange={v => patchAct(act.id, { workerPct: v })} style={{ ...num, width: 44 }} title="Punti percentuali che ogni adulto aggiunge alla resa di base" />
-                  <span className="small muted" style={{ fontSize: 10 }}>%</span>
                 </div>
               )}
             </div>

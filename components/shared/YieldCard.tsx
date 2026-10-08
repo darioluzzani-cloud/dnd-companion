@@ -4,15 +4,16 @@ import { CampaignState } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { NumberInput } from '@/components/shared/textUtils';
-import { Product, activitiesOf, activityStatus, productsOf, yieldsOf, isKnown } from '@/lib/dnd/village';
+import { Product, activitiesOf, activityStatus, productsOf, yieldsOf, isKnown, postsOf, perWorkerOf } from '@/lib/dnd/village';
 
 // ─── PRODUZIONE SETTIMANALE ──────────────────────────────────
 // Ciò che una bottega deposita in magazzino a ogni mercato, mostrato dentro
 // il menù della bottega stessa: un riquadro per oggetto, con la sua
 // illustrazione d'armeria e la quantità. Lo vedono tutti; in modalità DM gli
 // stessi riquadri si scelgono, si correggono e si tolgono sul posto. La
-// quantità che il DM dichiara è la resa di base; gli adulti messi al lavoro
-// nel riquadro «Gli abitanti» vi aggiungono la loro percentuale.
+// quantità che il DM dichiara è la resa di base; ogni adulto messo al lavoro
+// nel riquadro «Gli abitanti» vi aggiunge un numero fisso di pezzi, che il
+// DM fissa oggetto per oggetto e che tutti leggono sotto il riquadro.
 //
 // Gli oggetti si pescano soltanto dall'armeria, e finiscono soltanto nel
 // magazzino. La scheda è una sola per tutte le botteghe: compare nella
@@ -48,6 +49,7 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
   const patch = (armoryId: string, p: Partial<Product>) => write(list => list.map(x => x.armoryId === armoryId ? { ...x, ...p } : x));
   const products = productsOf(act).filter(p => inArmory(p.armoryId));
   const free = armory.filter(e => !products.some(p => p.armoryId === e.id));
+  const hasPosts = postsOf(s, act) > 0;
   const num = { width: 44, textAlign: 'center', fontSize: 11, padding: '2px 3px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 4 } as const;
 
   return (
@@ -74,10 +76,14 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
                 </div>
                 <div style={{ fontSize: 10.5, lineHeight: 1.25, marginTop: 4, textAlign: 'center', fontFamily: 'var(--font-display)', color: 'var(--text-card)' }}>{y.entry.name}</div>
                 {/* Come si arriva alla quantità: base, adulti al lavoro, capo. */}
-                {(y.boost > 0 || (known && y.mod !== 0)) && (
+                {(y.extra > 0 || (known && y.mod !== 0)) && (
                   <div className="small muted" style={{ fontSize: 9, textAlign: 'center', marginTop: 1 }}>
-                    {y.base}{y.boost > 0 ? ` +${y.boost}%` : ''}{known && y.mod !== 0 ? ` ${y.mod > 0 ? '+' : '−'} ${Math.abs(y.mod)}` : ''}
+                    {y.base}{y.extra > 0 ? ` + ${y.extra}` : ''}{known && y.mod !== 0 ? ` ${y.mod > 0 ? '+' : '−'} ${Math.abs(y.mod)}` : ''}
                   </div>
+                )}
+                {/* Quanto vale un adulto, per chi deve decidere dove mandarlo. */}
+                {!s.dmMode && hasPosts && y.perWorker > 0 && (
+                  <div className="small" style={{ fontSize: 9, textAlign: 'center', marginTop: 1, color: 'var(--gold-dim)' }}>+{y.perWorker} per adulto</div>
                 )}
                 {s.dmMode && p && (
                   <div style={{ marginTop: 5 }}>
@@ -86,8 +92,13 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
                       <button className="btn btn-danger btn-ghost" style={{ fontSize: 10, padding: '1px 6px' }} title="Togli dalla produzione"
                         onClick={() => write(list => list.filter(x => x.armoryId !== p.armoryId))}>&times;</button>
                     </div>
+                    <div className="row" style={{ gap: 3, alignItems: 'center', justifyContent: 'center', marginTop: 3 }} title="Pezzi che ogni adulto al lavoro aggiunge a questo oggetto">
+                      <span className="small muted" style={{ fontSize: 9 }}>+</span>
+                      <NumberInput value={perWorkerOf(p)} min={0} onChange={n => patch(p.armoryId, { perWorker: n })} style={{ ...num, width: 34 }} title="Pezzi per adulto" />
+                      <span className="small muted" style={{ fontSize: 9 }}>/adulto</span>
+                    </div>
                     {act.building !== 'none' && (
-                      <label className="row" style={{ gap: 3, alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginTop: 3 }} title="Moltiplica la quantità per il livello dell'edificio">
+                      <label className="row" style={{ gap: 3, alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginTop: 3 }} title="Moltiplica la quantità di base per il livello dell'edificio">
                         <input type="checkbox" checked={!!p.perLevel} onChange={e => patch(p.armoryId, { perLevel: e.target.checked || undefined })} />
                         <span className="small muted" style={{ fontSize: 9 }}>× livello</span>
                       </label>
@@ -105,7 +116,7 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
       )}
       {active && ys.length > 0 && ys[0].workers > 0 && (
         <div className="small muted" style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
-          {ys[0].workers === 1 ? 'Un adulto al lavoro aggiunge' : `${ys[0].workers} adulti al lavoro aggiungono`} il {ys[0].boost}% alla resa di base.
+          {ys[0].workers === 1 ? 'Un adulto al lavoro: i suoi pezzi sono già nel conto.' : `${ys[0].workers} adulti al lavoro: i loro pezzi sono già nel conto.`}
         </div>
       )}
       {active && ys.length > 0 && st.capo && !known && (

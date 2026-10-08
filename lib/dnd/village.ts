@@ -269,14 +269,16 @@ export interface Activity {
   /** Posti di lavoro per livello dell'edificio (indice = livello), fissati
    *  dal DM. Per le attività senza edificio vale la voce d'indice 1. */
   posts?: number[];
-  /** Punti percentuali che ogni adulto al lavoro aggiunge alla resa di
-   *  base; assente = WORKER_PCT_DEFAULT. */
-  workerPct?: number;
 }
 
-/** Un prodotto settimanale: voce d'armeria, quantità, ed eventuale
- *  moltiplicazione per il livello dell'edificio. */
-export interface Product { armoryId: string; qty: number; perLevel?: boolean; }
+/** Un prodotto settimanale: voce d'armeria, quantità di base, eventuale
+ *  moltiplicazione per il livello dell'edificio, e i pezzi che ogni adulto
+ *  al lavoro vi aggiunge (assente = PER_WORKER_DEFAULT). */
+export interface Product { armoryId: string; qty: number; perLevel?: boolean; perWorker?: number; }
+
+export const PER_WORKER_DEFAULT = 1;
+export const perWorkerOf = (p?: Product): number =>
+  typeof p?.perWorker === 'number' && p.perWorker >= 0 ? Math.floor(p.perWorker) : PER_WORKER_DEFAULT;
 
 /** I prodotti dichiarati di un'attività, qualunque forma abbiano a stato. */
 export function productsOf(act?: Activity): Product[] {
@@ -442,7 +444,6 @@ export function buildDays(s: any, days: number): number {
 
 export interface AgeSplit { adults: number; kids: number; }   // quote percentuali; gli anziani sono il resto
 export const DEFAULT_AGES: AgeSplit = { adults: 60, kids: 25 };
-export const WORKER_PCT_DEFAULT = 10;
 
 export function agePctOf(s: any): { adults: number; kids: number; elders: number } {
   const a = s?.villageAges as AgeSplit | undefined;
@@ -501,14 +502,13 @@ export function withWorkers(s: any, actId: string, n: number): VillageWorkers {
   return out;
 }
 
-export const workerPctOf = (act?: Activity): number =>
-  typeof act?.workerPct === 'number' && act.workerPct >= 0 ? act.workerPct : WORKER_PCT_DEFAULT;
-
 // ─── Produzione settimanale ──────────────────────────────────
 // Un'attività attiva rende, a ogni mercato, i prodotti dichiarati dal DM
 // nella scheda della bottega. Tre cose concorrono alla quantità:
 //   · la resa di base, eventualmente moltiplicata per il livello dell'edificio;
-//   · gli adulti al lavoro, ciascuno dei quali vi aggiunge una percentuale;
+//   · gli adulti al lavoro, ciascuno dei quali vi aggiunge un numero fisso
+//     di pezzi, dichiarato prodotto per prodotto: un conto che si fa a
+//     mente, senza percentuali né arrotondamenti;
 //   · il modificatore di chi la tiene, sommato in unità al primo prodotto
 //     dell'elenco — quello principale — e valido dal primo giorno, anche
 //     quando i giocatori non l'hanno ancora visto.
@@ -518,7 +518,8 @@ export interface WeeklyYield {
   activity: Activity; entry: any; index: number; perLevel: boolean;
   base: number;        // resa senza adulti e senza capo
   workers: number;     // adulti al lavoro
-  boost: number;       // punti percentuali aggiunti dagli adulti
+  perWorker: number;   // pezzi che ogni adulto aggiunge a questo prodotto
+  extra: number;       // pezzi aggiunti dagli adulti: workers × perWorker
   worked: number;      // resa con gli adulti, prima del capo
   mod: number;         // unità aggiunte o tolte da chi tiene l'attività
   qty: number;         // ciò che arriva in magazzino
@@ -531,15 +532,16 @@ export function yieldsOf(s: any, act: Activity): WeeklyYield[] {
   const level = Math.max(1, Math.floor(st.building?.level || 1));
   const capoMod = st.capo && act.id !== ACT_BUILDERS ? (aptitudeOf(st.capo, act.id)?.mod || 0) : 0;
   const workers = workersOf(s)[act.id] || 0;
-  const boost = workers * workerPctOf(act);
   const out: WeeklyYield[] = [];
   productsOf(act).forEach((p, index) => {
     const entry = ((s?.armory || []) as any[]).find(e => e.id === p.armoryId);
     if (!entry) return;
     const base = Math.max(0, Math.floor(p.qty || 0)) * (p.perLevel ? level : 1);
-    const worked = Math.round(base * (100 + boost) / 100);
+    const perWorker = perWorkerOf(p);
+    const extra = workers * perWorker;
+    const worked = base + extra;
     const mod = out.length === 0 ? capoMod : 0;
-    out.push({ activity: act, entry, index, perLevel: !!p.perLevel, base, workers, boost, worked, mod, qty: Math.max(0, worked + mod) });
+    out.push({ activity: act, entry, index, perLevel: !!p.perLevel, base, workers, perWorker, extra, worked, mod, qty: Math.max(0, worked + mod) });
   });
   return out;
 }
