@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
@@ -14,6 +14,7 @@ import {
   Activity, ActivityState, CapoSeat, ACT_BUILDERS,
   activitiesOf, assignOf, activityStatus, roleOf, withCapo,
   aptitudeOf, isKnown, daysToKnow, buildDiscount,
+  agesOf, agePctOf, postsOf, workersOf, freeAdults, withWorkers, workerPctOf, productsOf,
 } from '@/lib/dnd/village';
 
 // ─── GLI ABITANTI ────────────────────────────────────────────
@@ -25,6 +26,22 @@ import {
 // Ai giocatori il tiro di crescita resta invisibile: vedono il numero
 // salire e la capienza delle case. Dadi, fattore e conto alla rovescia
 // stanno fra gli strumenti del DM.
+//
+// Gli abitanti si leggono in tre fasce — adulti, bambini, anziani — e gli
+// adulti sono le braccia che i giocatori distribuiscono fra le attività,
+// col selettore sotto chi le tiene, entro i posti di lavoro fissati dal DM.
+
+/** Le tre figure delle fasce d'età: stessa mano, tre stature. */
+const AGE_ICON: Record<string, (c: string) => ReactNode> = {
+  adults: c => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="5" r="2.6"/><path d="M12 8.5v7M7.5 11.5l4.5-2 4.5 2M12 15.5l-3 6M12 15.5l3 6"/></svg>,
+  kids:   c => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="10" r="2.3"/><path d="M12 13v4.5M8.8 15l3.2-1.4 3.2 1.4M12 17.5l-2 4M12 17.5l2 4"/></svg>,
+  elders: c => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round"><circle cx="10.5" cy="5.5" r="2.5"/><path d="M10.5 8.5c0 3 1.5 4.5 1.5 7M8 12l3-1.8 3.5 2.3M12 15.5l-2.5 6M12 15.5l1.5 6M17.5 12.5v9"/></svg>,
+};
+const AGES: { k: 'adults' | 'kids' | 'elders'; label: string; color: string }[] = [
+  { k: 'adults', label: 'Adulti',  color: 'var(--gold)' },
+  { k: 'kids',   label: 'Bambini', color: 'var(--blue)' },
+  { k: 'elders', label: 'Anziani', color: 'var(--gray-purple)' },
+];
 
 const COLOR = 'var(--purple-light)';
 const STATE: Record<ActivityState, { label: string; color: string }> = {
@@ -48,6 +65,32 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
   const today = absDay((s.calendar || DEFAULT_CALENDAR).date);
   const acts = activitiesOf(s);
   const assign = assignOf(s);
+  const ages = agesOf(s);
+  const agePct = agePctOf(s);
+  const workers = workersOf(s);
+  const idle = freeAdults(s);
+  // Gli adulti li spostano i giocatori: si riparte dallo stato più recente e
+  // si scrive la sola chiave delle assegnazioni, già ricortata su posti e adulti.
+  const setWorkers = (actId: string, n: number) => update(prev => ({ villageWorkers: withWorkers(prev, actId, n) } as any));
+
+  /** Selettore degli adulti al lavoro in un'attività. */
+  const workerStepper = (act: Activity, big?: boolean) => {
+    const posts = postsOf(s, act);
+    const n = workers[act.id] || 0;
+    const canAdd = n < posts && idle > 0;
+    const pad = big ? '4px 13px' : '1px 8px';
+    return (
+      <div className="row" style={{ gap: big ? 8 : 4, alignItems: 'center', justifyContent: big ? 'flex-start' : 'space-between' }} onClick={e => e.stopPropagation()}>
+        <button className="hp-btn hp-btn-neg" style={{ flex: 'none', padding: pad, opacity: n > 0 ? 1 : .35 }} disabled={n <= 0}
+          title="Togli un adulto" onClick={() => setWorkers(act.id, n - 1)}>−</button>
+        <span title={`${n} adulti al lavoro su ${posts} posti`} style={{ fontFamily: 'var(--font-display)', fontSize: big ? 17 : 12, fontWeight: 700, color: n > 0 ? 'var(--gold)' : 'var(--gray-purple)', minWidth: big ? 56 : 0, textAlign: 'center', whiteSpace: 'nowrap' }}>
+          {n}<span style={{ fontWeight: 400, fontSize: big ? 12 : 10, color: 'var(--gray-purple)' }}> / {posts}</span>
+        </span>
+        <button className="hp-btn hp-btn-pos" style={{ flex: 'none', padding: pad, opacity: canAdd ? 1 : .35 }} disabled={!canAdd}
+          title={n >= posts ? 'Tutti i posti sono occupati' : idle <= 0 ? 'Nessun adulto libero' : 'Aggiungi un adulto'} onClick={() => setWorkers(act.id, n + 1)}>+</button>
+      </div>
+    );
+  };
 
   const pct = house.cap > 0 ? Math.min(100, Math.round((pop / house.cap) * 100)) : 0;
   const full = house.found && house.cap > 0 && pop >= house.cap;
@@ -134,6 +177,8 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
         <div style={{ padding: '7px 9px' }}>
           <div className="h2" style={{ fontSize: 13, lineHeight: 1.25 }}>{act.name}</div>
           <div className="small" style={{ fontSize: 11, marginTop: 1, color: st.capo ? 'var(--gold-dim)' : 'var(--gray-purple)' }}>{st.capo ? st.capo.name : 'Casella vuota'}</div>
+          {/* Adulti al lavoro, sotto chi tiene l'attività */}
+          {postsOf(s, act) > 0 && <div style={{ marginTop: 6 }}>{workerStepper(act)}</div>}
         </div>
       </div>
     );
@@ -164,6 +209,63 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
             <div style={{ marginTop: 6 }}>{aptLine(st.capo, act.id, st.seat, st.state === 'active')}</div>
           </div>
         )}
+
+        {/* Adulti al lavoro */}
+        {(() => {
+          const posts = postsOf(s, act);
+          const n = workers[act.id] || 0;
+          const wp = workerPctOf(act);
+          const makes = productsOf(act).length > 0;
+          // Livelli di cui il DM fissa i posti: uno solo per le attività
+          // senza edificio, altrimenti dal livello richiesto al massimo.
+          const levels: number[] = act.building === 'none' ? [1]
+            : Array.from({ length: Math.max(st.building ? Math.max(st.building.maxLevel || 0, st.building.level || 0) : 4, st.need) - st.need + 1 }, (_, i) => st.need + i);
+          const curLevel = act.building === 'none' ? 1 : (st.building?.level ?? -1);
+          const setPost = (lv: number, v: number) => {
+            const list = [...(act.posts || [])];
+            for (let i = 0; i <= lv; i++) if (typeof list[i] !== 'number') list[i] = 0;
+            list[lv] = Math.max(0, v);
+            patchAct(act.id, { posts: list });
+          };
+          if (posts <= 0 && !s.dmMode) return null;
+          return (
+            <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
+                <div className="label" style={{ fontSize: 8 }}>Adulti al lavoro</div>
+                <span className="small muted" style={{ fontSize: 10 }}>{idle} {idle === 1 ? 'adulto libero' : 'adulti liberi'} in paese</span>
+              </div>
+              {posts > 0 ? (
+                <>
+                  {workerStepper(act, true)}
+                  <div className="small muted" style={{ fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>
+                    {makes
+                      ? (n > 0
+                          ? <>Ogni adulto aggiunge il {wp}% alla resa di base: ora <b style={{ color: 'var(--green)' }}>+{n * wp}%</b>.</>
+                          : <>Ogni adulto messo al lavoro qui aggiunge il {wp}% alla resa di base.</>)
+                      : <>Quest'attività non deposita nulla in magazzino: per ora gli adulti che vi lavorano non cambiano alcun conto.</>}
+                    {st.state !== 'active' && n > 0 && <> Finché l'attività è ferma, però, non rende nulla.</>}
+                  </div>
+                </>
+              ) : (
+                <div className="small muted" style={{ fontSize: 11 }}>{st.state === 'unbuilt' || st.state === 'low' ? 'Nessun posto finché l\'edificio non è al livello richiesto.' : 'Nessun posto di lavoro a questo livello: fissane il numero qui sotto.'}</div>
+              )}
+              {s.dmMode && (
+                <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap', marginTop: 8 }}>
+                  <span className="small muted" style={{ fontSize: 10 }}>Posti</span>
+                  {levels.map(lv => (
+                    <div key={lv} className="row" style={{ gap: 3, alignItems: 'center' }}>
+                      {act.building !== 'none' && <span className="small" style={{ fontSize: 10, color: lv === curLevel ? 'var(--gold)' : 'var(--gray-purple)', fontWeight: lv === curLevel ? 600 : 400 }}>liv. {lv}</span>}
+                      <NumberInput value={act.posts?.[lv] || 0} min={0} onChange={v => setPost(lv, v)} style={{ ...num, width: 44 }} title={act.building === 'none' ? 'Posti di lavoro' : `Posti di lavoro al livello ${lv}`} />
+                    </div>
+                  ))}
+                  <span className="small muted" style={{ fontSize: 10, marginLeft: 4 }}>ogni adulto +</span>
+                  <NumberInput value={wp} min={0} onChange={v => patchAct(act.id, { workerPct: v })} style={{ ...num, width: 44 }} title="Punti percentuali che ogni adulto aggiunge alla resa di base" />
+                  <span className="small muted" style={{ fontSize: 10 }}>%</span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
           <div className="label" style={{ fontSize: 8, marginBottom: 6 }}>{st.capo ? 'Affida ad altri' : 'A chi affidarla'}</div>
@@ -235,6 +337,27 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
           </div>
         )}
         {full && <div className="small muted" style={{ fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>Finché le case non vengono ampliate, chi arriva non trova dove fermarsi.</div>}
+
+        {/* Le tre fasce d'età */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12, paddingTop: 11, borderTop: '1px solid var(--border)' }}>
+          {AGES.map(a => (
+            <div key={a.k} className="row" style={{ gap: 7, alignItems: 'center', minWidth: 0 }} title={`${a.label}: ${agePct[a.k]}% degli abitanti`}>
+              <span style={{ flexShrink: 0, display: 'flex' }}>{AGE_ICON[a.k](a.color)}</span>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: a.color, lineHeight: 1.1 }}>{ages[a.k]}</div>
+                <div className="small muted" style={{ fontSize: 9.5, letterSpacing: '.4px' }}>{a.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        {pop > 0 && (
+          <div style={{ display: 'flex', height: 5, borderRadius: 3, overflow: 'hidden', border: '1px solid var(--border)', marginTop: 9 }}>
+            {AGES.map(a => <div key={a.k} style={{ width: (ages[a.k] / pop * 100) + '%', background: a.color, opacity: a.k === 'adults' ? 1 : .7 }} />)}
+          </div>
+        )}
+        <div className="small muted" style={{ fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>
+          Degli adulti, {ages.adults - idle} {ages.adults - idle === 1 ? 'lavora' : 'lavorano'} nelle attività e {idle} {idle === 1 ? 'è libero' : 'sono liberi'}.
+        </div>
       </div>
 
       {/* La porta del villaggio */}
@@ -292,6 +415,16 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
                   : <>Nessun tiro ancora. </>}
                 Il prossimo cade fra {daysToGrowth(today)} giorni: si tira un mercato sì e uno no.{' '}
                 Con {NOTABLE_MIN}–12 sul tiro nudo si presenta un notabile del mazzo.
+              </div>
+
+              {/* Fasce d'età */}
+              <div className="label" style={{ fontSize: 8, marginBottom: 5 }}>Fasce d'età</div>
+              <div className="row" style={{ gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+                <span className="small muted" style={{ fontSize: 10 }}>adulti</span>
+                <NumberInput value={agePct.adults} min={0} max={100} onChange={n => update({ villageAges: { adults: n, kids: Math.min(agePct.kids, 100 - n) } } as any)} style={{ ...num, width: 46 }} title="Quota degli adulti sugli abitanti" />
+                <span className="small muted" style={{ fontSize: 10 }}>% · bambini</span>
+                <NumberInput value={agePct.kids} min={0} max={100 - agePct.adults} onChange={n => update({ villageAges: { adults: agePct.adults, kids: n } } as any)} style={{ ...num, width: 46 }} title="Quota dei bambini sugli abitanti" />
+                <span className="small muted" style={{ fontSize: 10 }}>% · anziani {agePct.elders}%, il resto</span>
               </div>
 
               {/* Case: capienza e fattore per livello */}

@@ -305,6 +305,8 @@ export interface CampaignState {
   villageDismissed?: string[];                                // id dei notabili respinti
   villageActivities?: import('./dnd/village').Activity[];     // catalogo delle attività (copy-on-write dai predefiniti)
   villageAssign?: import('./dnd/village').VillageAssign;      // chi tiene ciascuna attività — scritta dai giocatori
+  villageWorkers?: import('./dnd/village').VillageWorkers;    // adulti assegnati a ciascuna attività — scritta dai giocatori
+  villageAges?: import('./dnd/village').AgeSplit;             // quote percentuali di adulti e bambini; gli anziani sono il resto
   // ── Magazzino: giacenza = villageStock − villageDrawn (si veda lib/dnd/storehouse.ts) ──
   villageStock?: import('./dnd/storehouse').Tally;            // reso dalle attività meno il consumato — calendario e DM
   villageDrawn?: import('./dnd/storehouse').Tally;            // prelevato meno il riposto — giocatori

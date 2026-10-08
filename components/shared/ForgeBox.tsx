@@ -15,6 +15,13 @@ import { sfxComplete } from '@/lib/dnd/sounds';
 
 const FORGEABLE_TYPES = ['arma', 'armatura', 'unico', 'magico'];
 
+// Slot di potenziamento occupati. Il contatore `enhUsed` si ritocca a mano
+// dall'inventario e può restare indietro rispetto ai lavori davvero
+// applicati: fra i due vale il maggiore, così un oggetto già lavorato non
+// risulta libero soltanto perché il contatore non è stato aggiornato.
+const slotsUsed = (it: any): number => Math.max(it?.enhUsed ?? 0, (it?.upgrades || []).length);
+const hasFreeSlot = (it: any): boolean => slotsUsed(it) < (it?.enhSlots ?? 0);
+
 /** Dicitura con cui nominare la famiglia dell'oggetto nelle spiegazioni. */
 const SCOPE_WORD: Record<string, string> = {
   tutte: 'questo oggetto', arma: "un'arma", armatura: "un'armatura", scudo: 'uno scudo',
@@ -83,13 +90,14 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   };
 
   const mats = reqMats(upgrade);
-  // Gli oggetti senza slot liberi non compaiono affatto: mostrarli per poi
-  // rifiutarli è un passaggio di troppo. Restano visibili al DM, che deve
-  // poterne correggere il conteggio.
+  // Gli oggetti senza slot liberi non compaiono affatto, nemmeno al DM: un
+  // oggetto già potenziato fino in fondo non è potenziabile, e mostrarlo per
+  // poi rifiutarlo è un passaggio di troppo. Il conteggio degli slot si
+  // corregge dall'inventario, non da qui.
   const forgeable = (player?.inventory || []).filter(it =>
     FORGEABLE_TYPES.includes(it.type)
     && (s.dmMode || (it as any).revealed !== false)
-    && (s.dmMode || ((it as any).enhUsed ?? 0) < ((it as any).enhSlots ?? 0)));
+    && hasFreeSlot(it));
   const matChoices = armoryMaterials(s);
   const missingMats = missingMaterials(s);
   // Il confronto è tollerante a maiuscole e spazi: la ricetta «Bordi
@@ -103,7 +111,7 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   });
   const materialsOk = matState.every(m => m.ok);
   const alreadyApplied = !!(item && upgrade && ((item as any).upgrades || []).some((u: any) => u.name === upgrade.name));
-  const freeSlot = !!(item && ((item as any).enhUsed ?? 0) < ((item as any).enhSlots ?? 0));
+  const freeSlot = !!(item && hasFreeSlot(item));
   // La fucina lavora soltanto se qualcuno la tiene: la casella si riempie
   // nel riquadro «Gli abitanti». Le commesse già avviate restano ritirabili.
   const open = shopOpen(s, ACT_FORGE);
@@ -126,7 +134,7 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
       return { ...pl, inventory: pl.inventory.map((it: any) =>
         it.id === itId
           ? { ...it, upgrades: [...(it.upgrades || []), { name: upgName, desc: upgDesc }],
-              enhUsed: Math.min((it.enhSlots ?? 0), (it.enhUsed ?? 0) + 1) }
+              enhUsed: Math.min((it.enhSlots ?? 0), slotsUsed(it) + 1) }
           : it) };
     });
 
@@ -183,7 +191,7 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
           it.id === item.id
             ? ({ ...it,
                 upgrades: [ ...((it as any).upgrades || []), { name: upgrade.name, desc: upgrade.desc } ],
-                enhUsed: Math.min(((it as any).enhSlots ?? 0), ((it as any).enhUsed ?? 0) + 1),
+                enhUsed: Math.min(((it as any).enhSlots ?? 0), slotsUsed(it) + 1),
               } as any)
             : it
         );
@@ -257,17 +265,15 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
               <div className="forge-picker">
                 {forgeable.map(it => {
                   const on = itemId === it.id;
-                  const full = ((it as any).enhUsed ?? 0) >= ((it as any).enhSlots ?? 0);
                   return (
                     <button key={it.id} className={'forge-pick' + (on ? ' on' : '')}
-                      title={it.name + (full ? ' — nessuno slot libero' : '')}
+                      title={it.name}
                       onClick={() => { setItemId(on ? '' : it.id); setDone(null); }}>
                       <span className="forge-pick-img">
                         <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%"
                           dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
                       </span>
                       {((it as any).upgrades || []).length > 0 && <span className="forge-pick-mark">⚒</span>}
-                      {full && <span className="forge-pick-full">pieno</span>}
                       <span className="forge-pick-name">{it.name}</span>
                     </button>
                   );
@@ -277,7 +283,7 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
 
             {item && (
               <div className="small muted" style={{ marginTop: 6 }}>
-                Slot: {((item as any).enhUsed ?? 0)} / {((item as any).enhSlots ?? 0)} occupati
+                Slot: {slotsUsed(item)} / {((item as any).enhSlots ?? 0)} occupati
                 {((item as any).upgrades || []).length > 0 && <> · {((item as any).upgrades || []).map((u: any) => u.name).join(', ')}</>}
               </div>
             )}

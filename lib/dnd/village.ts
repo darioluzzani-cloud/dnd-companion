@@ -156,8 +156,9 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
   let stockTouched = false;
   const drawn = (s?.villageDrawn || {}) as Tally;
   const have = (id: string) => Math.max(0, (stock[id] || 0) - (drawn[id] || 0));
-  const yields = weeklyYields(s);
-  const madeTotal: Record<string, number> = {};
+  // La resa si ricalcola a ogni mercato sugli abitanti di quel momento: una
+  // carestia che sfoltisce il villaggio sfoltisce anche gli adulti al lavoro.
+  const madeTotal: Record<string, { label: string; qty: number }> = {};
   const ration = rationEntry(s);
   const hungerOn = !!s?.villageHunger && !!ration;
   let hunger: HungerState = led.hunger || { streak: 0 };
@@ -166,10 +167,10 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
   for (let d = base + 1; d <= toAbs; d++) {
     if (isMarketAbs(d)) {
       // 1. Produzione della settimana.
-      for (const y of yields) {
+      for (const y of weeklyYields(pop === pop0 ? s : { ...s, villagePop: pop })) {
         stock = addTo(stock, y.entry.id, y.qty);
         const k = y.activity.id + '|' + y.entry.id;
-        madeTotal[k] = (madeTotal[k] || 0) + y.qty;
+        madeTotal[k] = { label: `${y.activity.name}: +{n} ${y.entry.name}`, qty: (madeTotal[k]?.qty || 0) + y.qty };
         stockTouched = true;
       }
       // 2. Consumo: la quota degli abitanti, per i sei giorni trascorsi.
@@ -212,8 +213,7 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
     const why = !found ? ' — nessun edificio delle case' : starving ? ' — penuria: nessuno si ferma' : mult === 0 ? ' — a questo livello non si cresce' : gained < want ? ' — case piene' : '';
     grew.push(`Abitanti: 3d4 = ${sum} (${dice.join(' · ')})${mult > 1 ? ' × ' + mult : ''} → +${gained}, ora ${pop}${why}`);
   }
-  const made = yields.filter(y => madeTotal[y.activity.id + '|' + y.entry.id])
-    .map(y => `${y.activity.name}: +${madeTotal[y.activity.id + '|' + y.entry.id]} ${y.entry.name}`);
+  const made = Object.values(madeTotal).map(m => m.label.replace('{n}', String(m.qty)));
 
   // ── Capi al lavoro da una settimana: si vede ciò che valgono ──
   // Il controllo guarda lo stato, non il passaggio: chi ha già maturato la
@@ -266,6 +266,12 @@ export interface Activity {
    *  d'armeria con la loro quantità. La forma a oggetto singolo è quella
    *  della prima stesura e resta leggibile: si passa sempre da `productsOf`. */
   produces?: Product[] | Product;
+  /** Posti di lavoro per livello dell'edificio (indice = livello), fissati
+   *  dal DM. Per le attività senza edificio vale la voce d'indice 1. */
+  posts?: number[];
+  /** Punti percentuali che ogni adulto al lavoro aggiunge alla resa di
+   *  base; assente = WORKER_PCT_DEFAULT. */
+  workerPct?: number;
 }
 
 /** Un prodotto settimanale: voce d'armeria, quantità, ed eventuale
@@ -421,14 +427,102 @@ export function buildDays(s: any, days: number): number {
   return Math.max(1, Math.round(Math.max(1, days) * (100 - pct) / 100));
 }
 
+// ─── FASCE D'ETÀ E ADULTI AL LAVORO ──────────────────────────
+// Gli abitanti si dividono in adulti, bambini e anziani secondo due quote
+// percentuali fissate dal DM; gli anziani sono ciò che resta. Le fasce non
+// si contano una per una: discendono dal numero degli abitanti, e crescono
+// o calano con lui.
+//
+// Gli adulti sono il bacino che i giocatori distribuiscono fra le attività,
+// entro i posti di lavoro che il DM ha fissato per il livello dell'edificio.
+// L'assegnazione vive in una chiave propria, scritta dai soli giocatori; ciò
+// che conta davvero è però la lettura «effettiva», che la ricorta su adulti
+// e posti disponibili in quel momento: se una carestia toglie gente, o un
+// edificio viene abbassato, nessuno resta al lavoro in un posto che non c'è.
+
+export interface AgeSplit { adults: number; kids: number; }   // quote percentuali; gli anziani sono il resto
+export const DEFAULT_AGES: AgeSplit = { adults: 60, kids: 25 };
+export const WORKER_PCT_DEFAULT = 10;
+
+export function agePctOf(s: any): { adults: number; kids: number; elders: number } {
+  const a = s?.villageAges as AgeSplit | undefined;
+  const clamp = (n: any, d: number) => (typeof n === 'number' && n >= 0 ? Math.min(100, Math.floor(n)) : d);
+  const adults = clamp(a?.adults, DEFAULT_AGES.adults);
+  const kids = Math.min(100 - adults, clamp(a?.kids, DEFAULT_AGES.kids));
+  return { adults, kids, elders: 100 - adults - kids };
+}
+
+/** Gli abitanti per fascia. La somma coincide sempre col totale: gli
+ *  arrotondamenti ricadono sugli anziani, e in subordine sui bambini. */
+export function agesOf(s: any): { adults: number; kids: number; elders: number } {
+  const pop = popOf(s), pct = agePctOf(s);
+  const adults = Math.min(pop, Math.round(pop * pct.adults / 100));
+  const kids = Math.min(pop - adults, Math.round(pop * pct.kids / 100));
+  return { adults, kids, elders: pop - adults - kids };
+}
+
+export type VillageWorkers = Record<string, number>;   // attività → adulti assegnati
+
+/** Posti di lavoro di un'attività al livello corrente del suo edificio. */
+export function postsOf(s: any, act: Activity): number {
+  const st = activityStatus(s, act.id);
+  if (st.state === 'unbuilt' || st.state === 'low') return 0;
+  const level = act.building === 'none' ? 1 : Math.max(0, Math.floor(st.building?.level || 0));
+  return Math.max(0, Math.floor(act.posts?.[level] || 0));
+}
+
+/** Gli adulti davvero al lavoro: l'assegnazione dei giocatori, ricortata
+ *  sui posti di ciascuna attività e, nell'ordine del catalogo, sul numero
+ *  degli adulti del villaggio. */
+export function workersOf(s: any): VillageWorkers {
+  const raw = (s?.villageWorkers || {}) as VillageWorkers;
+  let left = agesOf(s).adults;
+  const out: VillageWorkers = {};
+  for (const act of activitiesOf(s)) {
+    const n = Math.max(0, Math.min(Math.floor(raw[act.id] || 0), postsOf(s, act), left));
+    if (n > 0) out[act.id] = n;
+    left -= n;
+  }
+  return out;
+}
+
+export const freeAdults = (s: any): number =>
+  agesOf(s).adults - Object.values(workersOf(s)).reduce((a, b) => a + b, 0);
+
+/** Porta a `n` gli adulti di un'attività, entro posti e adulti liberi. */
+export function withWorkers(s: any, actId: string, n: number): VillageWorkers {
+  const cur = workersOf(s);
+  const act = activitiesOf(s).find(a => a.id === actId);
+  if (!act) return cur;
+  const room = freeAdults(s) + (cur[actId] || 0);
+  const next = Math.max(0, Math.min(Math.floor(n), postsOf(s, act), room));
+  const out = { ...cur };
+  if (next > 0) out[actId] = next; else delete out[actId];
+  return out;
+}
+
+export const workerPctOf = (act?: Activity): number =>
+  typeof act?.workerPct === 'number' && act.workerPct >= 0 ? act.workerPct : WORKER_PCT_DEFAULT;
+
 // ─── Produzione settimanale ──────────────────────────────────
 // Un'attività attiva rende, a ogni mercato, i prodotti dichiarati dal DM
-// nella scheda della bottega. Il modificatore di chi la tiene si somma in
-// unità al primo prodotto dell'elenco — quello principale — e vale dal
-// primo giorno, anche quando i giocatori non l'hanno ancora visto. Per i
-// Costruttori il modificatore è già speso sui cantieri e qui non conta.
+// nella scheda della bottega. Tre cose concorrono alla quantità:
+//   · la resa di base, eventualmente moltiplicata per il livello dell'edificio;
+//   · gli adulti al lavoro, ciascuno dei quali vi aggiunge una percentuale;
+//   · il modificatore di chi la tiene, sommato in unità al primo prodotto
+//     dell'elenco — quello principale — e valido dal primo giorno, anche
+//     quando i giocatori non l'hanno ancora visto.
+// Per i Costruttori il modificatore è già speso sui cantieri e qui non conta.
 
-export interface WeeklyYield { activity: Activity; entry: any; base: number; mod: number; qty: number; perLevel: boolean; index: number; }
+export interface WeeklyYield {
+  activity: Activity; entry: any; index: number; perLevel: boolean;
+  base: number;        // resa senza adulti e senza capo
+  workers: number;     // adulti al lavoro
+  boost: number;       // punti percentuali aggiunti dagli adulti
+  worked: number;      // resa con gli adulti, prima del capo
+  mod: number;         // unità aggiunte o tolte da chi tiene l'attività
+  qty: number;         // ciò che arriva in magazzino
+}
 
 /** Ciò che un'attività renderebbe al prossimo mercato, prodotto per prodotto.
  *  Le voci non più presenti in armeria si saltano. */
@@ -436,13 +530,16 @@ export function yieldsOf(s: any, act: Activity): WeeklyYield[] {
   const st = activityStatus(s, act.id);
   const level = Math.max(1, Math.floor(st.building?.level || 1));
   const capoMod = st.capo && act.id !== ACT_BUILDERS ? (aptitudeOf(st.capo, act.id)?.mod || 0) : 0;
+  const workers = workersOf(s)[act.id] || 0;
+  const boost = workers * workerPctOf(act);
   const out: WeeklyYield[] = [];
   productsOf(act).forEach((p, index) => {
     const entry = ((s?.armory || []) as any[]).find(e => e.id === p.armoryId);
     if (!entry) return;
     const base = Math.max(0, Math.floor(p.qty || 0)) * (p.perLevel ? level : 1);
+    const worked = Math.round(base * (100 + boost) / 100);
     const mod = out.length === 0 ? capoMod : 0;
-    out.push({ activity: act, entry, base, mod, qty: Math.max(0, base + mod), perLevel: !!p.perLevel, index });
+    out.push({ activity: act, entry, index, perLevel: !!p.perLevel, base, workers, boost, worked, mod, qty: Math.max(0, worked + mod) });
   });
   return out;
 }

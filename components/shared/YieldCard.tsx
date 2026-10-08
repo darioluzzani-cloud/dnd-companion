@@ -10,7 +10,9 @@ import { Product, activitiesOf, activityStatus, productsOf, yieldsOf, isKnown } 
 // Ciò che una bottega deposita in magazzino a ogni mercato, mostrato dentro
 // il menù della bottega stessa: un riquadro per oggetto, con la sua
 // illustrazione d'armeria e la quantità. Lo vedono tutti; in modalità DM gli
-// stessi riquadri si scelgono, si correggono e si tolgono sul posto.
+// stessi riquadri si scelgono, si correggono e si tolgono sul posto. La
+// quantità che il DM dichiara è la resa di base; gli adulti messi al lavoro
+// nel riquadro «Gli abitanti» vi aggiungono la loro percentuale.
 //
 // Gli oggetti si pescano soltanto dall'armeria, e finiscono soltanto nel
 // magazzino. La scheda è una sola per tutte le botteghe: compare nella
@@ -61,7 +63,7 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {ys.map(y => {
             const p = products.find(x => x.armoryId === y.entry.id);
-            const shown = known ? y.qty : y.base;
+            const shown = known ? y.qty : y.worked;
             return (
               <div key={y.entry.id} style={{ width: 84 }}>
                 <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 8, overflow: 'hidden', border: '1px solid ' + color, background: 'var(--bg-deep)',
@@ -71,8 +73,11 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
                   <span style={{ position: 'absolute', bottom: 2, right: 5, fontSize: 14, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px #000, 0 0 6px #000' }}>×{shown}</span>
                 </div>
                 <div style={{ fontSize: 10.5, lineHeight: 1.25, marginTop: 4, textAlign: 'center', fontFamily: 'var(--font-display)', color: 'var(--text-card)' }}>{y.entry.name}</div>
-                {known && y.mod !== 0 && (
-                  <div className="small muted" style={{ fontSize: 9, textAlign: 'center', marginTop: 1 }}>{y.base} {y.mod > 0 ? '+' : '−'} {Math.abs(y.mod)}</div>
+                {/* Come si arriva alla quantità: base, adulti al lavoro, capo. */}
+                {(y.boost > 0 || (known && y.mod !== 0)) && (
+                  <div className="small muted" style={{ fontSize: 9, textAlign: 'center', marginTop: 1 }}>
+                    {y.base}{y.boost > 0 ? ` +${y.boost}%` : ''}{known && y.mod !== 0 ? ` ${y.mod > 0 ? '+' : '−'} ${Math.abs(y.mod)}` : ''}
+                  </div>
                 )}
                 {s.dmMode && p && (
                   <div style={{ marginTop: 5 }}>
@@ -97,6 +102,11 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
 
       {!active && ys.length > 0 && (
         <div className="small muted" style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>La bottega è ferma: finché non riprende a lavorare, al magazzino non arriva nulla.</div>
+      )}
+      {active && ys.length > 0 && ys[0].workers > 0 && (
+        <div className="small muted" style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
+          {ys[0].workers === 1 ? 'Un adulto al lavoro aggiunge' : `${ys[0].workers} adulti al lavoro aggiungono`} il {ys[0].boost}% alla resa di base.
+        </div>
       )}
       {active && ys.length > 0 && st.capo && !known && (
         <div className="small muted" style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>Chi la tiene può aggiungervi o togliervi qualcosa: si vedrà dopo una settimana di lavoro.</div>
