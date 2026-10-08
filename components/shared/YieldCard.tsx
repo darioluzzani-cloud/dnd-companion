@@ -4,16 +4,17 @@ import { CampaignState } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { NumberInput } from '@/components/shared/textUtils';
-import { Product, activitiesOf, activityStatus, productsOf, yieldsOf, isKnown, postsOf, perWorkerOf } from '@/lib/dnd/village';
+import { Product, activitiesOf, activityStatus, productsOf, yieldsOf, isKnown, postsOf, stepsOf, nextStep, WorkStep } from '@/lib/dnd/village';
 
 // ─── PRODUZIONE SETTIMANALE ──────────────────────────────────
 // Ciò che una bottega deposita in magazzino a ogni mercato, mostrato dentro
 // il menù della bottega stessa: un riquadro per oggetto, con la sua
 // illustrazione d'armeria e la quantità. Lo vedono tutti; in modalità DM gli
 // stessi riquadri si scelgono, si correggono e si tolgono sul posto. La
-// quantità che il DM dichiara è la resa di base; ogni adulto messo al lavoro
-// nel riquadro «Gli abitanti» vi aggiunge un numero fisso di pezzi, che il
-// DM fissa oggetto per oggetto e che tutti leggono sotto il riquadro.
+// quantità che il DM dichiara è la resa di base. Gli adulti messi al lavoro
+// nel riquadro «Gli abitanti» vi aggiungono pezzi soltanto al raggiungere
+// delle soglie che il DM fissa oggetto per oggetto — «3 adulti → +1» — e
+// che tutti leggono sotto il riquadro, con quelle già raggiunte in evidenza.
 //
 // Gli oggetti si pescano soltanto dall'armeria, e finiscono soltanto nel
 // magazzino. La scheda è una sola per tutte le botteghe: compare nella
@@ -50,6 +51,12 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
   const products = productsOf(act).filter(p => inArmory(p.armoryId));
   const free = armory.filter(e => !products.some(p => p.armoryId === e.id));
   const hasPosts = postsOf(s, act) > 0;
+  // Il DM vede e scrive le soglie nell'ordine in cui le ha inserite: a
+  // metterle in fila pensa la lettura (`stepsOf`), non la scrittura, così
+  // una riga non cambia posto sotto le dita mentre se ne batte il numero.
+  const rawSteps = (p: Product): WorkStep[] => (p.steps || []) as WorkStep[];
+  const setStep = (p: Product, i: number, change: Partial<WorkStep>) =>
+    patch(p.armoryId, { steps: rawSteps(p).map((x, k) => k === i ? { ...x, ...change } : x) });
   const num = { width: 44, textAlign: 'center', fontSize: 11, padding: '2px 3px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 4 } as const;
 
   return (
@@ -67,7 +74,7 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
             const p = products.find(x => x.armoryId === y.entry.id);
             const shown = known ? y.qty : y.worked;
             return (
-              <div key={y.entry.id} style={{ width: 84 }}>
+              <div key={y.entry.id} style={{ width: s.dmMode ? 118 : 92 }}>
                 <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 8, overflow: 'hidden', border: '1px solid ' + color, background: 'var(--bg-deep)',
                   opacity: active ? 1 : .5, filter: active ? 'none' : 'grayscale(.7)' }}>
                   <ImageSlot slotId={'item-' + y.entry.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false}
@@ -81,9 +88,20 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
                     {y.base}{y.extra > 0 ? ` + ${y.extra}` : ''}{known && y.mod !== 0 ? ` ${y.mod > 0 ? '+' : '−'} ${Math.abs(y.mod)}` : ''}
                   </div>
                 )}
-                {/* Quanto vale un adulto, per chi deve decidere dove mandarlo. */}
-                {!s.dmMode && hasPosts && y.perWorker > 0 && (
-                  <div className="small" style={{ fontSize: 9, textAlign: 'center', marginTop: 1, color: 'var(--gold-dim)' }}>+{y.perWorker} per adulto</div>
+                {/* Le soglie, per chi deve decidere dove mandare gli adulti:
+                    quelle raggiunte in chiaro, la prossima in evidenza. */}
+                {!s.dmMode && hasPosts && y.steps.length > 0 && (
+                  <div style={{ marginTop: 3 }}>
+                    {y.steps.map((st, i) => {
+                      const got = st.adults <= y.workers, nxt = y.next === st;
+                      return (
+                        <div key={i} className="small" style={{ fontSize: 9, textAlign: 'center', lineHeight: 1.45,
+                          color: got ? 'var(--green)' : nxt ? 'var(--gold-dim)' : 'var(--gray-purple)', opacity: got || nxt ? 1 : .7 }}>
+                          {got ? '✓ ' : ''}{st.adults} adulti → +{st.bonus}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
                 {s.dmMode && p && (
                   <div style={{ marginTop: 5 }}>
@@ -92,17 +110,26 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
                       <button className="btn btn-danger btn-ghost" style={{ fontSize: 10, padding: '1px 6px' }} title="Togli dalla produzione"
                         onClick={() => write(list => list.filter(x => x.armoryId !== p.armoryId))}>&times;</button>
                     </div>
-                    <div className="row" style={{ gap: 3, alignItems: 'center', justifyContent: 'center', marginTop: 3 }} title="Pezzi che ogni adulto al lavoro aggiunge a questo oggetto">
-                      <span className="small muted" style={{ fontSize: 9 }}>+</span>
-                      <NumberInput value={perWorkerOf(p)} min={0} onChange={n => patch(p.armoryId, { perWorker: n })} style={{ ...num, width: 34 }} title="Pezzi per adulto" />
-                      <span className="small muted" style={{ fontSize: 9 }}>/adulto</span>
-                    </div>
                     {act.building !== 'none' && (
                       <label className="row" style={{ gap: 3, alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginTop: 3 }} title="Moltiplica la quantità di base per il livello dell'edificio">
                         <input type="checkbox" checked={!!p.perLevel} onChange={e => patch(p.armoryId, { perLevel: e.target.checked || undefined })} />
                         <span className="small muted" style={{ fontSize: 9 }}>× livello</span>
                       </label>
                     )}
+                    {/* Soglie di adulti: quanti ne servono, quanti pezzi in più rendono. */}
+                    <div className="small muted" style={{ fontSize: 8.5, textAlign: 'center', marginTop: 6, letterSpacing: '.3px' }}>adulti → pezzi in più</div>
+                    {rawSteps(p).map((st, i) => (
+                      <div key={i} className="row" style={{ gap: 2, alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+                        <NumberInput value={st.adults} min={1} onChange={n => setStep(p, i, { adults: n })} style={{ ...num, width: 34 }} title="Adulti al lavoro necessari" />
+                        <span className="small muted" style={{ fontSize: 9 }}>→ +</span>
+                        <NumberInput value={st.bonus} min={0} onChange={n => setStep(p, i, { bonus: n })} style={{ ...num, width: 34 }} title="Pezzi in più a questa soglia, in tutto" />
+                        <button className="btn btn-danger btn-ghost" style={{ fontSize: 9, padding: '0 4px' }} title="Togli la soglia"
+                          onClick={() => patch(p.armoryId, { steps: rawSteps(p).filter((_, k) => k !== i) })}>&times;</button>
+                      </div>
+                    ))}
+                    <button className="btn btn-ghost" style={{ fontSize: 9, padding: '1px 6px', width: '100%', marginTop: 3 }}
+                      title="Aggiunge una soglia che prosegue la scala delle precedenti"
+                      onClick={() => patch(p.armoryId, { steps: [...rawSteps(p), nextStep(stepsOf(p))] })}>+ soglia</button>
                   </div>
                 )}
               </div>
@@ -116,7 +143,8 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
       )}
       {active && ys.length > 0 && ys[0].workers > 0 && (
         <div className="small muted" style={{ fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
-          {ys[0].workers === 1 ? 'Un adulto al lavoro: i suoi pezzi sono già nel conto.' : `${ys[0].workers} adulti al lavoro: i loro pezzi sono già nel conto.`}
+          {ys[0].workers === 1 ? 'Un adulto al lavoro.' : `${ys[0].workers} adulti al lavoro.`}{' '}
+          {ys.some(y => y.extra > 0) ? 'I pezzi delle soglie raggiunte sono già nel conto.' : ys.some(y => y.steps.length > 0) ? 'Nessuna soglia è ancora raggiunta.' : 'Qui gli adulti non aggiungono pezzi.'}
         </div>
       )}
       {active && ys.length > 0 && st.capo && !known && (

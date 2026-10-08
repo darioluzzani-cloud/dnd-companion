@@ -214,9 +214,9 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
         {(() => {
           const posts = postsOf(s, act);
           const n = workers[act.id] || 0;
-          // Ciò che un adulto aggiunge, oggetto per oggetto: i numeri si
+          // Ciò che gli adulti aggiungono, oggetto per oggetto: le soglie si
           // fissano nella scheda «Produzione settimanale», qui si leggono.
-          const gains = yieldsOf(s, act).filter(y => y.perWorker > 0);
+          const gains = yieldsOf(s, act).filter(y => y.steps.length > 0);
           const makes = yieldsOf(s, act).length > 0;
           // Livelli di cui il DM fissa i posti: uno solo per le attività
           // senza edificio, altrimenti dal livello richiesto al massimo.
@@ -243,8 +243,11 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
                     {!makes
                       ? <>Quest'attività non deposita nulla in magazzino: per ora gli adulti che vi lavorano non cambiano alcun conto.</>
                       : gains.length === 0
-                        ? <>Qui un adulto in più non aggiunge pezzi alla produzione.</>
-                        : <>Ogni adulto al lavoro aggiunge a ogni mercato {gains.map(y => `${y.perWorker} × ${y.entry.name}`).join(', ')}{n > 0 ? <>: ora <b style={{ color: 'var(--green)' }}>{gains.map(y => `+${y.extra}`).join(', ')}</b></> : null}.</>}
+                        ? <>Qui gli adulti non aggiungono pezzi alla produzione{s.dmMode ? ': le soglie si fissano nella scheda «Produzione settimanale».' : '.'}</>
+                        : gains.map((y, i) => (
+                            <span key={y.entry.id}>{i > 0 ? ' ' : ''}{y.entry.name}: {y.extra > 0 ? <b style={{ color: 'var(--green)' }}>+{y.extra}</b> : 'nessun pezzo in più'}
+                              {y.next ? <>, prossima soglia a {y.next.adults} adulti (+{y.next.bonus})</> : <>, ultima soglia raggiunta</>}.</span>
+                          ))}
                     {st.state !== 'active' && n > 0 && <> Finché l'attività è ferma, però, non rende nulla.</>}
                   </div>
                 </>

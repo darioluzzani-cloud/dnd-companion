@@ -271,14 +271,42 @@ export interface Activity {
   posts?: number[];
 }
 
-/** Un prodotto settimanale: voce d'armeria, quantità di base, eventuale
- *  moltiplicazione per il livello dell'edificio, e i pezzi che ogni adulto
- *  al lavoro vi aggiunge (assente = PER_WORKER_DEFAULT). */
-export interface Product { armoryId: string; qty: number; perLevel?: boolean; perWorker?: number; }
+/** Una soglia: quanti adulti al lavoro servono, e quanti pezzi in più
+ *  rende il prodotto una volta raggiunta. Il bonus è il totale a quella
+ *  soglia, non un'aggiunta alla precedente. */
+export interface WorkStep { adults: number; bonus: number; }
 
-export const PER_WORKER_DEFAULT = 1;
-export const perWorkerOf = (p?: Product): number =>
-  typeof p?.perWorker === 'number' && p.perWorker >= 0 ? Math.floor(p.perWorker) : PER_WORKER_DEFAULT;
+/** Un prodotto settimanale: voce d'armeria, quantità di base, eventuale
+ *  moltiplicazione per il livello dell'edificio, e le soglie di adulti che
+ *  il DM fissa una per una. Senza soglie gli adulti non aggiungono nulla:
+ *  nessuna corrispondenza automatica fra un adulto e un pezzo. */
+export interface Product { armoryId: string; qty: number; perLevel?: boolean; steps?: WorkStep[]; }
+
+/** Le soglie di un prodotto, ripulite e in ordine di adulti richiesti. */
+export function stepsOf(p?: Product): WorkStep[] {
+  return ((p?.steps || []) as WorkStep[])
+    .map(x => ({ adults: Math.max(1, Math.floor(x?.adults || 0)), bonus: Math.max(0, Math.floor(x?.bonus || 0)) }))
+    .sort((x, y) => x.adults - y.adults);
+}
+
+/** Pezzi in più con `workers` adulti al lavoro: vale l'ultima soglia
+ *  raggiunta; sotto la prima non si aggiunge nulla. */
+export function stepBonus(steps: WorkStep[], workers: number): number {
+  let bonus = 0;
+  for (const st of steps) if (st.adults <= workers) bonus = st.bonus;
+  return bonus;
+}
+
+/** La soglia che seguirebbe naturalmente le esistenti: stesso passo di
+ *  adulti e stesso scatto di pezzi delle ultime due, così una scala
+ *  regolare si costruisce a colpi di «+» e una irregolare si ritocca. */
+export function nextStep(steps: WorkStep[]): WorkStep {
+  if (steps.length === 0) return { adults: 3, bonus: 1 };
+  const last = steps[steps.length - 1], prev = steps[steps.length - 2];
+  const dA = prev ? Math.max(1, last.adults - prev.adults) : last.adults;
+  const dB = prev ? Math.max(1, last.bonus - prev.bonus) : Math.max(1, last.bonus);
+  return { adults: last.adults + dA, bonus: last.bonus + dB };
+}
 
 /** I prodotti dichiarati di un'attività, qualunque forma abbiano a stato. */
 export function productsOf(act?: Activity): Product[] {
@@ -506,9 +534,9 @@ export function withWorkers(s: any, actId: string, n: number): VillageWorkers {
 // Un'attività attiva rende, a ogni mercato, i prodotti dichiarati dal DM
 // nella scheda della bottega. Tre cose concorrono alla quantità:
 //   · la resa di base, eventualmente moltiplicata per il livello dell'edificio;
-//   · gli adulti al lavoro, ciascuno dei quali vi aggiunge un numero fisso
-//     di pezzi, dichiarato prodotto per prodotto: un conto che si fa a
-//     mente, senza percentuali né arrotondamenti;
+//   · gli adulti al lavoro, che aggiungono pezzi soltanto al raggiungere
+//     delle soglie fissate dal DM prodotto per prodotto («3 adulti → +1,
+//     6 adulti → +2»): un adulto in più, da solo, non vale nulla;
 //   · il modificatore di chi la tiene, sommato in unità al primo prodotto
 //     dell'elenco — quello principale — e valido dal primo giorno, anche
 //     quando i giocatori non l'hanno ancora visto.
@@ -518,8 +546,9 @@ export interface WeeklyYield {
   activity: Activity; entry: any; index: number; perLevel: boolean;
   base: number;        // resa senza adulti e senza capo
   workers: number;     // adulti al lavoro
-  perWorker: number;   // pezzi che ogni adulto aggiunge a questo prodotto
-  extra: number;       // pezzi aggiunti dagli adulti: workers × perWorker
+  steps: WorkStep[];   // soglie di adulti fissate dal DM, in ordine
+  extra: number;       // pezzi aggiunti dall'ultima soglia raggiunta
+  next: WorkStep | null;   // la prossima soglia non ancora raggiunta
   worked: number;      // resa con gli adulti, prima del capo
   mod: number;         // unità aggiunte o tolte da chi tiene l'attività
   qty: number;         // ciò che arriva in magazzino
@@ -537,11 +566,12 @@ export function yieldsOf(s: any, act: Activity): WeeklyYield[] {
     const entry = ((s?.armory || []) as any[]).find(e => e.id === p.armoryId);
     if (!entry) return;
     const base = Math.max(0, Math.floor(p.qty || 0)) * (p.perLevel ? level : 1);
-    const perWorker = perWorkerOf(p);
-    const extra = workers * perWorker;
+    const steps = stepsOf(p);
+    const extra = stepBonus(steps, workers);
+    const next = steps.find(st => st.adults > workers) || null;
     const worked = base + extra;
     const mod = out.length === 0 ? capoMod : 0;
-    out.push({ activity: act, entry, index, perLevel: !!p.perLevel, base, workers, perWorker, extra, worked, mod, qty: Math.max(0, worked + mod) });
+    out.push({ activity: act, entry, index, perLevel: !!p.perLevel, base, workers, steps, extra, next, worked, mod, qty: Math.max(0, worked + mod) });
   });
   return out;
 }
