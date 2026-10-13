@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
-import { PanelBox, WorkBench, BenchEmpty, panelPos } from '@/components/shared/PanelBox';
+import { PanelBox, WorkBench, BenchEmpty, panelPos, panelCtl } from '@/components/shared/PanelBox';
 import { CraftJob, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
 import { shopOpen, ACT_FORGE } from '@/lib/dnd/village';
 import { YieldCard } from '@/components/shared/YieldCard';
@@ -209,7 +209,7 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   };
 
   return (
-    <PanelBox title="Fucina di Durna" color="var(--ember)" bgSlot="forge-bg" campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, 'forge-bg')}
+    <PanelBox {...panelCtl(s, update, 'forge', 'Fucina di Durna')} color="var(--ember)" bgSlot="forge-bg" campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, 'forge-bg')}
       badge={jobs.length > 0 ? <span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: 'var(--ember)', borderColor: 'var(--ember)' }}>{jobs.length} all'incudine</span> : undefined}
       icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--ember)" strokeWidth="1.5"><path d="M14 4l6 6-2 2-2-1-6.5 6.5a2.1 2.1 0 11-3-3L13 8l-1-2 2-2zM3 21l3-3"/></svg>}>
 

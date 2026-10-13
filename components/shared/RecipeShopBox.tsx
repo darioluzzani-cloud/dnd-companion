@@ -3,7 +3,7 @@ import { useState, ReactNode } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
-import { PanelBox, WorkBench, BenchEmpty, panelPos } from '@/components/shared/PanelBox';
+import { PanelBox, WorkBench, BenchEmpty, panelPos, panelCtl } from '@/components/shared/PanelBox';
 import { CraftJob, TanneryRecipe, TanIngredient, tanInputs, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
 import { shopOpen } from '@/lib/dnd/village';
 import { YieldCard } from '@/components/shared/YieldCard';
@@ -25,6 +25,7 @@ import { sfxComplete } from '@/lib/dnd/sounds';
 
 export interface RecipeShopCfg {
   kind: 'tannery' | 'tavern';          // genere delle commesse in `craftJobs`
+  panelId: string;                     // identificativo del riquadro nella disposizione della Base
   activityId: string;                  // attività che deve essere attiva perché la bottega lavori
   recipesKey: string;                  // chiave di stato del catalogo
   recipesOf: (s: any) => TanneryRecipe[];
@@ -195,7 +196,7 @@ export function RecipeShopBox({ s, update, campaignId, cfg }: { s: CampaignState
   };
 
   return (
-    <PanelBox title={cfg.title} color={TAN_COLOR} bgSlot={cfg.bgSlot} campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, cfg.bgSlot)}
+    <PanelBox {...panelCtl(s, update, cfg.panelId, cfg.title)} color={TAN_COLOR} bgSlot={cfg.bgSlot} campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, cfg.bgSlot)}
       badge={jobs.length > 0 ? <span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: TAN_COLOR, borderColor: TAN_COLOR }}>{jobs.length} {cfg.badge}</span> : undefined}
       icon={cfg.icon}>
 

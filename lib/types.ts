@@ -306,6 +306,8 @@ export interface CampaignState {
   villageActivities?: import('./dnd/village').Activity[];     // catalogo delle attività (copy-on-write dai predefiniti)
   villageAssign?: import('./dnd/village').VillageAssign;      // chi tiene ciascuna attività — scritta dai giocatori
   villageWorkers?: import('./dnd/village').VillageWorkers;    // adulti assegnati a ciascuna attività — scritta dai giocatori
+  villageDeck?: import('./dnd/village').DeckCard[];           // catalogo dei forestieri: carte del mazzo, fuori dal registro dei PNG
+  basePanels?: import('./dnd/basepanels').BasePanels;         // nome e ordine dei riquadri della tab Base, scelti dal DM
   villageAges?: import('./dnd/village').AgeSplit;             // quote percentuali di adulti e bambini; gli anziani sono il resto
   // ── Magazzino: giacenza = villageStock − villageDrawn (si veda lib/dnd/storehouse.ts) ──
   villageStock?: import('./dnd/storehouse').Tally;            // reso dalle attività meno il consumato — calendario e DM

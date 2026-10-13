@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { CampaignState } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
-import { PanelBox, panelPos } from '@/components/shared/PanelBox';
+import { PanelBox, panelPos, panelCtl } from '@/components/shared/PanelBox';
 import { NumberInput } from '@/components/shared/textUtils';
 import { armoryByName, itemFromArmory, cloneImage, normName } from '@/lib/dnd/catalog';
 import { popOf, ledgerOf, weeklyYields } from '@/lib/dnd/village';
@@ -26,7 +26,10 @@ const COLOR = 'var(--green)';
 export function StoreBox({ s, update, campaignId }: { s: CampaignState; update: U; campaignId: string | null }) {
   const list = stockList(s);
   const armory: any[] = (((s as any).armory || []) as any[]).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const p: any = s.players.find(pl => pl.id === s.activePlayer);
+  // Per chi si preleva o si ripone: lo si sceglie dai ritratti, come in
+  // fucina e conceria, invece di legarlo al personaggio attivo del dispositivo.
+  const [playerId, setPlayerId] = useState<string>(s.activePlayer || s.players[0]?.id || '');
+  const p: any = s.players.find(pl => pl.id === playerId);
 
   const [sel, setSel] = useState<string | null>(null);   // voce aperta per il prelievo
   const [takeN, setTakeN] = useState(1);
@@ -135,7 +138,7 @@ export function StoreBox({ s, update, campaignId }: { s: CampaignState; update: 
   );
 
   return (
-    <PanelBox title="Magazzino" color={COLOR} bgSlot="store-bg" campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, 'store-bg')}
+    <PanelBox {...panelCtl(s, update, 'store', 'Magazzino')} color={COLOR} bgSlot="store-bg" campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, 'store-bg')}
       badge={<span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: alarm ? 'var(--red)' : COLOR, borderColor: alarm ? 'var(--red)' : COLOR }}>{alarm ? alarm + ' · ' : ''}{rationQty} razioni</span>}
       icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLOR} strokeWidth="1.5"><path d="M3 9l9-6 9 6v11a1 1 0 01-1 1H4a1 1 0 01-1-1V9z"/><path d="M9 21v-7h6v7"/></svg>}>
 
@@ -180,6 +183,26 @@ export function StoreBox({ s, update, campaignId }: { s: CampaignState; update: 
         </div>
       )}
 
+      {/* Chi preleva o ripone */}
+      {s.players.length > 0 && (
+        <div className="card">
+          <div className="label" style={{ marginBottom: 6 }}>Avventuriero</div>
+          <div className="row" style={{ gap: 6 }}>
+            {s.players.map(pl => (
+              <button key={pl.id} onClick={() => { setPlayerId(pl.id); setDepId(''); setDepN(1); setTakeN(1); }}
+                style={{ flex: 1, padding: 4, borderRadius: 8, cursor: 'pointer', textAlign: 'center',
+                  border: '2px solid ' + (playerId === pl.id ? (pl.color || COLOR) : 'var(--border)'),
+                  background: playerId === pl.id ? 'var(--bg-active)' : 'transparent', transition: 'all .15s' }}>
+                <div style={{ width: 40, height: 40, margin: '0 auto 3px' }}>
+                  <ImageSlot slotId={'portrait-' + pl.id} campaignId={campaignId} shape="circle" width={40} height={40} placeholder={(pl.short || pl.name).slice(0, 2)} alt={pl.name} />
+                </div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 9, letterSpacing: '.5px', color: playerId === pl.id ? 'var(--text)' : 'var(--gray-purple)' }}>{pl.short || pl.name}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Le scorte */}
       {list.length === 0 && <div className="card muted small" style={{ textAlign: 'center' }}>Il magazzino è vuoto.</div>}
       {list.length > 0 && (
@@ -215,7 +238,7 @@ export function StoreBox({ s, update, campaignId }: { s: CampaignState; update: 
               <div className="grow" />
               <button className="btn btn-gold" style={{ fontSize: 10, padding: '5px 14px' }} onClick={() => withdraw(selEntry.entry, nTake)}>Preleva {nTake} per {p.short || p.name}</button>
             </div>
-          ) : <div className="small muted" style={{ fontSize: 11, marginTop: 8 }}>Scegli un personaggio per prelevare.</div>}
+          ) : <div className="small muted" style={{ fontSize: 11, marginTop: 8 }}>Scegli qui sopra l'avventuriero per cui prelevare.</div>}
           {p && <div className="small muted" style={{ fontSize: 10, marginTop: 6 }}>{p.short || p.name} ne porta {carried(selEntry.entry.name)}.</div>}
         </div>
       )}

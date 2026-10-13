@@ -2,6 +2,7 @@
 import { useState, ReactNode } from 'react';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
 import { supabase } from '@/lib/supabase';
+import { panelTitle, withTitle, withMove, panelEdge } from '@/lib/dnd/basepanels';
 
 // ─── RIQUADRO DEL MENÙ BASE ──────────────────────────────────
 // Forma unica per tutti i riquadri della tab Base, estratta dalla Fucina di
@@ -32,8 +33,63 @@ export function panelPos(s: any, update: (patch: any) => void, slot: string): { 
   };
 }
 
-export function PanelBox({ title, color, icon, bgSlot, campaignId, dmMode, badge, defaultOpen, bgPos, onBgPos, children }: {
+/**
+ * Nome e posizione di un riquadro della tab Base, letti e scritti nello
+ * stato della campagna: si passano al riquadro con uno spread, al posto
+ * del titolo fisso. In modalità DM la testata mostra matita e frecce.
+ */
+export function panelCtl(s: any, update: (patch: any) => void, id: string, fallback: string) {
+  const edge = panelEdge(s, id);
+  return {
+    title: panelTitle(s, id, fallback),
+    defaultTitle: fallback,
+    onRename: (t: string) => update((prev: any) => ({ basePanels: withTitle(prev, id, t) })),
+    onMove: (dir: -1 | 1) => update((prev: any) => ({ basePanels: withMove(prev, id, dir) })),
+    canUp: !edge.first,
+    canDown: !edge.last,
+  };
+}
+
+/** Matita e frecce della testata — solo DM. Il nome si scrive in loco e si
+ *  conferma con Invio o uscendo dal campo; vuoto, torna quello di partenza. */
+export function PanelHeadTools({ title, defaultTitle, color, onRename, onMove, canUp, canDown, editing, setEditing }: {
+  title: string; defaultTitle?: string; color: string;
+  onRename?: (t: string) => void; onMove?: (dir: -1 | 1) => void; canUp?: boolean; canDown?: boolean;
+  editing: boolean; setEditing: (v: boolean) => void;
+}) {
+  const btn = { padding: '1px 6px', fontSize: 10, lineHeight: 1.2, color, borderColor: 'var(--border)' } as const;
+  return (
+    <span className="row" style={{ gap: 3, alignItems: 'center', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+      {onRename && !editing && <button className="btn btn-ghost" style={btn} title="Rinomina il riquadro" onClick={() => setEditing(true)}>✎</button>}
+      {onMove && <button className="btn btn-ghost" style={{ ...btn, opacity: canUp ? 1 : .3 }} disabled={!canUp} title="Sposta più su" onClick={() => onMove(-1)}>▲</button>}
+      {onMove && <button className="btn btn-ghost" style={{ ...btn, opacity: canDown ? 1 : .3 }} disabled={!canDown} title="Sposta più giù" onClick={() => onMove(1)}>▼</button>}
+    </span>
+  );
+}
+
+/** Il titolo, o il campo per riscriverlo. */
+export function PanelTitle({ title, defaultTitle, color, editing, setEditing, onRename, asLabel }: {
+  title: string; defaultTitle?: string; color: string; editing: boolean; setEditing: (v: boolean) => void;
+  onRename?: (t: string) => void; asLabel?: boolean;
+}) {
+  if (editing && onRename) {
+    const done = (v: string) => { onRename(v); setEditing(false); };
+    return (
+      <input autoFocus defaultValue={title} placeholder={defaultTitle} onClick={e => e.stopPropagation()}
+        onKeyDown={e => { if (e.key === 'Enter') done((e.target as HTMLInputElement).value); if (e.key === 'Escape') setEditing(false); }}
+        onBlur={e => done(e.target.value)}
+        title="Invio per confermare; vuoto per tornare al nome di partenza"
+        style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 600, color, background: 'var(--bg-deep)', border: '1px solid ' + color, borderRadius: 4, padding: '2px 8px', minWidth: 0, width: '100%' }} />
+    );
+  }
+  return asLabel
+    ? <div className="label" style={{ color }}>{title}</div>
+    : <div className="h2" style={{ color, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>;
+}
+
+export function PanelBox({ title, defaultTitle, color, icon, bgSlot, campaignId, dmMode, badge, defaultOpen, bgPos, onBgPos, onRename, onMove, canUp, canDown, children }: {
   title: string;
+  defaultTitle?: string;      // nome di partenza, a cui torna un nome cancellato
   color: string;
   icon: ReactNode;
   bgSlot: string;             // slot immagine dello sfondo
@@ -43,9 +99,14 @@ export function PanelBox({ title, color, icon, bgSlot, campaignId, dmMode, badge
   defaultOpen?: boolean;
   bgPos?: number;             // inquadratura verticale dello sfondo a scheda chiusa (0–100)
   onBgPos?: (n: number) => void;
+  onRename?: (t: string) => void;   // rinomina, solo DM
+  onMove?: (dir: -1 | 1) => void;   // sposta nell'ordine della tab, solo DM
+  canUp?: boolean;
+  canDown?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
+  const [editing, setEditing] = useState(false);
   const [bgTick, setBgTick] = useState(0);
 
   return (
@@ -61,12 +122,15 @@ export function PanelBox({ title, color, icon, bgSlot, campaignId, dmMode, badge
         : 'linear-gradient(90deg, rgba(11,8,20,.92) 0%, rgba(11,8,20,.4) 50%, rgba(11,8,20,0) 100%)' }} />
 
       <div style={{ position: 'relative', zIndex: 2, padding: 16 }}>
-        <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer', marginBottom: open ? 10 : 0, gap: 8 }} onClick={() => setOpen(!open)}>
-          <div className="row" style={{ gap: 8, minWidth: 0 }}>
+        <div className="row" style={{ justifyContent: 'space-between', cursor: 'pointer', marginBottom: open ? 10 : 0, gap: 8 }} onClick={() => { if (!editing) setOpen(!open); }}>
+          <div className="row" style={{ gap: 8, minWidth: 0, flex: editing ? 1 : undefined }}>
             {icon}
-            <div className="h2" style={{ color, whiteSpace: 'nowrap' }}>{title}</div>
+            <PanelTitle title={title} defaultTitle={defaultTitle} color={color} editing={editing} setEditing={setEditing} onRename={dmMode ? onRename : undefined} />
           </div>
           <div className="row" style={{ gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            {dmMode && (onRename || onMove) && (
+              <PanelHeadTools title={title} defaultTitle={defaultTitle} color={color} onRename={onRename} onMove={onMove} canUp={canUp} canDown={canDown} editing={editing} setEditing={setEditing} />
+            )}
             {badge}
             <span style={{ fontSize: 14, color, transition: 'transform .2s', display: 'inline-block', transform: open ? 'rotate(180deg)' : '' }}>▾</span>
           </div>

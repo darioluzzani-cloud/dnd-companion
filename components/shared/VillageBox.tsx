@@ -3,9 +3,10 @@ import { useState, ReactNode } from 'react';
 import { CampaignState, uid } from '@/lib/types';
 import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
-import { PanelBox, panelPos } from '@/components/shared/PanelBox';
+import { PanelBox, panelPos, panelCtl } from '@/components/shared/PanelBox';
 import { NumberInput } from '@/components/shared/textUtils';
 import { YieldCard } from '@/components/shared/YieldCard';
+import { DeckPopup } from '@/components/popups/DeckPopup';
 import { absDay, addDays, formatDateShort, DEFAULT_CALENDAR } from '@/lib/dnd/calendar';
 import {
   HousingRow, VillageGateEntry, NOTABLE_MIN,
@@ -15,6 +16,7 @@ import {
   activitiesOf, assignOf, activityStatus, roleOf, withCapo,
   aptitudeOf, isKnown, daysToKnow, buildDiscount,
   agesOf, agePctOf, postsOf, workersOf, freeAdults, withWorkers, yieldsOf,
+  personOf, integratePatch, deckCardsOf,
 } from '@/lib/dnd/village';
 
 // ─── GLI ABITANTI ────────────────────────────────────────────
@@ -62,6 +64,7 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
   const [dmOpen, setDmOpen] = useState(false);
   const [pick, setPick] = useState<string | null>(null);     // attività di cui si sta scegliendo il capo
   const [newAct, setNewAct] = useState('');
+  const [showDeck, setShowDeck] = useState(false);            // catalogo dei forestieri (DM)
   const today = absDay((s.calendar || DEFAULT_CALENDAR).date);
   const acts = activitiesOf(s);
   const assign = assignOf(s);
@@ -99,10 +102,9 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
   // Si riparte sempre dallo stato più recente, perché nel frattempo il
   // calendario può aver fatto arrivare qualcun altro.
   const leaveGate = (list: VillageGateEntry[], id: string) => list.filter(g => g.npcId !== id);
-  const integrate = (id: string) => update(prev => ({
-    villageGate: leaveGate(gateOf(prev), id),
-    villageResidents: [...residentIds(prev).filter(x => x !== id), id],
-  } as any));
+  // Una carta del catalogo, accolta, entra nel registro dei PNG con lo
+  // stesso identificativo; un PNG già registrato vi resta com'è.
+  const integrate = (id: string) => update(prev => integratePatch(prev, id) as any);
   const reject = (id: string, name: string) => {
     if (!confirm(`Respingere ${name}? Riprenderà la strada e non si ripresenterà.`)) return;
     update(prev => ({
@@ -306,17 +308,12 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
     list[lv] = { ...list[lv], ...p };
     return { villageHousing: list } as any;
   });
-  const callIn = (id: string) => {
-    update(prev => ({ villageGate: [...leaveGate(gateOf(prev), id), { npcId: id, sinceAbs: today }] } as any));
-  };
-  const recall = (id: string) => update(prev => ({ villageDismissed: dismissedIds(prev).filter(x => x !== id) } as any));
-  const dismissed = dismissedIds(s).map(id => s.characters.find(c => c.id === id)).filter(Boolean) as any[];
   const lastLevel = Math.max(hb?.maxLevel || 0, house.level);
   const dateOf = (abs: number) => formatDateShort(addDays({ year: 0, month: 1, day: 1 }, abs)).replace(/ · .*$/, '');
   const num = { width: 58, textAlign: 'center', fontSize: 11, padding: '2px 4px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 4 } as const;
 
   return (
-    <PanelBox title="Gli abitanti" color={COLOR} bgSlot="people-bg" campaignId={campaignId} dmMode={s.dmMode} defaultOpen={defaultOpen} {...panelPos(s, update, 'people-bg')}
+    <PanelBox {...panelCtl(s, update, 'people', 'Gli abitanti')} color={COLOR} bgSlot="people-bg" campaignId={campaignId} dmMode={s.dmMode} defaultOpen={defaultOpen} {...panelPos(s, update, 'people-bg')}
       badge={<span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: COLOR, borderColor: COLOR }}>{pop} abitanti{gate.length > 0 ? ' · ' + gate.length + ' alla porta' : ''}</span>}
       icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={COLOR} strokeWidth="1.5"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.3"/><path d="M15.5 14.3c3 .2 5.5 2.6 5.5 5.7"/></svg>}>
 
@@ -364,12 +361,14 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
 
       {/* La porta del villaggio */}
       {gate.map(g => {
-        const npc: any = s.characters.find(c => c.id === g.npcId);
+        const npc: any = personOf(s, g.npcId);
         if (!npc) return null;
+        const card = !s.characters.some(c => c.id === g.npcId);
         return (
           <div key={g.npcId} className="card" style={{ borderColor: COLOR, padding: '11px 13px' }}>
             <div className="label" style={{ fontSize: 9, color: COLOR, marginBottom: 8 }}>Alla porta del villaggio</div>
             {person(npc, npc.role || undefined)}
+            {card && npc.lore && <div className="small" style={{ fontSize: 12, lineHeight: 1.6, marginTop: 8, color: 'var(--text-card)', whiteSpace: 'pre-wrap' }}>{npc.lore}</div>}
             <div className="row" style={{ gap: 6, marginTop: 10 }}>
               <button className="btn btn-gold" style={{ fontSize: 10, padding: '4px 14px' }} onClick={() => integrate(npc.id)}>Integra</button>
               <button className="btn btn-ghost" style={{ fontSize: 10, padding: '4px 14px' }} onClick={() => reject(npc.id, npc.name)}>Respingi</button>
@@ -392,6 +391,20 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
             la cappella — è questa la scheda in cui si vede e si decide che cosa rendono. */}
         <YieldCard s={s} update={update} campaignId={campaignId} activityId={picked.id} color={COLOR} />
       </>}
+
+      {/* ── Catalogo dei forestieri (DM) ── */}
+      {s.dmMode && (
+        <div className="card" style={{ padding: '10px 13px', borderStyle: 'dashed' }}>
+          <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+            <div className="grow">
+              <div className="label" style={{ fontSize: 9 }}>Forestieri</div>
+              <div className="small muted" style={{ fontSize: 10.5, marginTop: 2 }}>{deck.length} {deck.length === 1 ? 'carta' : 'carte'} nel mazzo, {deckCardsOf(s).length} nel catalogo</div>
+            </div>
+            <button className="btn btn-gold" style={{ fontSize: 10, padding: '4px 12px', flexShrink: 0 }} onClick={() => setShowDeck(true)}>Apri il catalogo</button>
+          </div>
+        </div>
+      )}
+      {showDeck && <DeckPopup s={s} update={update} campaignId={campaignId} onClose={() => setShowDeck(false)} />}
 
       {/* ── Strumenti del DM ── */}
       {s.dmMode && (
@@ -486,21 +499,8 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
                   onClick={() => { setActs([...acts, { id: uid('act'), name: newAct.trim() }]); setNewAct(''); }}>+</button>
               </div>
 
-              {/* Mazzo */}
-              <div className="label" style={{ fontSize: 8, marginBottom: 5 }}>Mazzo dei forestieri · {deck.length}</div>
-              {deck.length === 0 && <div className="small muted" style={{ fontSize: 10, marginBottom: 6 }}>Vuoto. Una carta si prepara dalla scheda del PNG, nella sezione «Villaggio».</div>}
-              {deck.map((npc: any) => (
-                <div key={npc.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '2px 0' }}>
-                  <span className="small grow">{npc.name}{npc.trait ? <span className="muted" style={{ fontSize: 10, fontStyle: 'italic' }}> · {npc.trait}</span> : <span className="muted" style={{ fontSize: 10 }}> · senza tratto</span>}</span>
-                  <button className="btn btn-ghost" style={{ fontSize: 9, padding: '2px 8px', flexShrink: 0 }} onClick={() => callIn(npc.id)}>Fai arrivare</button>
-                </div>
-              ))}
-              {dismissed.map((npc: any) => (
-                <div key={npc.id} className="row" style={{ gap: 6, alignItems: 'center', padding: '2px 0', opacity: .7 }}>
-                  <span className="small grow">{npc.name} <span className="muted" style={{ fontSize: 10 }}>· ha avuto un rifiuto alla porta</span></span>
-                  <button className="btn btn-ghost" style={{ fontSize: 9, padding: '2px 8px', flexShrink: 0 }} onClick={() => recall(npc.id)}>Rimetti nel mazzo</button>
-                </div>
-              ))}
+              {/* Il mazzo vive nel catalogo dei forestieri */}
+              <div className="small muted" style={{ fontSize: 10, lineHeight: 1.5 }}>Le carte dei forestieri si preparano nel catalogo «Forestieri», qui sopra.</div>
             </div>
           )}
         </div>

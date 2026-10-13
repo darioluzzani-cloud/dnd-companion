@@ -19,6 +19,7 @@ export const ACT_TAVERN = 'act-taverna';
 
 const TAVERN: RecipeShopCfg = {
   kind: 'tavern',
+  panelId: 'tavern',
   activityId: ACT_TAVERN,
   recipesKey: 'tavernRecipes',
   recipesOf: tavernRecipesOf,

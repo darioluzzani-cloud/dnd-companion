@@ -15,6 +15,7 @@ const TAN_COLOR = 'var(--gold-light)';
 
 const TANNERY: RecipeShopCfg = {
   kind: 'tannery',
+  panelId: 'tannery',
   activityId: ACT_TANNERY,
   recipesKey: 'tanneryRecipes',
   recipesOf: tanneryRecipesOf,

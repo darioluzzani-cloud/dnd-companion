@@ -157,8 +157,10 @@ export function CharactersTab({ s, update, campaignId }: { s:CampaignState; upda
                         <span className="small muted" style={{fontSize:10}}>{isRes ? 'residente a Olmobianco' : atGate ? 'alla porta' : refused ? 'ha avuto un rifiuto alla porta' : detail.inDeck ? 'nel mazzo dei forestieri' : 'estraneo a Olmobianco'}</span>
                         <div className="grow" />
                         {!atGate && <button className="btn btn-ghost" style={{padding:'2px 8px',fontSize:9}} onClick={toggleRes}>{isRes ? 'Togli dai residenti' : 'Residente a Olmobianco'}</button>}
-                        {!isRes && !atGate && (
-                          <button className="btn btn-ghost" style={{padding:'2px 8px',fontSize:9}} onClick={()=>setField(detail.id,'inDeck',!detail.inDeck)}>{detail.inDeck ? 'Togli dal mazzo' : 'Metti nel mazzo'}</button>
+                        {/* Le carte dei forestieri si preparano ora nel catalogo di «Gli abitanti»:
+                            qui resta soltanto il modo di togliere dal mazzo un PNG marcato in passato. */}
+                        {!isRes && !atGate && detail.inDeck && (
+                          <button className="btn btn-ghost" style={{padding:'2px 8px',fontSize:9}} onClick={()=>setField(detail.id,'inDeck',false)}>Togli dal mazzo</button>
                         )}
                       </div>
                       <input value={detail.trait||''} placeholder="Tratto visibile ai giocatori (es. «conta ogni cosa due volte»)" onChange={e=>setField(detail.id,'trait',e.target.value)} style={{fontSize:12,padding:'4px 8px',width:'100%'}} />

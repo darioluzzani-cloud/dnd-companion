@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { CampaignState } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
-import { panelPos, PanelBgPos } from '@/components/shared/PanelBox';
+import { panelPos, PanelBgPos, panelCtl, PanelHeadTools, PanelTitle } from '@/components/shared/PanelBox';
 import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
 import { lookupByName, priceOf, goldOf, paysGold, itemFromArmory, cloneImage, normName, GOLD_NAME } from '@/lib/dnd/catalog';
 import { U } from '@/components/shared/common';
@@ -44,6 +44,7 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
   const [bgTick, setBgTick] = useState(0);
   const [showCatalog, setShowCatalog] = useState(false);
   const [showRumors, setShowRumors] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);   // nome del riquadro in riscrittura (DM)
 
   const cal = s.calendar;
   const d = cal?.date;
@@ -215,6 +216,9 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
     } catch (err: any) { alert('Errore: ' + (err.message || err)); }
   };
 
+  // Nome e posizione nella tab Base, come per gli altri riquadri.
+  const ctl = panelCtl(s, update, 'market', 'Mercato di Olmobianco');
+
   const cfg = mktLevel > 0 ? MARKET_LEVELS[mktLevel] : null;
 
   return (
@@ -230,14 +234,15 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
 
       <div style={{ position: 'relative', zIndex: 2, padding: 16 }}>
         {/* Testata */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => setOpen(o => !o)}>
-          <div className="grow" style={{ textShadow: '0 1px 3px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.65)' }}>
-            <div className="label" style={{ color: 'var(--gold)' }}>Mercato di Olmobianco</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={() => { if (!editingTitle) setOpen(o => !o); }}>
+          <div className="grow" style={{ textShadow: '0 1px 3px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.65)', minWidth: 0 }}>
+            <PanelTitle {...ctl} color="var(--gold)" editing={editingTitle} setEditing={setEditingTitle} onRename={s.dmMode ? ctl.onRename : undefined} asLabel />
             <div className="small" style={{ marginTop: 2, color: 'var(--text)' }}>
               {mktLevel > 0 ? cfg!.label : 'Piazza non ancora costruita — nessun mercato'}
               {d && <> · {formatDateShort(d)}{marketToday ? ' · giorno di mercato' : ''}</>}
             </div>
           </div>
+          {s.dmMode && <PanelHeadTools {...ctl} color="var(--gold)" editing={editingTitle} setEditing={setEditingTitle} />}
           {s.dmMode && !marketToday && <span className="dm-badge">NON È GIORNO DI MERCATO</span>}
           <span style={{ fontSize: 14, color: 'var(--gold)', transition: 'transform .2s', transform: open ? 'rotate(180deg)' : '' }}>▾</span>
         </div>

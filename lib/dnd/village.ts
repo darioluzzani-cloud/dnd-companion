@@ -1,3 +1,4 @@
+import type { RevealFragment } from '@/lib/types';
 import { isMarketAbs, DAYS_PER_WEEK } from '@/lib/dnd/calendar';
 import { Tally, HungerState, tallyOf, addTo, rationEntry, rationPct, leavePct, settleWeek } from '@/lib/dnd/storehouse';
 
@@ -74,10 +75,79 @@ const npcById = (s: any, id: string): any | undefined =>
 /** I residenti con un nome, nell'ordine in cui sono stati stabiliti. */
 export const residentsOf = (s: any): any[] => residentIds(s).map(id => npcById(s, id)).filter(Boolean);
 
-/** Il mazzo: PNG preparati dal DM, non ancora arrivati né respinti. */
+// ─── I FORESTIERI ────────────────────────────────────────────
+// Le carte del mazzo si preparano in un catalogo proprio, dentro «Gli
+// abitanti», e restano fuori dal registro dei PNG finché il gruppo non le
+// accoglie. Allora la carta diventa un PNG a tutti gli effetti, con lo
+// stesso identificativo: il ritratto, caricato sullo slot `png-<id>`, la
+// segue senza bisogno di copiarlo.
+
+export interface DeckCard {
+  id: string;
+  name: string;
+  role?: string;
+  trait?: string;            // ciò che al villaggio si dice di lui: visibile alla porta
+  lore?: string;             // lore visibile: diventa la nota del PNG
+  secrets?: RevealFragment[];   // lore nascosta: frammenti da svelare dopo l'accoglienza
+  aptitudes?: Aptitude[];    // bonus e malus per attività
+  imgPos?: number;           // inquadratura del ritratto (0–100)
+}
+
+export const deckCardsOf = (s: any): DeckCard[] =>
+  (Array.isArray(s?.villageDeck) ? s.villageDeck : []) as DeckCard[];
+
+/** Una carta già accolta è diventata un PNG del registro. */
+const isNpc = (s: any, id: string) => ((s?.characters || []) as any[]).some(c => c.id === id);
+
+/** Il mazzo: carte del catalogo non ancora arrivate, accolte né respinte;
+ *  più i PNG che una versione precedente marcava «nel mazzo». */
 export function deckOf(s: any): any[] {
   const out = new Set([...residentIds(s), ...dismissedIds(s), ...gateOf(s).map(g => g.npcId)]);
-  return ((s?.characters || []) as any[]).filter(c => c.inDeck && !out.has(c.id));
+  const cards = deckCardsOf(s).filter(c => !out.has(c.id) && !isNpc(s, c.id));
+  const legacy = ((s?.characters || []) as any[]).filter(c => c.inDeck && !out.has(c.id));
+  return [...cards, ...legacy];
+}
+
+/** Chi corrisponde a un identificativo: il PNG del registro, se esiste,
+ *  altrimenti la carta del catalogo. Serve alla porta, dove può presentarsi
+ *  l'uno o l'altra. */
+export function personOf(s: any, id: string): any | undefined {
+  return npcById(s, id) || deckCardsOf(s).find(c => c.id === id);
+}
+
+export type CardStatus = 'mazzo' | 'porta' | 'accolto' | 'respinto';
+
+export function cardStatus(s: any, id: string): CardStatus {
+  if (isNpc(s, id) || residentIds(s).includes(id)) return 'accolto';
+  if (gateOf(s).some(g => g.npcId === id)) return 'porta';
+  if (dismissedIds(s).includes(id)) return 'respinto';
+  return 'mazzo';
+}
+
+/** Il PNG che nasce da una carta accolta: alleato, di Olmobianco, con la
+ *  lore visibile come nota e quella nascosta come frammenti ancora spenti. */
+/** Le chiavi da scrivere quando il gruppo accoglie chi è alla porta: la
+ *  carta, se è una carta, entra fra i PNG con lo stesso identificativo; un
+ *  PNG già registrato vi resta com'è. In ogni caso lascia la porta e
+ *  diventa residente. */
+export function integratePatch(s: any, id: string): Record<string, unknown> {
+  const card = deckCardsOf(s).find(c => c.id === id);
+  return {
+    villageGate: gateOf(s).filter(g => g.npcId !== id),
+    villageResidents: [...residentIds(s).filter(x => x !== id), id],
+    ...(card && !isNpc(s, id) ? { characters: [...((s?.characters || []) as any[]), cardToNpc(card)] } : {}),
+  };
+}
+
+export function cardToNpc(c: DeckCard): any {
+  return {
+    id: c.id, name: c.name, role: c.role || '', location: 'Olmobianco',
+    relation: 'ally', note: c.lore || '', revealed: true,
+    reveals: (c.secrets || []).map(f => ({ ...f, revealed: false })),
+    ...(c.trait ? { trait: c.trait } : {}),
+    ...(c.aptitudes?.length ? { aptitudes: c.aptitudes } : {}),
+    ...(typeof c.imgPos === 'number' ? { imgPos: c.imgPos } : {}),
+  };
 }
 
 /** L'edificio delle case: quello scelto dal DM, altrimenti il primo il cui
