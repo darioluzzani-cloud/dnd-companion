@@ -234,10 +234,12 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
   let hunger: HungerState = led.hunger || { streak: 0 };
   const hunger0 = led.hunger;
 
+  const growthFx = effectSum(s, 'growth');
+
   for (let d = base + 1; d <= toAbs; d++) {
     if (isMarketAbs(d)) {
       // 1. Produzione della settimana.
-      for (const y of weeklyYields(pop === pop0 ? s : { ...s, villagePop: pop })) {
+      for (const y of weeklyYields(pop === pop0 ? s : { ...s, villagePop: pop }, d)) {
         stock = addTo(stock, y.entry.id, y.qty);
         const k = y.activity.id + '|' + y.entry.id;
         madeTotal[k] = { label: `${y.activity.name}: +{n} ${y.entry.name}`, qty: (madeTotal[k]?.qty || 0) + y.qty };
@@ -245,7 +247,7 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
       }
       // 2. Consumo: la quota degli abitanti, per i sei giorni trascorsi.
       if (hungerOn) {
-        const r = settleWeek(pop, have(ration.id), rationPct(s), leavePct(s), hunger.streak);
+        const r = settleWeek(pop, have(ration.id), effectiveRationPct(s), leavePct(s), hunger.streak);
         if (r.eaten > 0) { stock = addTo(stock, ration.id, -r.eaten); stockTouched = true; }
         if (r.streak === 0 && hunger.streak > 0) fed.push('La dispensa torna a bastare: la penuria è finita');
         if (r.streak === 1) fed.push(`Penuria: il magazzino copre ${r.eaten} razioni su ${r.need}`);
@@ -259,7 +261,7 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
 
     if (!isGrowthDay(d)) continue;
     const dice = [d4(rng), d4(rng), d4(rng)];
-    const sum = dice[0] + dice[1] + dice[2];
+    const sum = Math.max(0, dice[0] + dice[1] + dice[2] + growthFx);
 
     // Chi è già oltre la capienza non viene sfoltito: semplicemente non cresce.
     const starving = hunger.streak > 0;
@@ -281,7 +283,7 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
 
     last = { abs: d, dice, mult, gained, ...(notable ? { notable } : {}) };
     const why = !found ? ' — nessun edificio delle case' : starving ? ' — penuria: nessuno si ferma' : mult === 0 ? ' — a questo livello non si cresce' : gained < want ? ' — case piene' : '';
-    grew.push(`Abitanti: 3d4 = ${sum} (${dice.join(' · ')})${mult > 1 ? ' × ' + mult : ''} → +${gained}, ora ${pop}${why}`);
+    grew.push(`Abitanti: 3d4 = ${sum} (${dice.join(' · ')}${growthFx ? (growthFx > 0 ? ' +' : ' −') + Math.abs(growthFx) : ''})${mult > 1 ? ' × ' + mult : ''} → +${gained}, ora ${pop}${why}`);
   }
   const made = Object.values(madeTotal).map(m => m.label.replace('{n}', String(m.qty)));
 
@@ -297,8 +299,8 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
     const st = activityStatus(s, actId);
     if (st.state !== 'active' || !st.capo) continue;
     known = { ...(known || {}), [a.npcId]: [...(known?.[a.npcId] || []), actId] };
-    const apt = aptitudeOf(st.capo, actId);
-    seen.push(`${st.capo.name}, ${st.activity!.name}: una settimana di lavoro ha mostrato ${apt ? (apt.mod < 0 ? 'un malus' : 'un bonus') : 'che non porta né bonus né malus'}`);
+    const shown = effectsOf(st.capo, actId).map(a => describeEffect(s, a)).filter(Boolean);
+    seen.push(`${st.capo.name}, ${st.activity!.name}: una settimana di lavoro ha mostrato ${shown.length ? shown.join('; ') : 'che non porta né bonus né malus'}`);
   }
 
   const patch: Record<string, unknown> = {};
@@ -415,7 +417,34 @@ const AUTO_MATCH: Record<string, RegExp> = {
 };
 
 /** Bonus o malus di un PNG in una data attività. */
-export interface Aptitude { activityId: string; text: string; mod: number; }
+/**
+ * Un effetto di chi tiene un'attività. Vale soltanto mentre la persona ne
+ * è il capo e l'attività è attiva; `activityId` dice dove deve lavorare,
+ * `kind` che cosa cambia — anche fuori dalla sua bottega, come i cantieri
+ * o il fabbisogno del villaggio.
+ *
+ * Il segno è sempre quello del villaggio: positivo è un bonus, negativo un
+ * malus, qualunque sia la grandezza toccata (+10 sui cantieri li accorcia,
+ * +10 sulle razioni ne riduce il consumo, +1 sulle commesse toglie un giorno).
+ *
+ * Le righe scritte prima che esistessero i tipi non hanno `kind`, e si
+ * leggono come allora: pezzi sul primo prodotto della bottega, sconto sui
+ * cantieri per i Costruttori, nulla per la Milizia (si veda `kindOf`).
+ */
+export type EffectKind =
+  | 'yield' | 'posts' | 'hands' | 'product'
+  | 'build' | 'craft' | 'rations' | 'growth' | 'rent' | 'resale' | 'note';
+
+export interface Aptitude {
+  activityId: string;
+  text: string;
+  mod: number;
+  kind?: EffectKind;
+  /** yield e product: voce d'armeria; craft: 'forge' | 'tannery' | 'tavern'. */
+  target?: string;
+  /** product: ogni quanti mercati arriva (assente = a ogni mercato). */
+  every?: number;
+}
 
 export interface CapoSeat { npcId: string; sinceAbs: number; }
 export type VillageAssign = Record<string, CapoSeat>;
@@ -496,9 +525,98 @@ export function withoutNpc(a: VillageAssign, npcId: string): VillageAssign {
   return next;
 }
 
-export function aptitudeOf(npc: any, actId: string): Aptitude | null {
-  return (((npc?.aptitudes || []) as Aptitude[]).find(x => x.activityId === actId && (x.text?.trim() || x.mod))) || null;
+// ─── EFFETTI DEI CAPI ────────────────────────────────────────
+
+export const EFFECT_KINDS: { k: EffectKind; label: string; unit: string }[] = [
+  { k: 'yield',   label: 'Pezzi in più su un prodotto',      unit: 'pezzi' },
+  { k: 'product', label: 'Produce un oggetto proprio',       unit: 'pezzi' },
+  { k: 'posts',   label: 'Posti di lavoro',                  unit: 'posti' },
+  { k: 'hands',   label: 'Vale come adulti (per le soglie)', unit: 'adulti' },
+  { k: 'build',   label: 'Cantieri più rapidi',              unit: '%' },
+  { k: 'craft',   label: 'Commesse di bottega più rapide',   unit: 'giorni' },
+  { k: 'rations', label: 'Fabbisogno di razioni ridotto',    unit: '%' },
+  { k: 'growth',  label: 'Punti al 3d4 della crescita',      unit: 'punti' },
+  { k: 'rent',    label: 'Rendita della taverna',            unit: 'mo a testa' },
+  { k: 'resale',  label: 'Rivendita al mercato',             unit: 'punti %' },
+  { k: 'note',    label: 'Solo descrizione',                 unit: '' },
+];
+
+export const SHOP_OF: Record<string, string> = { 'act-fucina': 'forge', 'act-conceria': 'tannery', 'act-taverna': 'tavern' };
+export const SHOP_LABEL: Record<string, string> = { forge: 'fucina', tannery: 'conceria', tavern: 'taverna' };
+
+export function kindOf(a: Aptitude): EffectKind {
+  if (a.kind) return a.kind;
+  if (a.activityId === ACT_BUILDERS) return 'build';
+  if (a.activityId === 'act-milizia') return 'note';
+  return 'yield';
 }
+
+/** Gli effetti di una persona in un'attività: le righe vuote non contano. */
+export function effectsOf(npc: any, actId: string): Aptitude[] {
+  return ((npc?.aptitudes || []) as Aptitude[])
+    .filter(x => x && x.activityId === actId && (x.text?.trim() || x.mod || x.kind));
+}
+
+/** Il primo effetto della persona in quell'attività (forma di comodo). */
+export const aptitudeOf = (npc: any, actId: string): Aptitude | null => effectsOf(npc, actId)[0] || null;
+
+export interface ActiveEffect extends Aptitude { kind: EffectKind; capo: any; activity: Activity; }
+
+/** Tutti gli effetti che valgono adesso: quelli dei capi di attività attive. */
+export function activeEffects(s: any): ActiveEffect[] {
+  const out: ActiveEffect[] = [];
+  for (const act of activitiesOf(s)) {
+    const st = activityStatus(s, act.id);
+    if (st.state !== 'active' || !st.capo) continue;
+    for (const a of effectsOf(st.capo, act.id)) out.push({ ...a, kind: kindOf(a), capo: st.capo, activity: act });
+  }
+  return out;
+}
+
+/** Somma dei valori di un tipo d'effetto, eventualmente ristretta. */
+export function effectSum(s: any, kind: EffectKind, pred?: (e: ActiveEffect) => boolean): number {
+  return activeEffects(s).filter(e => e.kind === kind && (!pred || pred(e))).reduce((n, e) => n + (Math.floor(e.mod) || 0), 0);
+}
+
+/** Giorni tolti (o, se negativi, aggiunti) alle commesse di una bottega. */
+export const craftDelta = (s: any, shop: string): number =>
+  effectSum(s, 'craft', e => (e.target || SHOP_OF[e.activity.id]) === shop);
+
+/** Durata effettiva di una commessa: mai sotto un giorno, e un lavoro
+ *  immediato resta immediato. */
+export function craftDays(s: any, shop: string, days: number): number {
+  const d = Math.max(0, Math.floor(days || 0));
+  return d <= 0 ? 0 : Math.max(1, d - craftDelta(s, shop));
+}
+
+/** Quota giornaliera di razioni, dopo gli effetti: +10 la riduce del 10%. */
+export function effectiveRationPct(s: any): number {
+  const cut = effectSum(s, 'rations');
+  return Math.max(0, rationPct(s) * (100 - cut) / 100);
+}
+
+/** Descrizione leggibile di un effetto, per i giocatori e per il DM. */
+export function describeEffect(s: any, a: Aptitude): string {
+  const v = Math.floor(a.mod) || 0, sg = v > 0 ? '+' : v < 0 ? '−' : '±', n = Math.abs(v);
+  const item = (id?: string) => ((s?.armory || []) as any[]).find(e => e.id === id)?.name;
+  switch (kindOf(a)) {
+    case 'yield':   return `${sg}${n} ${item(a.target) || 'sul primo prodotto della bottega'} a ogni mercato`;
+    case 'product': return `produce ${Math.max(0, v)} × ${item(a.target) || 'un oggetto da scegliere'}${(a.every || 1) > 1 ? ` ogni ${a.every} mercati` : ' a ogni mercato'}`;
+    case 'posts':   return `${sg}${n} ${n === 1 ? 'posto' : 'posti'} di lavoro`;
+    case 'hands':   return `vale come ${v} ${Math.abs(v) === 1 ? 'adulto' : 'adulti'} in più per le soglie`;
+    case 'build':   return `cantieri ${v >= 0 ? 'più rapidi' : 'più lenti'} del ${n}%`;
+    case 'craft':   return `commesse della ${SHOP_LABEL[a.target || SHOP_OF[a.activityId]] || 'bottega'} ${v >= 0 ? 'più brevi' : 'più lunghe'} di ${n} ${n === 1 ? 'giorno' : 'giorni'}`;
+    case 'rations': return `fabbisogno di razioni ${v >= 0 ? 'ridotto' : 'aumentato'} del ${n}%`;
+    case 'growth':  return `${sg}${n} al 3d4 della crescita`;
+    case 'rent':    return `${sg}${n} mo a testa di rendita della taverna`;
+    case 'resale':  return `${sg}${n} punti percentuali di rivendita al mercato`;
+    default:        return '';
+  }
+}
+
+/** L'effetto è un bonus, un malus o una sola descrizione? */
+export const effectSign = (a: Aptitude): 1 | -1 | 0 =>
+  kindOf(a) === 'note' ? 0 : kindOf(a) === 'product' ? 1 : (a.mod > 0 ? 1 : a.mod < 0 ? -1 : 0);
 
 export const isKnown = (s: any, npcId: string, actId: string): boolean =>
   (ledgerOf(s).known?.[npcId] || []).includes(actId);
@@ -514,12 +632,13 @@ export const daysToKnow = (seat: CapoSeat, todayAbs: number): number =>
 // resta scritto nel cantiere: come ogni altra cosa a tempo, da lì in poi
 // dipende soltanto dalla data.
 
-export function buildDiscount(s: any): { pct: number; capo?: any } {
+export function buildDiscount(s: any): { pct: number; capo?: any; base: number; fx: number } {
   const st = activityStatus(s, ACT_BUILDERS);
-  if (st.state !== 'active' || !st.capo) return { pct: 0 };
-  const base = Math.floor(st.activity?.buildPct ?? 20);
-  const mod = aptitudeOf(st.capo, ACT_BUILDERS)?.mod || 0;
-  return { pct: Math.max(-50, Math.min(75, base + mod)), capo: st.capo };
+  const base = st.state === 'active' && st.capo ? Math.floor(st.activity?.buildPct ?? 20) : 0;
+  // Gli effetti sui cantieri valgono da qualunque attività li porti chi
+  // la tiene: il capomastro, ma anche un vecchio sergente alla Milizia.
+  const fx = effectSum(s, 'build');
+  return { pct: Math.max(-50, Math.min(75, base + fx)), capo: st.state === 'active' ? st.capo : undefined, base, fx };
 }
 
 export function buildDays(s: any, days: number): number {
@@ -567,7 +686,8 @@ export function postsOf(s: any, act: Activity): number {
   const st = activityStatus(s, act.id);
   if (st.state === 'unbuilt' || st.state === 'low') return 0;
   const level = act.building === 'none' ? 1 : Math.max(0, Math.floor(st.building?.level || 0));
-  return Math.max(0, Math.floor(act.posts?.[level] || 0));
+  const extra = effectSum(s, 'posts', e => e.activity.id === act.id);
+  return Math.max(0, Math.floor(act.posts?.[level] || 0) + extra);
 }
 
 /** Gli adulti davvero al lavoro: l'assegnazione dei giocatori, ricortata
@@ -614,6 +734,8 @@ export function withWorkers(s: any, actId: string, n: number): VillageWorkers {
 
 export interface WeeklyYield {
   activity: Activity; entry: any; index: number; perLevel: boolean;
+  /** Oggetto proprio del capo: esiste finché la persona tiene l'attività. */
+  own?: { every: number };
   base: number;        // resa senza adulti e senza capo
   workers: number;     // adulti al lavoro
   steps: WorkStep[];   // soglie di adulti fissate dal DM, in ordine
@@ -629,27 +751,48 @@ export interface WeeklyYield {
 export function yieldsOf(s: any, act: Activity): WeeklyYield[] {
   const st = activityStatus(s, act.id);
   const level = Math.max(1, Math.floor(st.building?.level || 1));
-  const capoMod = st.capo && act.id !== ACT_BUILDERS ? (aptitudeOf(st.capo, act.id)?.mod || 0) : 0;
+  const armory = (s?.armory || []) as any[];
+  // Gli effetti del capo contano soltanto se l'attività è attiva; per una
+  // bottega ferma la scheda mostra comunque ciò che renderebbe di base.
+  const fx = st.state === 'active' && st.capo
+    ? effectsOf(st.capo, act.id).map(a => ({ ...a, kind: kindOf(a) }))
+    : [];
   const workers = workersOf(s)[act.id] || 0;
+  const hands = fx.filter(e => e.kind === 'hands').reduce((n, e) => n + (Math.floor(e.mod) || 0), 0);
+  const counted = Math.max(0, workers + hands);
+  const prods = productsOf(act).filter(p => armory.some(e => e.id === p.armoryId));
   const out: WeeklyYield[] = [];
-  productsOf(act).forEach((p, index) => {
-    const entry = ((s?.armory || []) as any[]).find(e => e.id === p.armoryId);
-    if (!entry) return;
+  prods.forEach((p, index) => {
+    const entry = armory.find(e => e.id === p.armoryId);
     const base = Math.max(0, Math.floor(p.qty || 0)) * (p.perLevel ? level : 1);
     const steps = stepsOf(p);
-    const extra = stepBonus(steps, workers);
-    const next = steps.find(st => st.adults > workers) || null;
+    const extra = stepBonus(steps, counted);
+    const next = steps.find(x => x.adults > counted) || null;
     const worked = base + extra;
-    const mod = out.length === 0 ? capoMod : 0;
-    out.push({ activity: act, entry, index, perLevel: !!p.perLevel, base, workers, steps, extra, next, worked, mod, qty: Math.max(0, worked + mod) });
+    // Pezzi in più o in meno: sull'oggetto indicato, oppure sul primo
+    // dell'elenco quando l'effetto non ne indica uno della bottega.
+    const mod = fx.filter(e => e.kind === 'yield' && (e.target ? e.target === p.armoryId || (index === 0 && !prods.some(x => x.armoryId === e.target)) : index === 0))
+      .reduce((n, e) => n + (Math.floor(e.mod) || 0), 0);
+    out.push({ activity: act, entry, index, perLevel: !!p.perLevel, base, workers: counted, steps, extra, next, worked, mod, qty: Math.max(0, worked + mod) });
+  });
+  // Oggetti che soltanto quella persona sa fare.
+  fx.filter(e => e.kind === 'product').forEach((e, k) => {
+    const entry = armory.find(x => x.id === e.target);
+    const q = Math.max(0, Math.floor(e.mod) || 0);
+    if (!entry || q <= 0) return;
+    out.push({ activity: act, entry, index: prods.length + k, perLevel: false, own: { every: Math.max(1, Math.floor(e.every || 1)) },
+      base: q, workers: counted, steps: [], extra: 0, next: null, worked: q, mod: 0, qty: q });
   });
   return out;
 }
 
-/** Le rese di tutte le attività attive, come stanno le cose adesso. */
-export function weeklyYields(s: any): WeeklyYield[] {
+/** Le rese di tutte le attività attive. Con `abs`, il giorno di mercato in
+ *  cui si consegna: gli oggetti a cadenza arrivano soltanto nei mercati il
+ *  cui numero d'ordine è multiplo della loro cadenza, così andare avanti e
+ *  indietro col calendario non ne anticipa né ne ripete la consegna. */
+export function weeklyYields(s: any, abs?: number): WeeklyYield[] {
   return activitiesOf(s)
     .filter(a => activityStatus(s, a.id).state === 'active')
     .flatMap(a => yieldsOf(s, a))
-    .filter(y => y.qty > 0);
+    .filter(y => y.qty > 0 && (!y.own || abs === undefined || marketIndex(abs) % y.own.every === 0));
 }

@@ -31,7 +31,10 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
 
   const st = activityStatus(s, act.id);
   const active = st.state === 'active';
-  const ys = yieldsOf(s, act);
+  // Gli oggetti propri del capo si mostrano ai giocatori soltanto quando il
+  // suo lavoro è noto: prima di allora arrivano in magazzino, ma senza nome.
+  const known0 = !!st.capo && (s.dmMode || isKnown(s, st.capo.id, act.id));
+  const ys = yieldsOf(s, act).filter(y => !y.own || known0);
   // Ai giocatori una bottega che non rende nulla non mostra una scheda vuota.
   if (!s.dmMode && ys.length === 0) return null;
 
@@ -71,10 +74,11 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
       {ys.length > 0 && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {ys.map(y => {
-            const p = products.find(x => x.armoryId === y.entry.id);
+            // Gli oggetti propri del capo non si modificano da qui: vivono nella sua scheda.
+            const p = y.own ? undefined : products.find(x => x.armoryId === y.entry.id);
             const shown = known ? y.qty : y.worked;
             return (
-              <div key={y.entry.id} style={{ width: s.dmMode ? 118 : 92 }}>
+              <div key={y.entry.id + (y.own ? '-own' : '')} style={{ width: s.dmMode ? 118 : 92 }}>
                 <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 8, overflow: 'hidden', border: '1px solid ' + color, background: 'var(--bg-deep)',
                   opacity: active ? 1 : .5, filter: active ? 'none' : 'grayscale(.7)' }}>
                   <ImageSlot slotId={'item-' + y.entry.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false}
@@ -82,6 +86,11 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
                   <span style={{ position: 'absolute', bottom: 2, right: 5, fontSize: 14, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px #000, 0 0 6px #000' }}>×{shown}</span>
                 </div>
                 <div style={{ fontSize: 10.5, lineHeight: 1.25, marginTop: 4, textAlign: 'center', fontFamily: 'var(--font-display)', color: 'var(--text-card)' }}>{y.entry.name}</div>
+                {y.own && (
+                  <div className="small" style={{ fontSize: 9, textAlign: 'center', marginTop: 1, color: 'var(--gold-dim)' }}>
+                    {y.own.every > 1 ? `ogni ${y.own.every} mercati · ` : ''}lo sa fare {st.capo?.name}
+                  </div>
+                )}
                 {/* Come si arriva alla quantità: base, adulti al lavoro, capo. */}
                 {(y.extra > 0 || (known && y.mod !== 0)) && (
                   <div className="small muted" style={{ fontSize: 9, textAlign: 'center', marginTop: 1 }}>

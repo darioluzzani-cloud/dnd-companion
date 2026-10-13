@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { CampaignState } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { ImageSlot, registerStorageFile } from '@/components/ImageSlot';
+import { effectSum } from '@/lib/dnd/village';
 import { panelPos, PanelBgPos, panelCtl, PanelHeadTools, PanelTitle } from '@/components/shared/PanelBox';
 import { ItemDetailBody, itemViewProps } from '@/components/shared/ItemDetail';
 import { lookupByName, priceOf, goldOf, paysGold, itemFromArmory, cloneImage, normName, GOLD_NAME } from '@/lib/dnd/catalog';
@@ -124,7 +125,8 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
     if (!price) return;
     const cha = Math.floor((((buyer as any).abilities?.cha ?? 10) - 10) / 2);
     const roll = rollDice(20, 'Contrattazione · ' + it.name);
-    const gain = resaleValue(price, roll, cha);
+    const fxResale = effectSum(s, 'resale');   // effetti dei capi sulla rivendita
+    const gain = resaleValue(price, roll, cha, fxResale);
     update(prev => ({
       players: prev.players.map(pl => {
         if (pl.id !== buyer.id) return pl;
@@ -138,7 +140,7 @@ export function MarketBox({ s, update, campaignId }: { s: CampaignState; update:
         return { ...pl, inventory: inv };
       }),
     } as any));
-    setSellDone({ name: it.name, roll, pct: resalePct(roll, cha), gain });
+    setSellDone({ name: it.name, roll, pct: resalePct(roll, cha, fxResale), gain });
   };
 
   const renderBuy = (name: string) => {

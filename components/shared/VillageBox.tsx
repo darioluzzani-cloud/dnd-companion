@@ -14,7 +14,7 @@ import {
   housingBuilding, housingRow, currentHousing, daysToGrowth,
   Activity, ActivityState, CapoSeat, ACT_BUILDERS,
   activitiesOf, assignOf, activityStatus, roleOf, withCapo,
-  aptitudeOf, isKnown, daysToKnow, buildDiscount,
+  effectsOf, describeEffect, effectSign, isKnown, daysToKnow, buildDiscount,
   agesOf, agePctOf, postsOf, workersOf, freeAdults, withWorkers, yieldsOf,
   personOf, integratePatch, deckCardsOf,
 } from '@/lib/dnd/village';
@@ -135,13 +135,22 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
 
   /** Bonus o malus di una persona in un'attività, per quanto se ne sa. */
   const aptLine = (npc: any, actId: string, seat?: CapoSeat, working?: boolean) => {
-    const apt = aptitudeOf(npc, actId);
+    const fx = effectsOf(npc, actId);
+    // Ogni effetto: il testo di colore, poi che cosa fa davvero, in verde
+    // se è un bonus e in rosso se è un malus.
     const full = (hidden?: boolean) => (
       <span className="small" style={{ fontSize: 11.5, lineHeight: 1.45 }}>
-        {apt
-          ? <>{apt.text}{apt.mod ? <b style={{ marginLeft: 6, color: apt.mod > 0 ? 'var(--green)' : 'var(--red)' }}>{apt.mod > 0 ? '+' : '−'}{Math.abs(apt.mod)}</b> : null}</>
-          : <span className="muted">Né bonus né malus.</span>}
-        {hidden && <span className="muted" style={{ fontSize: 9.5 }}> · celato ai giocatori</span>}
+        {fx.length === 0 && <span className="muted">Né bonus né malus.</span>}
+        {fx.map((a, i) => {
+          const d = describeEffect(s, a), sg = effectSign(a);
+          return (
+            <span key={i} style={{ display: 'block' }}>
+              {a.text}{a.text && d ? ' — ' : ''}
+              {d && <b style={{ color: sg > 0 ? 'var(--green)' : sg < 0 ? 'var(--red)' : 'var(--gray-purple)' }}>{d}</b>}
+            </span>
+          );
+        })}
+        {hidden && <span className="muted" style={{ fontSize: 9.5 }}>celato ai giocatori</span>}
       </span>
     );
     if (isKnown(s, npc.id, actId)) return full();
@@ -199,10 +208,14 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
         {st.state !== 'active' && <div className="small muted" style={{ fontSize: 11, marginTop: 4, lineHeight: 1.5 }}>{whyStopped(act.id)}</div>}
         {/* Lo sconto esatto tradirebbe il modificatore del capomastro prima
             del tempo: ai giocatori, finché non è noto, si dice quello di base. */}
+        {/* Lo sconto sui cantieri: quello di base si dice sempre; la parte che
+            dipende dagli effetti dei capi, soltanto quando è nota. */}
         {disc && st.capo && st.state === 'active' && (
-          (s.dmMode || isKnown(s, st.capo.id, act.id))
-            ? (disc.pct !== 0 && <div className="small" style={{ fontSize: 11, marginTop: 4, color: 'var(--text-card)' }}>I cantieri avviati da ora durano il {Math.abs(disc.pct)}% in {disc.pct > 0 ? 'meno' : 'più'}.</div>)
-            : <div className="small" style={{ fontSize: 11, marginTop: 4, color: 'var(--text-card)' }}>I cantieri avviati da ora durano circa il {act.buildPct ?? 20}% in meno; quanto vi aggiunga o tolga chi li guida si vedrà col lavoro.</div>
+          <div className="small" style={{ fontSize: 11, marginTop: 4, color: 'var(--text-card)' }}>
+            {s.dmMode || isKnown(s, st.capo.id, act.id)
+              ? (disc.pct !== 0 ? <>I cantieri avviati da ora durano il {Math.abs(disc.pct)}% in {disc.pct > 0 ? 'meno' : 'più'}{disc.fx ? ` (${disc.base}% di base, ${disc.fx > 0 ? '+' : '−'}${Math.abs(disc.fx)} dagli effetti dei capi)` : ''}.</> : <>I cantieri durano quanto dichiarato.</>)
+              : <>I cantieri avviati da ora durano circa il {disc.base}% in meno; quanto vi aggiunga o tolga chi li guida si vedrà col lavoro.</>}
+          </div>
         )}
 
         {st.capo && (

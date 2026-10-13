@@ -6,7 +6,7 @@ import { ImageSlot } from '@/components/ImageSlot';
 import { PanelBox, panelPos, panelCtl } from '@/components/shared/PanelBox';
 import { NumberInput } from '@/components/shared/textUtils';
 import { armoryByName, itemFromArmory, cloneImage, normName } from '@/lib/dnd/catalog';
-import { popOf, ledgerOf, weeklyYields } from '@/lib/dnd/village';
+import { popOf, ledgerOf, weeklyYields, effectiveRationPct } from '@/lib/dnd/village';
 import {
   qtyOf, stockList, tallyOf, addTo, rationEntry, rationPct, leavePct, weeklyNeed, hungerLabel,
 } from '@/lib/dnd/storehouse';
@@ -43,8 +43,10 @@ export function StoreBox({ s, update, campaignId }: { s: CampaignState; update: 
   const ration = rationEntry(s);
   const rationQty = ration ? qtyOf(s, ration.id) : 0;
   const pop = popOf(s);
-  const pct = rationPct(s);
-  const need = weeklyNeed(pop, pct);
+  const pct = rationPct(s);                    // quota fissata dal DM
+  const effPct = effectiveRationPct(s);        // dopo gli effetti dei capi
+  const need = weeklyNeed(pop, effPct);
+  const pctLabel = (Math.round(effPct * 10) / 10).toString().replace('.', ',');
   const hungerOn = !!(s as any).villageHunger;
   const hunger = ledgerOf(s).hunger;
   const alarm = hungerOn ? hungerLabel(hunger?.streak || 0) : null;
@@ -170,7 +172,7 @@ export function StoreBox({ s, update, campaignId }: { s: CampaignState; update: 
                 <div style={{ height: '100%', width: cover + '%', background: cover >= 100 ? COLOR : cover >= 50 ? 'var(--gold-dim)' : 'var(--red)', borderRadius: 3, transition: 'width .4s' }} />
               </div>
               <div className="small muted" style={{ fontSize: 10.5, marginTop: 6, lineHeight: 1.55 }}>
-                Il villaggio ne consuma {need} a ogni mercato: il {pct}% dei suoi {pop} abitanti al giorno, per sei giorni.
+                Il villaggio ne consuma {need} a ogni mercato: il {pctLabel}% dei suoi {pop} abitanti al giorno, per sei giorni{effPct !== pct ? ` (la quota di base è il ${pct}%, gli effetti dei capi la cambiano)` : ''}.
                 {' '}Le scorte coprono il {cover}% della prossima settimana{weeks !== null && weeks >= 1 ? `, e bastano per ${weeks === 1 ? 'una settimana' : weeks + ' settimane'}` : ''}.
                 {income > 0 && <> Le attività ne rendono {income} a mercato{income >= need ? '' : `: ne mancano ${need - income} per pareggiare`}.</>}
               </div>

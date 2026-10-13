@@ -6,7 +6,7 @@ import { sfxDice } from '@/lib/dnd/sounds';
 import { sweepExpired } from '@/lib/dnd/perishables';
 import { jobsOf, jobProgress, tavernBuilding, TAVERN_WEEKLY_DEFAULT } from '@/lib/dnd/crafting';
 import { GOLD_NAME, normName } from '@/lib/dnd/catalog';
-import { villageTick } from '@/lib/dnd/village';
+import { villageTick, effectSum } from '@/lib/dnd/village';
 import { absDay, advanceMark, VelmoraDate } from '@/lib/dnd/calendar';
 import { COND, DT, WEATHER_MAP, WEATHER_DETAILS, BIOMES, SEASONS, EFFECT_CATS, INTENSITY_COLORS } from '@/lib/dnd/weather';
 import {
@@ -119,7 +119,8 @@ export function CalendarPopup({ s, update, onClose }: { s: CampaignState; update
       const fromAbs = absDay(prevDate), toAbs = absDay(next.date);
       const { markets: weeks, mark } = advanceMark((prev as any).tavernPaidAbs, fromAbs, toAbs);
       if (tav && weeks > 0) {
-        const rate = (prev as any).tavernWeekly ?? TAVERN_WEEKLY_DEFAULT;
+        // La rendita di base, più o meno ciò che vi aggiunge chi tiene le attività.
+        const rate = Math.max(0, ((prev as any).tavernWeekly ?? TAVERN_WEEKLY_DEFAULT) + effectSum(prev, 'rent'));
         if (rate > 0) {
           const each = weeks * rate;
           paidPlayers = players.map((pl: any) => {

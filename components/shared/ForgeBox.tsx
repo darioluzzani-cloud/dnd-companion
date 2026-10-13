@@ -5,7 +5,7 @@ import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { PanelBox, WorkBench, BenchEmpty, panelPos, panelCtl } from '@/components/shared/PanelBox';
 import { CraftJob, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
-import { shopOpen, ACT_FORGE } from '@/lib/dnd/village';
+import { shopOpen, ACT_FORGE, craftDays } from '@/lib/dnd/village';
 import { YieldCard } from '@/components/shared/YieldCard';
 import { armoryMaterials, missingMaterials } from '@/lib/dnd/smith-materials';
 import { UpgradeScope, UPGRADE_SCOPES, scopeAllows, scopeOfItem } from '@/lib/dnd/equipment';
@@ -124,7 +124,9 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   const blocking = shopBusy(s, 'forge', playerId);
   const blockedByOther = !!blocking && blocking.playerId !== playerId;
   const prog = myJob ? jobProgress(myJob, today) : null;
-  const jobDays = Math.max(0, upgrade?.days ?? 0);
+  // Le giornate dichiarate dal lavoro, accorciate o allungate dagli effetti
+  // dei capi; un lavoro immediato resta immediato.
+  const jobDays = craftDays(s, 'forge', upgrade?.days ?? 0);
 
   /** Applica il potenziamento all'oggetto: passaggio comune fra il lavoro
    *  immediato e il ritiro di una commessa a giornate. */

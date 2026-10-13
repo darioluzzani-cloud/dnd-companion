@@ -5,7 +5,7 @@ import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { PanelBox, WorkBench, BenchEmpty, panelPos, panelCtl } from '@/components/shared/PanelBox';
 import { CraftJob, TanneryRecipe, TanIngredient, tanInputs, jobsOf, jobProgress, shopBusy, withJob, withoutJob } from '@/lib/dnd/crafting';
-import { shopOpen } from '@/lib/dnd/village';
+import { shopOpen, craftDays } from '@/lib/dnd/village';
 import { YieldCard } from '@/components/shared/YieldCard';
 import { absDay } from '@/lib/dnd/calendar';
 import { itemFromArmory, cloneImage, lookupByName, normName } from '@/lib/dnd/catalog';
@@ -112,7 +112,7 @@ export function RecipeShopBox({ s, update, campaignId, cfg }: { s: CampaignState
       });
       const job: CraftJob = {
         id: uid('job'), kind: cfg.kind, playerId: player.id,
-        startAbs: absDay(today), days: Math.max(1, recipe.days),
+        startAbs: absDay(today), days: Math.max(1, craftDays(s, cfg.kind, recipe.days)),
         recipeId: recipe.id,
         fromName: ins.map(i => `${i.name} ×${i.qty * nBatches}`).join(' · '),
         fromQty: nBatches,
@@ -239,7 +239,7 @@ export function RecipeShopBox({ s, update, campaignId, cfg }: { s: CampaignState
           <select value={recipeId} onChange={e => { setRecipeId(e.target.value); setBatches(0); }} style={{ fontSize: 13, marginBottom: 8, width: '100%' }}>
             <option value="">— scegli la lavorazione —</option>
             {recipes.map(r => (
-              <option key={r.id} value={r.id}>{tanInputs(r).map(i => `${i.name} ×${i.qty}`).join(' · ') || '—'} → {r.toName} ×{r.toQty} · {r.days} gg</option>
+              <option key={r.id} value={r.id}>{tanInputs(r).map(i => `${i.name} ×${i.qty}`).join(' · ') || '—'} → {r.toName} ×{r.toQty} · {Math.max(1, craftDays(s, cfg.kind, r.days))} gg</option>
             ))}
           </select>
         )}
@@ -247,7 +247,7 @@ export function RecipeShopBox({ s, update, campaignId, cfg }: { s: CampaignState
         <WorkBench accent={TAN_COLOR} pct={prog?.pct ?? 0} done={!!prog?.done}
           label={myJob
             ? (prog?.done ? 'pronto al ritiro' : `${prog?.elapsed}/${myJob.days} giorni · ne mancano ${prog?.remaining}`)
-            : (recipe ? `${recipe.days} giorni di lavoro` : 'nessuna lavorazione scelta')}
+            : (recipe ? `${Math.max(1, craftDays(s, cfg.kind, recipe.days))} giorni di lavoro` : 'nessuna lavorazione scelta')}
           lefts={myJob
             ? jobIngredients(myJob).map(i => cell(i.name, i.qty))
             : (shownIn.length ? shownIn.map(i => cell(i.name, i.qty)) : [<BenchEmpty key="e" mark="?" />])}

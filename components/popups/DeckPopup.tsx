@@ -5,9 +5,8 @@ import { U } from '@/components/shared/common';
 import { ImageSlot } from '@/components/ImageSlot';
 import { RevealsEditor } from '@/components/shared/Reveals';
 import { absDay, DEFAULT_CALENDAR } from '@/lib/dnd/calendar';
-import {
-  DeckCard, Aptitude, CardStatus, deckCardsOf, cardStatus, activitiesOf, gateOf, dismissedIds,
-} from '@/lib/dnd/village';
+import { DeckCard, CardStatus, deckCardsOf, cardStatus, gateOf, dismissedIds } from '@/lib/dnd/village';
+import { EffectsEditor } from '@/components/shared/EffectsEditor';
 
 // ─── POPUP: FORESTIERI — il catalogo del mazzo ──────────────
 // Speculare all'Armeria: il DM prepara qui, prima della sessione, i
@@ -29,7 +28,6 @@ const STATUS: Record<CardStatus, { label: string; color: string }> = {
 
 export function DeckPopup({ s, update, campaignId, onClose }: { s: CampaignState; update: U; campaignId: string | null; onClose: () => void }) {
   const cards = deckCardsOf(s);
-  const acts = activitiesOf(s);
   const [openId, setOpenId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const today = absDay((s.calendar || DEFAULT_CALENDAR).date);
@@ -73,16 +71,13 @@ export function DeckPopup({ s, update, campaignId, onClose }: { s: CampaignState
           <button className="btn btn-ghost" style={{ fontSize: 16, padding: '2px 8px' }} onClick={onClose}>✕</button>
         </div>
         <div className="small muted" style={{ fontSize: 11, lineHeight: 1.5, marginBottom: 10 }}>
-          Quando il tiro degli abitanti dà fra 10 e 12, una carta del mazzo si presenta alla porta. Alla porta i giocatori vedono ritratto, ruolo, tratto e lore visibile; accolta, la carta diventa un PNG alleato di Olmobianco, e la lore nascosta lo segue come frammenti da svelare.
+          Quando il tiro degli abitanti dà fra 10 e 12, una carta del mazzo si presenta alla porta. Alla porta i giocatori vedono ritratto, ruolo, tratto e lore visibile; accolta, la carta diventa un PNG alleato di Olmobianco, e la lore nascosta lo segue come frammenti da svelare. Bonus e malus valgono soltanto mentre la persona tiene l'attività indicata.
         </div>
 
         {cards.map(c => {
           const st = cardStatus(s, c.id);
           const open = openId === c.id;
           const locked = st === 'accolto';
-          const apts: Aptitude[] = c.aptitudes || [];
-          const setApts = (list: Aptitude[]) => patchCard(c.id, { aptitudes: list });
-          const freeAct = acts.find(a => !apts.some(x => x.activityId === a.id));
           return (
             <div key={c.id} className="card" style={{ padding: '10px 12px' }}>
               <div className="row" style={{ gap: 10, alignItems: 'center', cursor: 'pointer' }} onClick={() => setOpenId(open ? null : c.id)}>
@@ -132,19 +127,8 @@ export function DeckPopup({ s, update, campaignId, onClose }: { s: CampaignState
                   <div className="label" style={{ fontSize: 8, margin: '8px 0 0' }}>Lore nascosta</div>
                   <RevealsEditor list={c.secrets} onChange={l => patchCard(c.id, { secrets: l.map(f => ({ ...f, revealed: false })) })} accent={COLOR} />
 
-                  <div className="label" style={{ fontSize: 8, margin: '8px 0 4px' }}>Bonus e malus per attività</div>
-                  {apts.map((a, i) => (
-                    <div key={i} className="row" style={{ gap: 5, alignItems: 'center', marginBottom: 4, flexWrap: 'wrap' }}>
-                      <select value={a.activityId} onChange={e => setApts(apts.map((x, k) => k === i ? { ...x, activityId: e.target.value } : x))} style={{ fontSize: 11, padding: '3px 4px', flex: '0 1 120px' }}>
-                        {acts.filter(o => o.id === a.activityId || !apts.some(x => x.activityId === o.id)).map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                        {!acts.some(o => o.id === a.activityId) && <option value={a.activityId}>(attività rimossa)</option>}
-                      </select>
-                      <input value={a.text || ''} placeholder="Che cosa porta, in parole" onChange={e => setApts(apts.map((x, k) => k === i ? { ...x, text: e.target.value } : x))} style={{ fontSize: 11, padding: '3px 6px', flex: '1 1 130px' }} />
-                      <input type="number" value={a.mod ?? 0} title="Positivo è un bonus, negativo un malus" onChange={e => setApts(apts.map((x, k) => k === i ? { ...x, mod: parseInt(e.target.value) || 0 } : x))} style={{ fontSize: 11, padding: '3px 4px', width: 50, textAlign: 'center' }} />
-                      <button className="btn btn-danger btn-ghost" style={{ padding: '1px 7px', fontSize: 10 }} onClick={() => setApts(apts.filter((_, k) => k !== i))}>&times;</button>
-                    </div>
-                  ))}
-                  {freeAct && <button className="btn btn-ghost" style={{ padding: '2px 8px', fontSize: 9 }} onClick={() => setApts([...apts, { activityId: freeAct.id, text: '', mod: 0 }])}>+ bonus o malus</button>}
+                  <div className="label" style={{ fontSize: 8, margin: '8px 0 4px' }}>Bonus e malus</div>
+                  <EffectsEditor s={s} list={c.aptitudes} onChange={l => patchCard(c.id, { aptitudes: l })} />
 
                   <div className="row" style={{ gap: 6, marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
                     {st === 'mazzo' && <button className="btn btn-gold" style={{ fontSize: 10, padding: '3px 10px' }} onClick={() => callIn(c.id)}>Fai arrivare alla porta</button>}

@@ -23,11 +23,12 @@ export const DEFAULT_MAX_SHOWN = 5;
  * un mercante guadagnandoci.
  */
 export const RESALE_BASE = 60;
-export function resalePct(roll: number, chaMod: number): number {
-  return Math.max(30, Math.min(100, RESALE_BASE + roll + chaMod));
+/** `bonus`: punti percentuali aggiunti o tolti dagli effetti dei capi. */
+export function resalePct(roll: number, chaMod: number, bonus = 0): number {
+  return Math.max(30, Math.min(100, RESALE_BASE + roll + chaMod + bonus));
 }
-export function resaleValue(price: number, roll: number, chaMod: number): number {
-  return Math.max(1, Math.round(price * resalePct(roll, chaMod) / 100));
+export function resaleValue(price: number, roll: number, chaMod: number, bonus = 0): number {
+  return Math.max(1, Math.round(price * resalePct(roll, chaMod, bonus) / 100));
 }
 
 export interface MarketGood {
