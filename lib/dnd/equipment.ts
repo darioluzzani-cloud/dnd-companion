@@ -24,7 +24,7 @@ export interface SlotDef {
 }
 
 /** Sottocategorie di `equipaggiamento` — governano gli alloggiamenti del corpo. */
-export const EQUIP_SUBTYPES = ['elmo', 'mantello', 'parabracci', 'vesti', 'stivali', 'anello'];
+export const EQUIP_SUBTYPES = ['elmo', 'mantello', 'parabracci', 'vesti', 'stivali', 'anello', 'amuleto'];
 
 /**
  * Sottocategorie di `arma`. Le prime due sono da mischia; le due a distanza
@@ -117,7 +117,7 @@ function isWieldable(type: string, subtype?: string): boolean {
 /**
  * L'oggetto è idoneo all'alloggiamento? Regole concordate:
  *   mani     → arma, unico, magico-arma; la secondaria accetta anche lo scudo
- *   magico   → qualunque magico, più equipaggiamento-anello
+ *   magico   → qualunque magico, più equipaggiamento-anello e -amuleto
  *   corpo    → equipaggiamento con la sottocategoria corrispondente
  *   armatura → categoria armatura
  *   consum.  → categoria consumabile
@@ -130,7 +130,7 @@ export function slotAccepts(slotId: string, item: { type: string; subtype?: stri
     case 'armatura': return type === 'armatura' && armorKind(item) !== 'scudo';
     case 'magico1': case 'magico2': case 'magico3':
       return (type === 'magico' && subtype !== 'arma' && subtype !== 'mantello')
-          || (type === 'equipaggiamento' && subtype === 'anello');
+          || (type === 'equipaggiamento' && (subtype === 'anello' || subtype === 'amuleto'));
     case 'consum1': case 'consum2': case 'consum3':
       return type === 'consumabile';
     case 'elmo': case 'mantello': case 'parabracci': case 'vesti': case 'stivali':

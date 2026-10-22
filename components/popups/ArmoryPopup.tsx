@@ -8,6 +8,7 @@ import { copyItemImage } from '@/components/shared/imageCopy';
 import { MasteryEntry, DEFAULT_MASTERIES, masteriesOf } from '@/lib/dnd/mastery';
 import { ammoApplies } from '@/lib/dnd/equipment';
 import { qtyOf, tallyOf, addTo } from '@/lib/dnd/storehouse';
+import { parseArmoryFile, mergeArmory, ArmoryImport } from '@/lib/dnd/armory-import';
 
 // ─── POPUP: ARMERIA — catalogo oggetti preparati dal DM ─────
 // Speculare al Bestiario: il DM prepara gli oggetti prima della sessione
@@ -15,13 +16,14 @@ import { qtyOf, tallyOf, addTo } from '@/lib/dnd/storehouse';
 // Le voci usano lo slot immagine item-<id>, lo stesso schema degli oggetti
 // d'inventario: la consegna copia l'immagine sul nuovo oggetto (copyItemImage).
 
-export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; attunement?: boolean; mastery?: string; ammo?: boolean; price?: number; }
+export interface ArmoryEntry { id: string; name: string; type: string; desc?: string; effect?: string; armorType?: string; armorCA?: number; enhSlots?: number; setId?: string; subtype?: string; attunement?: boolean; mastery?: string; ammo?: boolean; price?: number;  upgrades?: { name: string; desc: string }[];}
 
 export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignState; update: U; campaignId: string | null; onClose: () => void }) {
   const [filter, setFilter] = useState<string>(ITEM_TYPES[0]);
   const [draftName, setDraftName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [given, setGiven] = useState<string | null>(null);
+  const [imported, setImported] = useState<ArmoryImport | null>(null);   // esito dell'ultima importazione
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [showMast, setShowMast] = useState(false);          // catalogo padronanze aperto
   const [editMastId, setEditMastId] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
     const newId = uid('it');
     update(prev => ({
       players: prev.players.map(pl => pl.id === playerId
-        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', armorType: e.armorType, armorCA: e.armorCA, enhSlots: e.enhSlots, setId: e.setId, subtype: e.subtype, attunement: e.attunement, mastery: e.mastery, ammo: e.ammo, equipped: false, expanded: false } as any] }
+        ? { ...pl, inventory: [...(pl.inventory || []), { id: newId, name: e.name, qty: 1, type: e.type, desc: e.desc || '', effect: e.effect || '', armorType: e.armorType, armorCA: e.armorCA, enhSlots: e.enhSlots, setId: e.setId, subtype: e.subtype, attunement: e.attunement, mastery: e.mastery, ammo: e.ammo, ...(e.upgrades?.length ? { upgrades: e.upgrades.map(u => ({ ...u })), enhUsed: Math.min(e.enhSlots ?? 0, e.upgrades.length) } : {}), equipped: false, expanded: false } as any] }
         : pl),
     }));
     if (campaignId) copyItemImage(campaignId, e.id, newId);
@@ -136,6 +138,49 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
             </div>
           )}
         </div>
+
+        {/* Importazione che aggiunge, senza sostituire il catalogo — solo DM */}
+        {s.dmMode && (
+          <div className="card" style={{ padding: '9px 11px', marginBottom: 10 }}>
+            <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div className="grow" style={{ minWidth: 0 }}>
+                <div className="label">Importa voci</div>
+                <div className="small muted" style={{ fontSize: 10.5, marginTop: 2 }}>Aggiunge le voci di un file JSON; quelle che l'armeria ha già, per nome, restano intatte.</div>
+              </div>
+              <label className="btn btn-gold" style={{ fontSize: 10, padding: '4px 12px', cursor: 'pointer', flexShrink: 0 }}>
+                Scegli il file
+                <input type="file" accept="application/json,.json" style={{ display: 'none' }} onChange={ev => {
+                  const file = ev.target.files?.[0]; ev.target.value = ''; if (!file) return;
+                  const fr = new FileReader();
+                  fr.onload = () => {
+                    let list: any[] | null = null;
+                    try { list = parseArmoryFile(JSON.parse(fr.result as string)); } catch { /* sotto */ }
+                    if (!list) { alert('Il file non contiene un elenco di voci d\'armeria.'); return; }
+                    // L'esito si calcola sullo stato più recente, nel momento della scrittura.
+                    let res: ArmoryImport | null = null;
+                    update(prev => { res = mergeArmory(((prev as any).armory || []) as any[], list!); return { armory: res.next } as any; });
+                    setTimeout(() => setImported(res), 0);
+                  };
+                  fr.readAsText(file);
+                }} />
+              </label>
+            </div>
+            {imported && (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                <div className="row" style={{ gap: 6, alignItems: 'baseline' }}>
+                  <span className="small" style={{ color: 'var(--green)', fontWeight: 600 }}>{imported.added.length} {imported.added.length === 1 ? 'voce aggiunta' : 'voci aggiunte'}</span>
+                  {imported.skipped.length > 0 && <span className="small muted">· {imported.skipped.length} già presenti, saltate</span>}
+                  {imported.invalid > 0 && <span className="small muted">· {imported.invalid} senza nome, scartate</span>}
+                  <div className="grow" />
+                  <button className="btn btn-ghost" style={{ fontSize: 10, padding: '1px 6px' }} onClick={() => setImported(null)}>✕</button>
+                </div>
+                {imported.skipped.length > 0 && <div className="small muted" style={{ fontSize: 10.5, marginTop: 4, lineHeight: 1.5 }}>Saltate: {imported.skipped.join(', ')}.</div>}
+                {imported.renamedIds > 0 && <div className="small muted" style={{ fontSize: 10.5, marginTop: 2 }}>{imported.renamedIds} {imported.renamedIds === 1 ? 'voce ha ricevuto' : 'voci hanno ricevuto'} un identificativo nuovo, perché il suo era già in uso.</div>}
+                {imported.added.length > 0 && <div className="small muted" style={{ fontSize: 10.5, marginTop: 2 }}>Le voci nuove sono senza immagine: si carica dalla miniatura di ciascuna.</div>}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Filtro per categoria */}
         <div className="row" style={{ gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -251,6 +296,9 @@ export function ArmoryPopup({ s, update, campaignId, onClose }: { s: CampaignSta
                     )}
                     {e.attunement && <div className="small" style={{ color: 'var(--blue)' }}>◈ Richiede sintonia</div>}
                     {e.ammo && <div className="small" style={{ color: 'var(--gold)' }}>⁂ Munizione</div>}
+                    {(e.upgrades || []).map((u, k) => (
+                      <div key={k} className="small" style={{ color: 'var(--ember)' }} title={u.desc}>⚒ {u.name}{(e.enhSlots ?? 0) > 0 ? ' · occupa uno slot' : ''}</div>
+                    ))}
                     {typeof e.price === 'number' && e.price > 0 && (
                       <div className="small" style={{ color: 'var(--gold-light)' }}>◉ {e.price} mo</div>
                     )}

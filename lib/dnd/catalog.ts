@@ -76,6 +76,11 @@ export function itemFromArmory(s: any, name: string, qty: number, fallbackType =
       subtype: e.subtype, armorType: e.armorType, armorCA: e.armorCA,
       enhSlots: e.enhSlots, setId: e.setId, attunement: e.attunement,
       mastery: e.mastery, ammo: e.ammo,
+      // Potenziamenti che la voce porta già (un'incisione di maestria):
+      // arrivano applicati, e occupano i loro slot.
+      ...(Array.isArray(e.upgrades) && e.upgrades.length
+        ? { upgrades: e.upgrades.map((u: any) => ({ ...u })), enhUsed: Math.min(e.enhSlots ?? 0, e.upgrades.length) }
+        : {}),
       equipped: false, expanded: false, revealed: true,
     },
     sourceId: e.id,
