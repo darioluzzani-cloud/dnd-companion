@@ -76,16 +76,21 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
           {ys.map(y => {
             // Gli oggetti propri del capo non si modificano da qui: vivono nella sua scheda.
             const p = y.own ? undefined : products.find(x => x.armoryId === y.entry.id);
-            const shown = known ? y.qty : y.worked;
+            const shown = y.locked ? y.base : known ? y.qty : y.worked;
+            const dim = !active || !!y.locked;
             return (
               <div key={y.entry.id + (y.own ? '-own' : '')} style={{ width: s.dmMode ? 118 : 92 }}>
                 <div style={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 8, overflow: 'hidden', border: '1px solid ' + color, background: 'var(--bg-deep)',
-                  opacity: active ? 1 : .5, filter: active ? 'none' : 'grayscale(.7)' }}>
+                  opacity: dim ? .5 : 1, filter: dim ? 'grayscale(.7)' : 'none' }}>
                   <ImageSlot slotId={'item-' + y.entry.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false}
                     placeholder={(y.entry.name || '?').slice(0, 2).toUpperCase()} alt={y.entry.name} />
                   <span style={{ position: 'absolute', bottom: 2, right: 5, fontSize: 14, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px #000, 0 0 6px #000' }}>×{shown}</span>
+                  {!!y.locked && <span style={{ position: 'absolute', top: 3, left: 5, fontSize: 13, textShadow: '0 1px 3px #000' }} title={`Si sblocca al livello ${y.locked}`}>🔒</span>}
                 </div>
                 <div style={{ fontSize: 10.5, lineHeight: 1.25, marginTop: 4, textAlign: 'center', fontFamily: 'var(--font-display)', color: 'var(--text-card)' }}>{y.entry.name}</div>
+                {!!y.locked && (
+                  <div className="small" style={{ fontSize: 9, textAlign: 'center', marginTop: 1, color: 'var(--gold-dim)' }}>si sblocca al livello {y.locked}</div>
+                )}
                 {y.own && (
                   <div className="small" style={{ fontSize: 9, textAlign: 'center', marginTop: 1, color: 'var(--gold-dim)' }}>
                     {y.own.every > 1 ? `ogni ${y.own.every} mercati · ` : ''}lo sa fare {st.capo?.name}
@@ -119,6 +124,12 @@ export function YieldCard({ s, update, campaignId, activityId, color }: {
                       <button className="btn btn-danger btn-ghost" style={{ fontSize: 10, padding: '1px 6px' }} title="Togli dalla produzione"
                         onClick={() => write(list => list.filter(x => x.armoryId !== p.armoryId))}>&times;</button>
                     </div>
+                    {act.building !== 'none' && (
+                      <div className="row" style={{ gap: 3, alignItems: 'center', justifyContent: 'center', marginTop: 3 }} title="Livello dell'edificio da cui il prodotto si sblocca">
+                        <span className="small muted" style={{ fontSize: 9 }}>dal liv.</span>
+                        <NumberInput value={Math.max(1, p.minLevel || 1)} min={1} onChange={n => patch(p.armoryId, { minLevel: n > 1 ? n : undefined })} style={{ ...num, width: 34 }} title="Livello minimo dell'edificio" />
+                      </div>
+                    )}
                     {act.building !== 'none' && (
                       <label className="row" style={{ gap: 3, alignItems: 'center', justifyContent: 'center', cursor: 'pointer', marginTop: 3 }} title="Moltiplica la quantità di base per il livello dell'edificio">
                         <input type="checkbox" checked={!!p.perLevel} onChange={e => patch(p.armoryId, { perLevel: e.target.checked || undefined })} />

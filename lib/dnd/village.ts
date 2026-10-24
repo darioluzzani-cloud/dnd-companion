@@ -352,7 +352,11 @@ export interface WorkStep { adults: number; bonus: number; }
  *  moltiplicazione per il livello dell'edificio, e le soglie di adulti che
  *  il DM fissa una per una. Senza soglie gli adulti non aggiungono nulla:
  *  nessuna corrispondenza automatica fra un adulto e un pezzo. */
-export interface Product { armoryId: string; qty: number; perLevel?: boolean; steps?: WorkStep[]; }
+export interface Product {
+  armoryId: string; qty: number; perLevel?: boolean; steps?: WorkStep[];
+  /** Livello dell'edificio da cui il prodotto si sblocca (assente = da subito). */
+  minLevel?: number;
+}
 
 /** Le soglie di un prodotto, ripulite e in ordine di adulti richiesti. */
 export function stepsOf(p?: Product): WorkStep[] {
@@ -736,6 +740,8 @@ export interface WeeklyYield {
   activity: Activity; entry: any; index: number; perLevel: boolean;
   /** Oggetto proprio del capo: esiste finché la persona tiene l'attività. */
   own?: { every: number };
+  /** Prodotto non ancora sbloccato: il livello dell'edificio che serve. */
+  locked?: number;
   base: number;        // resa senza adulti e senza capo
   workers: number;     // adulti al lavoro
   steps: WorkStep[];   // soglie di adulti fissate dal DM, in ordine
@@ -761,9 +767,23 @@ export function yieldsOf(s: any, act: Activity): WeeklyYield[] {
   const hands = fx.filter(e => e.kind === 'hands').reduce((n, e) => n + (Math.floor(e.mod) || 0), 0);
   const counted = Math.max(0, workers + hands);
   const prods = productsOf(act).filter(p => armory.some(e => e.id === p.armoryId));
+  // Un prodotto può sbloccarsi soltanto da un certo livello dell'edificio.
+  // Le attività senza edificio non hanno livelli: per loro vale tutto.
+  const realLevel = act.building === 'none' ? Infinity : Math.max(0, Math.floor(st.building?.level || 0));
+  const lockOf = (p: Product) => { const m = Math.floor(p.minLevel || 0); return m > 1 && m > realLevel ? m : 0; };
+  // «Il primo prodotto», per gli effetti che non ne indicano uno, è il primo già
+  // sbloccato. Un effetto mirato su un prodotto ancora bloccato aspetta il suo livello.
+  const open = prods.filter(p => !lockOf(p));
+  const firstId = open[0]?.armoryId;
   const out: WeeklyYield[] = [];
   prods.forEach((p, index) => {
     const entry = armory.find(e => e.id === p.armoryId);
+    const lock = lockOf(p);
+    if (lock) {
+      out.push({ activity: act, entry, index, perLevel: !!p.perLevel, locked: lock,
+        base: Math.max(0, Math.floor(p.qty || 0)), workers: counted, steps: stepsOf(p), extra: 0, next: null, worked: 0, mod: 0, qty: 0 });
+      return;
+    }
     const base = Math.max(0, Math.floor(p.qty || 0)) * (p.perLevel ? level : 1);
     const steps = stepsOf(p);
     const extra = stepBonus(steps, counted);
@@ -771,7 +791,8 @@ export function yieldsOf(s: any, act: Activity): WeeklyYield[] {
     const worked = base + extra;
     // Pezzi in più o in meno: sull'oggetto indicato, oppure sul primo
     // dell'elenco quando l'effetto non ne indica uno della bottega.
-    const mod = fx.filter(e => e.kind === 'yield' && (e.target ? e.target === p.armoryId || (index === 0 && !prods.some(x => x.armoryId === e.target)) : index === 0))
+    const isFirst = p.armoryId === firstId;
+    const mod = fx.filter(e => e.kind === 'yield' && (e.target ? e.target === p.armoryId || (isFirst && !prods.some(x => x.armoryId === e.target)) : isFirst))
       .reduce((n, e) => n + (Math.floor(e.mod) || 0), 0);
     out.push({ activity: act, entry, index, perLevel: !!p.perLevel, base, workers: counted, steps, extra, next, worked, mod, qty: Math.max(0, worked + mod) });
   });
