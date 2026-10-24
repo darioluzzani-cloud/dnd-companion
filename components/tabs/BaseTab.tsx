@@ -13,6 +13,7 @@ import { panelOrder } from '@/lib/dnd/basepanels';
 import { VillageBox } from '@/components/shared/VillageBox';
 import { StoreBox } from '@/components/shared/StoreBox';
 import { TavernBox } from '@/components/shared/TavernBox';
+import { ActivityBox, FIELDS, HERBS, CHAPEL } from '@/components/shared/ActivityBox';
 import { buildDays, buildDiscount } from '@/lib/dnd/village';
 import { absDay } from '@/lib/dnd/calendar';
 
@@ -75,6 +76,9 @@ export function BaseTab({ s, update, campaignId }: { s:CampaignState; update:U; 
     tavern: <TavernBox s={s} update={update} campaignId={campaignId} />,
     market: <MarketBox s={s} update={update} campaignId={campaignId} />,
     library: <LibraryBox s={s} update={update} campaignId={campaignId} />,
+    fields: <ActivityBox s={s} update={update} campaignId={campaignId} cfg={FIELDS} />,
+    herbs: <ActivityBox s={s} update={update} campaignId={campaignId} cfg={HERBS} />,
+    chapel: <ActivityBox s={s} update={update} campaignId={campaignId} cfg={CHAPEL} />,
     village: (<>
       {/* Il villaggio: gli edifici restano com'erano, ma vivono dentro un
             riquadro come tutti gli altri, invece di essere l'unica sezione

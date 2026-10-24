@@ -5,7 +5,13 @@
 // da quello di partenza —, così un riquadro aggiunto in una versione futura
 // compare da sé, in coda, senza che nessuno debba metterlo in elenco.
 
-export const BASE_PANELS = ['store', 'people', 'forge', 'tannery', 'tavern', 'market', 'library', 'village'] as const;
+import { activitiesOf, activityBuilding } from '@/lib/dnd/village';
+
+export const BASE_PANELS = ['store', 'people', 'forge', 'tannery', 'tavern', 'market', 'library', 'village', 'fields', 'herbs', 'chapel'] as const;
+
+/** Riquadri legati a un'attività che vive in un edificio: compaiono ai
+ *  giocatori soltanto quando l'edificio esiste. */
+const ACTIVITY_PANELS: Record<string, string> = { fields: 'act-campi', herbs: 'act-erboristeria', chapel: 'act-cappella' };
 export type BasePanelId = typeof BASE_PANELS[number];
 
 export interface BasePanels {
@@ -23,10 +29,17 @@ export function panelOrder(s: any): string[] {
   return [...chosen, ...BASE_PANELS.filter(id => !chosen.includes(id))];
 }
 
-/** Il riquadro compare? Oggi l'unico che può mancare è la Biblioteca, che
- *  esiste soltanto se il villaggio ne ha l'edificio. */
+/** Il riquadro compare? La Biblioteca soltanto se il villaggio ne ha
+ *  l'edificio; Campi, Erboristeria e Cappella lo stesso per i giocatori,
+ *  mentre il DM li vede sempre, per sapere che cosa resta da costruire. */
 export function panelShown(s: any, id: string): boolean {
   if (id === 'library') return ((s?.buildings || []) as any[]).some(b => /bibliotec/i.test(b.name || ''));
+  const actId = ACTIVITY_PANELS[id];
+  if (actId) {
+    const act = activitiesOf(s).find(a => a.id === actId);
+    if (!act) return false;
+    return !!s?.dmMode || act.building === 'none' || !!activityBuilding(s, act);
+  }
   return true;
 }
 
