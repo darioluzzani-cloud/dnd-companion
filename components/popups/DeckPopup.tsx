@@ -71,7 +71,7 @@ export function DeckPopup({ s, update, campaignId, onClose }: { s: CampaignState
           <button className="btn btn-ghost" style={{ fontSize: 16, padding: '2px 8px' }} onClick={onClose}>✕</button>
         </div>
         <div className="small muted" style={{ fontSize: 11, lineHeight: 1.5, marginBottom: 10 }}>
-          Quando il tiro degli abitanti dà fra 10 e 12, una carta del mazzo si presenta alla porta. Alla porta i giocatori vedono ritratto, ruolo, tratto e lore visibile; accolta, la carta diventa un PNG alleato di Olmobianco, e la lore nascosta lo segue come frammenti da svelare. Bonus e malus valgono soltanto mentre la persona tiene l'attività indicata.
+          Quando il tiro degli abitanti, a ogni mercato, dà 8 o più, una carta del mazzo si presenta alla porta, purché nessun altro vi stia già attendendo. Alla porta i giocatori vedono ritratto, ruolo, tratto e lore visibile; accolta, la carta diventa un PNG alleato di Olmobianco, e la lore nascosta lo segue come frammenti da svelare. Bonus e malus valgono soltanto mentre la persona tiene l'attività indicata.
         </div>
 
         {cards.map(c => {

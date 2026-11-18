@@ -7,11 +7,14 @@ import { Tally, HungerState, tallyOf, addTo, rationEntry, rationPct, leavePct, s
 // cresce. La popolazione è un numero solo; i volti che contano sono voci
 // del registro dei PNG, marcate come residenti, e non un'anagrafe a parte.
 //
-// Ogni due mercati il calendario tira 3d4 di nascosto. Il risultato,
-// moltiplicato per il fattore del livello corrente delle case, è la gente
-// che si aggiunge, fino alla capienza di quel livello. Se il tiro nudo dà
-// fra 10 e 12, dal mazzo dei forestieri si presenta un notabile, che i
-// giocatori possono integrare o respingere.
+// A ogni giorno di mercato il calendario tira 3d4 di nascosto. Metà del
+// risultato, arrotondata per eccesso e moltiplicata per il fattore del
+// livello corrente delle case, è la gente che si aggiunge, fino alla
+// capienza di quel livello: il ritmo complessivo resta quello del vecchio
+// tiro pieno ogni due mercati, a passi più piccoli. Se il tiro dà 8 o più,
+// dal mazzo dei forestieri si presenta un notabile, che i giocatori possono
+// integrare o respingere — uno per volta: finché qualcuno attende alla
+// porta, non se ne presentano altri.
 //
 // Chi scrive che cosa — il salvataggio procede per chiave:
 //   villagePop, villageLedger — il calendario e gli strumenti del DM
@@ -55,8 +58,11 @@ export interface VillageLedger {
   hunger?: HungerState;
 }
 
-/** Soglia del tiro nudo oltre la quale si presenta un notabile. */
-export const NOTABLE_MIN = 10;
+/** Soglia del tiro (con gli effetti di crescita) da cui si presenta un notabile. */
+export const NOTABLE_MIN = 8;
+
+/** Arrivi di un tiro, prima del fattore delle case: metà del 3d4, per eccesso. */
+export const arrivalsOf = (sum: number): number => Math.ceil(Math.max(0, sum) / 2);
 
 // ─── Letture ─────────────────────────────────────────────────
 
@@ -180,15 +186,15 @@ export function currentHousing(s: any): HousingRow & { level: number; found: boo
 /** Numero d'ordine del mercato che cade nel giorno assoluto dato. */
 export const marketIndex = (abs: number): number => Math.floor((abs + 1) / DAYS_PER_WEEK);
 
-/** Il tiro di crescita cade un mercato sì e uno no: quelli d'ordine pari.
- *  Ancorarlo al calendario, e non a un contatore, lo rende indifferente al
- *  giorno in cui il sistema viene acceso e a ogni andirivieni con la data. */
-export const isGrowthDay = (abs: number): boolean => isMarketAbs(abs) && marketIndex(abs) % 2 === 0;
+/** Il tiro di crescita cade a ogni giorno di mercato. Ancorarlo al
+ *  calendario, e non a un contatore, lo rende indifferente al giorno in cui
+ *  il sistema viene acceso e a ogni andirivieni con la data. */
+export const isGrowthDay = (abs: number): boolean => isMarketAbs(abs);
 
 /** Giorni che mancano al prossimo tiro di crescita, da oggi escluso. */
 export function daysToGrowth(todayAbs: number): number {
-  for (let d = todayAbs + 1; d <= todayAbs + 2 * DAYS_PER_WEEK; d++) if (isGrowthDay(d)) return d - todayAbs;
-  return 2 * DAYS_PER_WEEK;
+  for (let d = todayAbs + 1; d <= todayAbs + DAYS_PER_WEEK; d++) if (isGrowthDay(d)) return d - todayAbs;
+  return DAYS_PER_WEEK;
 }
 
 const d4 = (rng: () => number) => 1 + Math.min(3, Math.floor(rng() * 4));
@@ -204,9 +210,8 @@ export interface TickResult {
  * ripete né una produzione, né un consumo, né un tiro di crescita.
  *
  * A ogni mercato, nell'ordine: le attività attive depositano ciò che
- * rendono; il villaggio mangia la sua quota di razioni; un mercato sì e
- * uno no, infine, si tira per i nuovi arrivi — che in tempo di penuria
- * non si fermano.
+ * rendono; il villaggio mangia la sua quota di razioni; infine si tira
+ * per i nuovi arrivi — che in tempo di penuria non si fermano.
  */
 export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => number = Math.random): TickResult {
   const led = ledgerOf(s);
@@ -265,13 +270,19 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
 
     // Chi è già oltre la capienza non viene sfoltito: semplicemente non cresce.
     const starving = hunger.streak > 0;
-    const want = found && !starving ? sum * mult : 0;
+    const half = arrivalsOf(sum);
+    const want = found && !starving ? half * mult : 0;
     const next = pop >= cap ? pop : Math.min(cap, pop + want);
     const gained = next - pop;
     pop = next;
 
     let notable: string | undefined;
-    if (sum >= NOTABLE_MIN) {
+    let waiting = '';
+    if (sum >= NOTABLE_MIN && gate.length > 0) {
+      // Uno alla volta: chi attende alla porta va accolto o respinto prima.
+      const w = personOf({ ...s, villageGate: gate }, gate[0].npcId);
+      waiting = ` — alla porta attende ancora ${w?.name || 'un forestiero'}`;
+    } else if (sum >= NOTABLE_MIN) {
       const deck = deckOf({ ...s, villageGate: gate });
       if (deck.length) {
         const pick = deck[Math.min(deck.length - 1, Math.floor(rng() * deck.length))];
@@ -283,7 +294,7 @@ export function villageTick(s: any, fromAbs: number, toAbs: number, rng: () => n
 
     last = { abs: d, dice, mult, gained, ...(notable ? { notable } : {}) };
     const why = !found ? ' — nessun edificio delle case' : starving ? ' — penuria: nessuno si ferma' : mult === 0 ? ' — a questo livello non si cresce' : gained < want ? ' — case piene' : '';
-    grew.push(`Abitanti: 3d4 = ${sum} (${dice.join(' · ')}${growthFx ? (growthFx > 0 ? ' +' : ' −') + Math.abs(growthFx) : ''})${mult > 1 ? ' × ' + mult : ''} → +${gained}, ora ${pop}${why}`);
+    grew.push(`Abitanti: 3d4 = ${sum} (${dice.join(' · ')}${growthFx ? (growthFx > 0 ? ' +' : ' −') + Math.abs(growthFx) : ''}), metà ${half}${mult > 1 ? ' × ' + mult : ''} → +${gained}, ora ${pop}${why}${waiting}`);
   }
   const made = Object.values(madeTotal).map(m => m.label.replace('{n}', String(m.qty)));
 

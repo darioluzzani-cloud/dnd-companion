@@ -12,6 +12,9 @@ import { UpgradeScope, UPGRADE_SCOPES, scopeAllows, scopeOfItem } from '@/lib/dn
 import { normName } from '@/lib/dnd/catalog';
 import { absDay } from '@/lib/dnd/calendar';
 import { sfxComplete } from '@/lib/dnd/sounds';
+import { NumberInput } from '@/components/shared/textUtils';
+import { goldOf } from '@/lib/dnd/catalog';
+import { wornItems, wearOf, repairRate, repairRates, repairCost, affordablePoints, applyRepair } from '@/lib/dnd/repair';
 
 const FORGEABLE_TYPES = ['arma', 'armatura', 'unico', 'magico'];
 
@@ -66,6 +69,9 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
   const [editId, setEditId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
   const [draftDesc, setDraftDesc] = useState('');
+  // Riparazione immediata: punti scelti per oggetto ed esito dell'ultima.
+  const [fixPts, setFixPts] = useState<Record<string, number>>({});
+  const [fixed, setFixed] = useState<{ itemName: string; points: number; cost: number } | null>(null);
 
   const upgrades: SmithUpgrade[] = (s as any).smithUpgrades || [];
   const setUpgrades = (list: SmithUpgrade[]) => update({ smithUpgrades: list } as any);
@@ -210,6 +216,29 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
     setItemId(''); setUpgradeId('');
   };
 
+  // ── Riparazione immediata dei Punti Usura ──
+  const worn = wornItems(player, !!s.dmMode);
+  const gold = goldOf(player);
+  const rates = repairRates(s);
+  const ptsFor = (it: any) => Math.max(1, Math.min(fixPts[it.id] ?? wearOf(it), wearOf(it)));
+  const repair = (it: any) => {
+    if (!open || !player) return;
+    const want = ptsFor(it);
+    // L'esito si legge dallo stato a schermo; la scrittura si rifà sullo
+    // stato più recente, e non scala nulla se nel frattempo è cambiato.
+    const r0 = applyRepair(s, player, it.id, want);
+    if (!r0) return;
+    update(prev => {
+      const pl = prev.players.find(p => p.id === player.id);
+      const r = pl ? applyRepair(prev, pl, it.id, want) : null;
+      if (!r) return {};
+      return { players: prev.players.map(p => p.id === player.id ? { ...p, inventory: r.inventory } : p) };
+    });
+    sfxComplete();
+    setFixed({ itemName: it.name, points: r0.points, cost: r0.cost });
+    setFixPts(p => { const n = { ...p }; delete n[it.id]; return n; });
+  };
+
   return (
     <PanelBox {...panelCtl(s, update, 'forge', 'Fucina di Durna')} color="var(--ember)" bgSlot="forge-bg" campaignId={campaignId} dmMode={s.dmMode} {...panelPos(s, update, 'forge-bg')}
       badge={jobs.length > 0 ? <span className="pill" style={{ padding: '2px 8px', fontSize: 8.5, color: 'var(--ember)', borderColor: 'var(--ember)' }}>{jobs.length} all'incudine</span> : undefined}
@@ -232,7 +261,7 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
             <div className="label" style={{ marginBottom: 6 }}>1 · Avventuriero</div>
             <div className="row" style={{ gap: 6 }}>
               {s.players.map(pl => (
-                <button key={pl.id} onClick={() => { setPlayerId(pl.id); setItemId(''); setDone(null); }}
+                <button key={pl.id} onClick={() => { setPlayerId(pl.id); setItemId(''); setDone(null); setFixed(null); }}
                   style={{ flex: 1, padding: 4, borderRadius: 8, cursor: 'pointer', textAlign: 'center',
                     border: '2px solid ' + (playerId === pl.id ? (pl.color || 'var(--ember)') : 'var(--border)'),
                     background: playerId === pl.id ? 'var(--bg-active)' : 'transparent', transition: 'all .15s' }}>
@@ -243,6 +272,74 @@ export function ForgeBox({ s, update, campaignId }: { s: CampaignState; update: 
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Riparazione immediata: l'usura si toglie sul banco e si paga
+              subito con le monete dell'avventuriero scelto qui sopra. */}
+          <div className="card">
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+              <div className="label">Riparazione · subito</div>
+              <span className="small muted" style={{ fontSize: 10 }}>{player?.short || '—'} ha <b style={{ color: 'var(--gold)' }}>{gold}</b> mo</span>
+            </div>
+            {worn.length === 0
+              ? <div className="small muted" style={{ fontStyle: 'italic' }}>Nessun oggetto di {player?.short || '…'} porta Punti Usura.</div>
+              : worn.map(it => {
+                const pu = wearOf(it);
+                const n = ptsFor(it);
+                const rate = repairRate(s, it);
+                const cost = repairCost(s, it, n);
+                const canPay = gold >= cost;
+                const maxPay = affordablePoints(s, it, gold);
+                return (
+                  <div key={it.id} className="row" style={{ gap: 8, alignItems: 'center', padding: '6px 0', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                    <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 6, overflow: 'hidden' }}>
+                      <ImageSlot slotId={'item-' + it.id} campaignId={campaignId} shape="rect" width="100%" height="100%" dmMode={false} placeholder={it.name.slice(0, 2).toUpperCase()} alt={it.name} />
+                    </div>
+                    <div className="grow" style={{ minWidth: 120 }}>
+                      <div className="small" style={{ fontWeight: 600 }}>{it.name}</div>
+                      <div className="small muted" style={{ fontSize: 10 }}>
+                        <span style={{ color: 'var(--red)' }}>{pu} PU</span> · {rate} mo a punto{rate > rates.base ? ` (${it.type})` : ''}
+                      </div>
+                    </div>
+                    <div className="row" style={{ gap: 4, alignItems: 'center' }}>
+                      <button className="btn" style={{ padding: '2px 9px', fontSize: 12 }} disabled={n <= 1}
+                        onClick={() => setFixPts(p => ({ ...p, [it.id]: Math.max(1, n - 1) }))}>−</button>
+                      <span style={{ minWidth: 30, textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: 13 }}>{n}/{pu}</span>
+                      <button className="btn" style={{ padding: '2px 9px', fontSize: 12 }} disabled={n >= pu}
+                        onClick={() => setFixPts(p => ({ ...p, [it.id]: Math.min(pu, n + 1) }))}>+</button>
+                      <button className="pill" style={{ padding: '2px 8px', fontSize: 8.5, cursor: 'pointer', color: n === pu ? 'var(--ember)' : 'var(--gray-purple-deep)', borderColor: n === pu ? 'var(--ember)' : 'var(--border)' }}
+                        onClick={() => setFixPts(p => ({ ...p, [it.id]: pu }))}>tutti</button>
+                    </div>
+                    <button className="btn btn-primary" disabled={!open || !canPay}
+                      style={{ fontSize: 11, padding: '4px 10px', borderColor: 'var(--ember)', opacity: open && canPay ? 1 : .45 }}
+                      title={!open ? 'La fucina è ferma' : !canPay ? `Monete insufficienti: ne bastano per ${maxPay} PU` : ''}
+                      onClick={() => repair(it)}>
+                      Ripara · {cost} mo
+                    </button>
+                    {open && !canPay && (
+                      <div className="small" style={{ flex: '1 1 100%', fontSize: 10, color: 'var(--red)' }}>
+                        Le monete non bastano: {maxPay > 0 ? `${player?.short} può pagare ${maxPay} PU.` : `${player?.short} non può pagare nemmeno un punto.`}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            {fixed && (
+              <div className="small" style={{ marginTop: 6, color: 'var(--green)' }}>
+                {fixed.itemName}: tolti {fixed.points} PU, pagate {fixed.cost} mo a Durna.
+              </div>
+            )}
+            {s.dmMode && (
+              <div className="row" style={{ gap: 6, alignItems: 'center', marginTop: 8, paddingTop: 6, borderTop: '1px dashed var(--border)', flexWrap: 'wrap' }}>
+                <span className="label" style={{ fontSize: 8 }}>Tariffa (DM)</span>
+                <NumberInput value={rates.base} min={0} onChange={n => update({ repairRates: { ...rates, base: Math.max(0, n) } } as any)}
+                  style={{ width: 44, textAlign: 'center', fontSize: 11, padding: '2px 4px' }} title="Monete d'oro per PU su armi e armature" />
+                <span className="small muted" style={{ fontSize: 9.5 }}>mo a PU · magici e unici</span>
+                <NumberInput value={rates.magic} min={0} onChange={n => update({ repairRates: { ...rates, magic: Math.max(0, n) } } as any)}
+                  style={{ width: 44, textAlign: 'center', fontSize: 11, padding: '2px 4px' }} title="Monete d'oro per PU su oggetti magici e unici" />
+                <span className="small muted" style={{ fontSize: 9.5 }}>mo a PU</span>
+              </div>
+            )}
           </div>
 
           {/* 2 — L'oggetto da portare all'incudine */}

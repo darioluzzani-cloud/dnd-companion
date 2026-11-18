@@ -11,7 +11,7 @@ import { absDay, addDays, formatDateShort, DEFAULT_CALENDAR } from '@/lib/dnd/ca
 import {
   HousingRow, VillageGateEntry, NOTABLE_MIN,
   popOf, ledgerOf, gateOf, residentIds, residentsOf, dismissedIds, deckOf,
-  housingBuilding, housingRow, currentHousing, daysToGrowth,
+  housingBuilding, housingRow, currentHousing, daysToGrowth, arrivalsOf,
   Activity, ActivityState, CapoSeat, ACT_BUILDERS,
   activitiesOf, assignOf, activityStatus, roleOf, withCapo,
   effectsOf, describeEffect, effectSign, isKnown, daysToKnow, buildDiscount,
@@ -439,10 +439,10 @@ export function VillageBox({ s, update, campaignId, defaultOpen }: { s: Campaign
               </div>
               <div className="small muted" style={{ fontSize: 10, lineHeight: 1.55, marginBottom: 12 }}>
                 {led.last
-                  ? <>Ultimo tiro, {dateOf(led.last.abs)}: {led.last.dice.join(' · ')} = {led.last.dice.reduce((a, b) => a + b, 0)}{led.last.mult > 1 ? ' × ' + led.last.mult : ''} → +{led.last.gained}. </>
+                  ? <>Ultimo tiro, {dateOf(led.last.abs)}: {led.last.dice.join(' · ')} = {led.last.dice.reduce((a, b) => a + b, 0)}, metà {arrivalsOf(led.last.dice.reduce((a, b) => a + b, 0))}{led.last.mult > 1 ? ' × ' + led.last.mult : ''} → +{led.last.gained}. </>
                   : <>Nessun tiro ancora. </>}
-                Il prossimo cade fra {daysToGrowth(today)} giorni: si tira un mercato sì e uno no.{' '}
-                Con {NOTABLE_MIN}–12 sul tiro nudo si presenta un notabile del mazzo.
+                Il prossimo cade fra {daysToGrowth(today)} giorni: si tira a ogni mercato, e arriva metà del 3d4 (per eccesso) per il fattore delle case.{' '}
+                Con {NOTABLE_MIN} o più si presenta un notabile del mazzo, ma uno solo per volta: finché qualcuno attende alla porta, non ne arrivano altri.
               </div>
 
               {/* Fasce d'età */}
